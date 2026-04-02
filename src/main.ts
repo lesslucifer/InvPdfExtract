@@ -38,10 +38,16 @@ app.on('ready', async () => {
     console.warn('[InvoiceVault] Claude CLI not found. Extraction will fail until installed.');
   }
 
+  // Apply auto-start setting
+  const initialConfig = loadAppConfig();
+  app.setLoginItemSettings({ openAtLogin: initialConfig.autoStart });
+
   // Initialize tray
   trayManager = new TrayManager({
     onInitVault: handleInitVault,
     onProcessNow: handleProcessNow,
+    onReprocessAll: handleReprocessAll,
+    onSwitchVault: handleSwitchVault,
     onQuit: handleQuit,
   });
   trayManager.init();
@@ -150,7 +156,13 @@ async function handleInitVault(): Promise<void> {
       await startVault(folderPath);
     }
 
-    saveAppConfig({ lastVaultPath: folderPath });
+    // Multi-vault: add to vaultPaths list
+    const config = loadAppConfig();
+    const vaultPaths = config.vaultPaths || [];
+    if (!vaultPaths.includes(folderPath)) {
+      vaultPaths.push(folderPath);
+    }
+    saveAppConfig({ lastVaultPath: folderPath, vaultPaths });
     eventBus.emit('vault:initialized', { path: folderPath });
   } catch (err) {
     console.error('[InvoiceVault] Failed to initialize vault:', err);
@@ -164,6 +176,38 @@ function handleProcessNow(): void {
     return;
   }
   extractionQueue.trigger();
+}
+
+function handleReprocessAll(): void {
+  if (!currentVault) {
+    console.log('[InvoiceVault] No vault open, cannot reprocess');
+    return;
+  }
+
+  // Reset all done/error files to pending
+  const { getFilesByStatus, updateFileStatus } = require('./core/db/files');
+  const doneFiles = getFilesByStatus('done');
+  const errorFiles = getFilesByStatus('error');
+  const reviewFiles = getFilesByStatus('review');
+
+  for (const file of [...doneFiles, ...errorFiles, ...reviewFiles]) {
+    updateFileStatus(file.id, 'pending');
+  }
+
+  console.log(`[InvoiceVault] Reset ${doneFiles.length + errorFiles.length + reviewFiles.length} files to pending`);
+  extractionQueue?.trigger();
+}
+
+async function handleSwitchVault(vaultPath: string): Promise<void> {
+  if (vaultPath === currentVault?.rootPath) return;
+
+  try {
+    await startVault(vaultPath);
+    saveAppConfig({ lastVaultPath: vaultPath });
+  } catch (err) {
+    console.error('[InvoiceVault] Failed to switch vault:', err);
+    dialog.showErrorBox('Vault Switch Failed', (err as Error).message);
+  }
 }
 
 async function handleQuit(): Promise<void> {

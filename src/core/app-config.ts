@@ -14,6 +14,8 @@ export function loadAppConfig(): AppConfig {
   const defaults: AppConfig = {
     lastVaultPath: null,
     claudeCliPath: null,
+    vaultPaths: [],
+    autoStart: false,
   };
 
   if (!fs.existsSync(configPath)) {

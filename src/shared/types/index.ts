@@ -170,6 +170,8 @@ export interface VaultHandle {
 export interface AppConfig {
   lastVaultPath: string | null;
   claudeCliPath: string | null;
+  vaultPaths: string[];
+  autoStart: boolean;
 }
 
 // === Claude CLI Extraction Types ===

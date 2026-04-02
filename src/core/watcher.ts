@@ -1,9 +1,28 @@
+import * as fs from 'fs';
 import { watch, FSWatcher } from 'chokidar';
 import * as path from 'path';
 import { WATCHED_EXTENSIONS, INVOICEVAULT_DIR, WATCHER_DEBOUNCE_MS } from '../shared/constants';
 
 export type WatcherEvent = 'file:added' | 'file:changed' | 'file:deleted';
 export type WatcherCallback = (event: WatcherEvent, relativePath: string, fullPath: string) => void;
+
+function loadIgnorePatterns(vaultRoot: string): string[] {
+  const ignoreFile = path.join(vaultRoot, '.invoicevaultignore');
+  const defaults = ['node_modules', '.git', '.DS_Store', 'Thumbs.db'];
+
+  try {
+    if (fs.existsSync(ignoreFile)) {
+      const content = fs.readFileSync(ignoreFile, 'utf-8');
+      const patterns = content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#'));
+      return [...defaults, ...patterns];
+    }
+  } catch { /* ignore */ }
+
+  return defaults;
+}
 
 export class FileWatcher {
   private watcher: FSWatcher | null = null;
@@ -21,17 +40,26 @@ export class FileWatcher {
 
     console.log(`[Watcher] Starting watch on ${this.vaultRoot}`);
 
+    const ignorePatterns = loadIgnorePatterns(this.vaultRoot);
+
     this.watcher = watch(this.vaultRoot, {
       ignored: [
         (filePath: string) => {
           const rel = path.relative(this.vaultRoot, filePath);
           // Always allow root
           if (rel === '' || rel === '.') return false;
-          // Ignore hidden dirs and files, node_modules, .git, .invoicevault
+          // Ignore .invoicevault dir
           const parts = rel.split(path.sep);
-          return parts.some(p =>
-            p === INVOICEVAULT_DIR || p === 'node_modules' || p === '.git' || p.startsWith('.')
-          );
+          if (parts.some(p => p === INVOICEVAULT_DIR)) return true;
+          // Check against ignore patterns
+          const basename = path.basename(filePath);
+          return ignorePatterns.some(pattern => {
+            if (pattern.includes('/') || pattern.includes('*')) {
+              // Glob-like: simple prefix/suffix match
+              return parts.some(p => p === pattern) || rel.startsWith(pattern);
+            }
+            return parts.some(p => p === pattern) || basename === pattern;
+          });
         },
       ],
       ignoreInitial: false,
