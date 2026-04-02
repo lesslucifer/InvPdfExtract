@@ -43,6 +43,16 @@ export class NotificationManager {
       );
     });
 
+    eventBus.on('conflicts:detected', ({ fileId, conflictCount }) => {
+      const file = getFileById(fileId);
+      const filename = file?.relative_path || 'unknown';
+
+      this.show(
+        'Field Conflicts',
+        `${conflictCount} field conflict(s) after re-processing ${filename}`
+      );
+    });
+
     eventBus.on('vault:initialized', ({ path }) => {
       this.show(
         'Vault Initialized',

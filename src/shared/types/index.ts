@@ -244,12 +244,33 @@ export interface SearchResult {
   line_items?: InvoiceLineItem[];
 }
 
+// === Field Override Types ===
+
+export interface FieldOverrideInput {
+  recordId: string;
+  tableName: string;
+  fieldName: string;
+  userValue: string;
+}
+
+export interface FieldOverrideInfo {
+  field_name: string;
+  status: OverrideStatus;
+  user_value: string;
+  ai_value_at_lock: string;
+  ai_value_latest: string | null;
+}
+
 // === Preload API ===
 
 export interface InvoiceVaultAPI {
   search: (query: string) => Promise<SearchResult[]>;
   openFile: (relativePath: string) => Promise<void>;
   getLineItems: (recordId: string) => Promise<InvoiceLineItem[]>;
+  saveFieldOverride: (input: FieldOverrideInput) => Promise<void>;
+  getFieldOverrides: (recordId: string) => Promise<FieldOverrideInfo[]>;
+  resolveConflict: (recordId: string, fieldName: string, action: 'keep' | 'accept') => Promise<void>;
+  resolveAllConflicts: (recordId: string, action: 'keep' | 'accept') => Promise<void>;
 }
 
 // === Event Types ===
@@ -262,6 +283,7 @@ export interface AppEvents {
   'extraction:completed': { batchId: string; fileId: string; recordCount: number; confidence: number };
   'extraction:error': { fileId: string; error: string };
   'review:needed': { fileId: string; recordCount: number };
+  'conflicts:detected': { fileId: string; conflictCount: number };
   'vault:initialized': { path: string };
   'vault:opened': { path: string };
 }

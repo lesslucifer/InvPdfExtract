@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { SearchResult, DocType, InvoiceLineItem } from '../shared/types';
+import React, { useEffect, useState, useCallback } from 'react';
+import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo } from '../shared/types';
+import { EditableField } from './EditableField';
 
 interface Props {
   result: SearchResult;
   onOpenFile: () => void;
+  onFieldUpdated: () => void;
 }
 
 function formatAmount(amount: number): string {
@@ -11,27 +13,70 @@ function formatAmount(amount: number): string {
   return new Intl.NumberFormat('vi-VN').format(amount);
 }
 
-export const ResultDetail: React.FC<Props> = ({ result, onOpenFile }) => {
+export const ResultDetail: React.FC<Props> = ({ result, onOpenFile, onFieldUpdated }) => {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
+  const [overrides, setOverrides] = useState<FieldOverrideInfo[]>([]);
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
+
+  const loadOverrides = useCallback(() => {
+    window.api.getFieldOverrides(result.id).then(setOverrides);
+  }, [result.id]);
 
   useEffect(() => {
     if (isInvoice) {
       window.api.getLineItems(result.id).then(setLineItems);
     }
-  }, [result.id, isInvoice]);
+    loadOverrides();
+  }, [result.id, isInvoice, loadOverrides]);
+
+  const getOverride = (fieldName: string): FieldOverrideInfo | undefined => {
+    return overrides.find(o => o.field_name === fieldName);
+  };
+
+  const handleSave = async (tableName: string, fieldName: string, userValue: string) => {
+    await window.api.saveFieldOverride({
+      recordId: result.id,
+      tableName,
+      fieldName,
+      userValue,
+    });
+    loadOverrides();
+    onFieldUpdated();
+  };
+
+  const handleResolve = async (fieldName: string, action: 'keep' | 'accept') => {
+    await window.api.resolveConflict(result.id, fieldName, action);
+    loadOverrides();
+    onFieldUpdated();
+  };
+
+  const handleResolveAll = async (action: 'keep' | 'accept') => {
+    await window.api.resolveAllConflicts(result.id, action);
+    loadOverrides();
+    onFieldUpdated();
+  };
+
+  const hasConflicts = overrides.some(o => o.status === 'conflict');
 
   return (
     <div className="result-detail">
+      {hasConflicts && (
+        <div className="batch-conflict-actions">
+          <span className="batch-conflict-label">Conflicts detected:</span>
+          <button className="conflict-btn keep-btn" onClick={() => handleResolveAll('keep')}>Keep all mine</button>
+          <button className="conflict-btn accept-btn" onClick={() => handleResolveAll('accept')}>Accept all AI</button>
+        </div>
+      )}
+
       {isBank && (
         <table className="detail-table">
           <tbody>
-            <tr><td className="detail-label">Bank</td><td>{result.ten_ngan_hang || '-'}</td></tr>
-            <tr><td className="detail-label">Account</td><td>{result.stk || '-'}</td></tr>
-            <tr><td className="detail-label">Amount</td><td>{formatAmount(result.so_tien)}</td></tr>
-            <tr><td className="detail-label">Counterparty</td><td>{result.ten_doi_tac || '-'}</td></tr>
-            <tr><td className="detail-label">Description</td><td>{result.mo_ta || '-'}</td></tr>
+            <EditableField label="Bank" value={result.ten_ngan_hang || ''} fieldName="ten_ngan_hang" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_ngan_hang')} onSave={(v) => handleSave('bank_statement_data', 'ten_ngan_hang', v)} onResolve={(a) => handleResolve('ten_ngan_hang', a)} />
+            <EditableField label="Account" value={result.stk || ''} fieldName="stk" tableName="bank_statement_data" recordId={result.id} override={getOverride('stk')} onSave={(v) => handleSave('bank_statement_data', 'stk', v)} onResolve={(a) => handleResolve('stk', a)} />
+            <EditableField label="Amount" value={String(result.so_tien || '')} fieldName="so_tien" tableName="bank_statement_data" recordId={result.id} override={getOverride('so_tien')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'so_tien', v)} onResolve={(a) => handleResolve('so_tien', a)} />
+            <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('bank_statement_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
+            <EditableField label="Description" value={result.mo_ta || ''} fieldName="mo_ta" tableName="bank_statement_data" recordId={result.id} override={getOverride('mo_ta')} onSave={(v) => handleSave('bank_statement_data', 'mo_ta', v)} onResolve={(a) => handleResolve('mo_ta', a)} />
             <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
           </tbody>
         </table>
@@ -41,11 +86,11 @@ export const ResultDetail: React.FC<Props> = ({ result, onOpenFile }) => {
         <>
           <table className="detail-table">
             <tbody>
-              <tr><td className="detail-label">Invoice #</td><td>{result.so_hoa_don || '-'}</td></tr>
-              <tr><td className="detail-label">MST</td><td>{result.mst || '-'}</td></tr>
-              <tr><td className="detail-label">Total</td><td>{formatAmount(result.tong_tien)}</td></tr>
-              <tr><td className="detail-label">Counterparty</td><td>{result.ten_doi_tac || '-'}</td></tr>
-              <tr><td className="detail-label">Address</td><td>{result.dia_chi_doi_tac || '-'}</td></tr>
+              <EditableField label="Invoice #" value={result.so_hoa_don || ''} fieldName="so_hoa_don" tableName="invoice_data" recordId={result.id} override={getOverride('so_hoa_don')} onSave={(v) => handleSave('invoice_data', 'so_hoa_don', v)} onResolve={(a) => handleResolve('so_hoa_don', a)} />
+              <EditableField label="MST" value={result.mst || ''} fieldName="mst" tableName="invoice_data" recordId={result.id} override={getOverride('mst')} onSave={(v) => handleSave('invoice_data', 'mst', v)} onResolve={(a) => handleResolve('mst', a)} />
+              <EditableField label="Total" value={String(result.tong_tien || '')} fieldName="tong_tien" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien')} inputType="number" onSave={(v) => handleSave('invoice_data', 'tong_tien', v)} onResolve={(a) => handleResolve('tong_tien', a)} />
+              <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('invoice_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
+              <EditableField label="Address" value={result.dia_chi_doi_tac || ''} fieldName="dia_chi_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('dia_chi_doi_tac')} onSave={(v) => handleSave('invoice_data', 'dia_chi_doi_tac', v)} onResolve={(a) => handleResolve('dia_chi_doi_tac', a)} />
               <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
             </tbody>
           </table>

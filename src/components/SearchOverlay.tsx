@@ -40,6 +40,13 @@ export const SearchOverlay: React.FC = () => {
     window.api.openFile(relativePath);
   }, []);
 
+  const handleFieldUpdated = useCallback(() => {
+    // Re-run current search to refresh results after edit
+    if (query.trim()) {
+      doSearch(query);
+    }
+  }, [query, doSearch]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,6 +86,7 @@ export const SearchOverlay: React.FC = () => {
           onSelect={setSelectedIndex}
           onToggleExpand={handleToggleExpand}
           onOpenFile={handleOpenFile}
+          onFieldUpdated={handleFieldUpdated}
         />
       )}
     </div>

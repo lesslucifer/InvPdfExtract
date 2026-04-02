@@ -7,7 +7,7 @@ import {
   createBatch, insertRecord, updateRecord, getRecordsByFileId,
   getRecordByFingerprint, softDeleteRecord, upsertBankStatementData,
   upsertInvoiceData, insertLineItem, deleteLineItemsByRecord,
-  updateFtsIndex, addLog,
+  updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict,
 } from './db/records';
 import { getFileByPath, updateFileStatus, updateFileDocType } from './db/files';
 import { getDatabase } from './db/database';
@@ -130,38 +130,56 @@ export class Reconciler {
       const reviewCount = records.filter(r => r.confidence < this.confidenceThreshold).length;
       eventBus.emit('review:needed', { fileId: file.id, recordCount: reviewCount });
     }
+
+    // Check for conflicts after reconciliation
+    const conflictCount = getDatabase().prepare(
+      "SELECT COUNT(*) as cnt FROM field_overrides fo JOIN records r ON fo.record_id = r.id WHERE r.file_id = ? AND fo.status = 'conflict' AND fo.resolved_at IS NULL"
+    ).get(file.id) as any;
+
+    if (conflictCount?.cnt > 0) {
+      eventBus.emit('conflicts:detected', { fileId: file.id, conflictCount: conflictCount.cnt });
+    }
   }
 
   private upsertExtensionData(recordId: string, docType: string, extractedRecord: ExtractionRecord): void {
     const data = extractedRecord.data;
+    const lockedFields = getLockedFieldsForRecord(recordId);
 
     if (docType === DocType.BankStatement) {
       const bsd = data as ExtractionBankStatementData;
-      upsertBankStatementData(recordId, {
-        record_id: recordId,
+      const fields: Record<string, any> = {
         ten_ngan_hang: bsd.ten_ngan_hang ?? null,
         stk: bsd.stk ?? null,
         mo_ta: bsd.mo_ta ?? null,
         so_tien: bsd.so_tien ?? null,
         ten_doi_tac: bsd.ten_doi_tac ?? null,
-      });
+      };
+
+      // Respect locked fields
+      this.applyLockedFields(recordId, 'bank_statement_data', fields, lockedFields);
+
+      upsertBankStatementData(recordId, { record_id: recordId, ...fields });
 
       updateFtsIndex(recordId, {
-        ten_ngan_hang: bsd.ten_ngan_hang,
-        stk: bsd.stk,
-        mo_ta: bsd.mo_ta,
-        ten_doi_tac: bsd.ten_doi_tac,
+        ten_ngan_hang: fields.ten_ngan_hang,
+        stk: fields.stk,
+        mo_ta: fields.mo_ta,
+        ten_doi_tac: fields.ten_doi_tac,
       });
     } else {
       const inv = data as ExtractionInvoiceData;
-      upsertInvoiceData(recordId, {
-        record_id: recordId,
+      const fields: Record<string, any> = {
         so_hoa_don: inv.so_hoa_don ?? null,
         tong_tien: inv.tong_tien ?? null,
         mst: inv.mst ?? null,
         ten_doi_tac: inv.ten_doi_tac ?? null,
         dia_chi_doi_tac: inv.dia_chi_doi_tac ?? null,
-      });
+      };
+
+      // Respect locked fields
+      this.applyLockedFields(recordId, 'invoice_data', fields, lockedFields);
+
+      upsertInvoiceData(recordId, { record_id: recordId, ...fields });
 
       // Replace line items (delete old, insert new)
       deleteLineItemsByRecord(recordId);
@@ -177,11 +195,33 @@ export class Reconciler {
       }
 
       updateFtsIndex(recordId, {
-        so_hoa_don: inv.so_hoa_don,
-        mst: inv.mst,
-        ten_doi_tac: inv.ten_doi_tac,
-        dia_chi_doi_tac: inv.dia_chi_doi_tac,
+        so_hoa_don: fields.so_hoa_don,
+        mst: fields.mst,
+        ten_doi_tac: fields.ten_doi_tac,
+        dia_chi_doi_tac: fields.dia_chi_doi_tac,
       });
+    }
+  }
+
+  private applyLockedFields(
+    recordId: string,
+    tableName: string,
+    fields: Record<string, any>,
+    lockedFields: Map<string, { tableName: string; userValue: string; aiValueAtLock: string }>
+  ): void {
+    for (const [fieldName, lock] of lockedFields) {
+      if (lock.tableName !== tableName) continue;
+      if (!(fieldName in fields)) continue;
+
+      const newAiValue = String(fields[fieldName] ?? '');
+
+      // Keep user value
+      fields[fieldName] = lock.userValue;
+
+      // Check for conflict: AI now disagrees with what it said when the user locked the field
+      if (newAiValue !== lock.aiValueAtLock) {
+        setFieldConflict(recordId, tableName, fieldName, newAiValue);
+      }
     }
   }
 

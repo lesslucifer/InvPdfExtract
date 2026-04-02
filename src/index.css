@@ -352,3 +352,109 @@ body {
   background: var(--text-muted);
   border-radius: 3px;
 }
+
+/* Editable fields */
+.editable-field .field-display {
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.editable-field .field-display:hover {
+  background: var(--bg-hover);
+}
+
+.field-edit-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.field-edit-input {
+  flex: 1;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  padding: 2px 6px;
+  font-family: inherit;
+  outline: none;
+}
+
+.field-status-icon {
+  margin-right: 4px;
+  font-size: 11px;
+}
+
+.field-value-cell {
+  position: relative;
+}
+
+/* Conflict */
+.field-conflict td {
+  background: rgba(255, 159, 10, 0.08);
+}
+
+.conflict-resolution {
+  margin-top: 4px;
+}
+
+.conflict-values {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.conflict-ai-value {
+  color: var(--confidence-medium);
+  font-style: italic;
+}
+
+.conflict-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.conflict-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.keep-btn {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.keep-btn:hover {
+  background: var(--border);
+}
+
+.accept-btn {
+  background: var(--accent);
+  color: #fff;
+}
+
+.accept-btn:hover {
+  opacity: 0.85;
+}
+
+/* Batch conflict actions */
+.batch-conflict-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.batch-conflict-label {
+  color: var(--confidence-medium);
+  font-weight: 600;
+}

@@ -10,10 +10,11 @@ interface Props {
   onSelect: (index: number) => void;
   onToggleExpand: (id: string) => void;
   onOpenFile: (relativePath: string) => void;
+  onFieldUpdated: () => void;
 }
 
 export const ResultList: React.FC<Props> = ({
-  results, selectedIndex, expandedId, onSelect, onToggleExpand, onOpenFile,
+  results, selectedIndex, expandedId, onSelect, onToggleExpand, onOpenFile, onFieldUpdated,
 }) => {
   if (results.length === 0) {
     return <div className="result-empty">No results found</div>;
@@ -36,6 +37,7 @@ export const ResultList: React.FC<Props> = ({
             <ResultDetail
               result={result}
               onOpenFile={() => onOpenFile(result.relative_path)}
+              onFieldUpdated={onFieldUpdated}
             />
           )}
         </div>
