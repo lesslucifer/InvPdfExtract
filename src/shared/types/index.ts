@@ -220,6 +220,38 @@ export interface ExtractionResult {
   results: ExtractionFileResult[];
 }
 
+// === Search Result Types ===
+
+export interface SearchResult {
+  id: string;
+  doc_type: DocType;
+  confidence: number;
+  ngay: string | null;
+  relative_path: string;
+  // Bank statement fields
+  ten_ngan_hang: string;
+  stk: string;
+  so_tien: number;
+  // Invoice fields
+  so_hoa_don: string;
+  tong_tien: number;
+  mst: string;
+  // Shared
+  ten_doi_tac: string;
+  mo_ta: string;
+  dia_chi_doi_tac: string;
+  // Line items (populated on detail expand)
+  line_items?: InvoiceLineItem[];
+}
+
+// === Preload API ===
+
+export interface InvoiceVaultAPI {
+  search: (query: string) => Promise<SearchResult[]>;
+  openFile: (relativePath: string) => Promise<void>;
+  getLineItems: (recordId: string) => Promise<InvoiceLineItem[]>;
+}
+
 // === Event Types ===
 
 export interface AppEvents {

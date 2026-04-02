@@ -2,6 +2,7 @@ import { app, dialog } from 'electron';
 import * as path from 'path';
 import { TrayManager } from './main/tray';
 import { NotificationManager } from './main/notifications';
+import { OverlayWindow } from './main/overlay-window';
 import { initVault, openVault, closeVault, isVault } from './core/vault';
 import { loadAppConfig, saveAppConfig } from './core/app-config';
 import { FileWatcher } from './core/watcher';
@@ -18,6 +19,7 @@ if (require('electron-squirrel-startup')) {
 
 let trayManager: TrayManager | null = null;
 let notificationManager: NotificationManager | null = null;
+let overlayWindow: OverlayWindow | null = null;
 let fileWatcher: FileWatcher | null = null;
 let syncEngine: SyncEngine | null = null;
 let extractionQueue: ExtractionQueue | null = null;
@@ -47,6 +49,11 @@ app.on('ready', async () => {
   // Initialize notifications
   notificationManager = new NotificationManager();
   notificationManager.init();
+
+  // Initialize search overlay
+  overlayWindow = new OverlayWindow();
+  overlayWindow.registerIpcHandlers();
+  overlayWindow.registerShortcut();
 
   // Wire extraction queue trigger on file events
   eventBus.on('file:added', () => {
@@ -99,8 +106,9 @@ async function startVault(vaultPath: string): Promise<void> {
   const appConfig = loadAppConfig();
   extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined);
 
-  // Update tray
+  // Update tray and overlay
   trayManager?.setVaultPath(vaultPath);
+  overlayWindow?.setVaultPath(vaultPath);
 
   eventBus.emit('vault:opened', { path: vaultPath });
   console.log(`[InvoiceVault] Vault started: ${vaultPath}`);
@@ -120,6 +128,7 @@ async function stopVault(): Promise<void> {
   }
 
   trayManager?.setVaultPath(null);
+  overlayWindow?.setVaultPath(null);
 }
 
 async function handleInitVault(): Promise<void> {
@@ -161,6 +170,7 @@ async function handleQuit(): Promise<void> {
   console.log('[InvoiceVault] Shutting down...');
   await stopVault();
   eventBus.removeAllListeners();
+  overlayWindow?.destroy();
   trayManager?.destroy();
   app.quit();
 }
