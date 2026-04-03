@@ -1,0 +1,96 @@
+#!/bin/bash
+# .git/hooks/post-checkout
+# Copies files matching patterns in .gitworktreecopy from main worktree to new worktrees
+#
+# $1 = prev HEAD, $2 = new HEAD, $3 = 1 if branch checkout, 0 if file checkout
+
+# Only run on branch checkouts
+[ "$3" != "1" ] && exit 0
+
+MAIN_WORKTREE=$(git worktree list | head -1 | awk '{print $1}')
+CURRENT_DIR=$(pwd)
+
+# Don't run in the main worktree itself
+[ "$MAIN_WORKTREE" = "$CURRENT_DIR" ] && exit 0
+
+COPY_FILE="$MAIN_WORKTREE/.gitworktreecopy"
+[ ! -f "$COPY_FILE" ] && exit 0
+
+echo "Setting up worktree from .gitworktreecopy..."
+
+copied=0
+linked=0
+skipped=0
+symlinked_dirs=""
+
+while IFS= read -r raw_pattern || [ -n "$raw_pattern" ]; do
+  [[ -z "$raw_pattern" || "$raw_pattern" =~ ^# ]] && continue
+
+  # Check for ~> prefix (symlink mode)
+  symlink=false
+  if [[ "$raw_pattern" == "~>"* ]]; then
+    symlink=true
+    pattern="${raw_pattern#~>}"
+    pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+  else
+    pattern="$raw_pattern"
+  fi
+
+  # Handle direct directory symlinks (e.g. ~> node_modules)
+  if [ "$symlink" = true ] && [ -d "$MAIN_WORKTREE/$pattern" ]; then
+    dest="$CURRENT_DIR/$pattern"
+    if [ -d "$dest" ] || [ -L "$dest" ]; then
+      skipped=$((skipped + 1))
+    else
+      mkdir -p "$(dirname "$dest")"
+      ln -s "$MAIN_WORKTREE/$pattern" "$dest"
+      echo "  ↗ Symlinked $pattern/"
+      linked=$((linked + 1))
+      symlinked_dirs="$symlinked_dirs $pattern"
+    fi
+    continue
+  fi
+
+  # Convert glob pattern to find arguments
+  if [[ "$pattern" == **"**"** ]]; then
+    name_pattern="${pattern##**/}"
+    exclude_args=""
+    for d in $symlinked_dirs; do
+      exclude_args="$exclude_args -not -path './$d/*'"
+    done
+    matches=$(cd "$MAIN_WORKTREE" && eval find . -name \"$name_pattern\" $exclude_args -type f 2>/dev/null | sed 's|^\./||')
+  else
+    matches=$(cd "$MAIN_WORKTREE" && compgen -G "$pattern" 2>/dev/null)
+  fi
+
+  if [ -z "$matches" ]; then
+    echo "  ⚠ No files matched: $pattern"
+    continue
+  fi
+
+  while IFS= read -r file; do
+    src="$MAIN_WORKTREE/$file"
+    dest="$CURRENT_DIR/$file"
+
+    # Skip if destination already exists
+    if [ -f "$dest" ] || [ -L "$dest" ]; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    # Create parent directories if needed
+    mkdir -p "$(dirname "$dest")"
+
+    if [ "$symlink" = true ]; then
+      ln -s "$src" "$dest"
+      echo "  ↗ Symlinked $file"
+      linked=$((linked + 1))
+    else
+      cp "$src" "$dest"
+      echo "  ✓ Copied $file"
+      copied=$((copied + 1))
+    fi
+  done <<< "$matches"
+done < "$COPY_FILE"
+
+echo "Done: $copied copied, $linked symlinked, $skipped skipped (already existed)"
