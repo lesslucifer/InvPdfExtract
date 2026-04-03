@@ -16,7 +16,11 @@ const config: ForgeConfig = {
     asar: true,
     extraResource: ['./resources'],
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    // Prebuilts for both Node and Electron are managed by scripts/download-prebuilts.js
+    // (run automatically via postinstall). No runtime rebuild needed.
+    onlyModules: [],
+  },
   makers: [
     new MakerSquirrel({}),
     new MakerZIP({}, ['darwin']),

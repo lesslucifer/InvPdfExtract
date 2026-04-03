@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { openSqlite } from '../../core/db/sqlite-binding';
 import { MIGRATIONS } from '../../core/db/schema';
 
 /**
@@ -6,7 +7,7 @@ import { MIGRATIONS } from '../../core/db/schema';
  * Used by tests that need a real database without touching the filesystem.
  */
 export function createInMemoryDb(): Database.Database {
-  const db = new Database(':memory:');
+  const db = openSqlite(':memory:');
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 

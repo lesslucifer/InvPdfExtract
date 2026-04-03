@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { openSqlite } from './sqlite-binding';
 import { MIGRATIONS } from './schema';
 
 let db: Database.Database | null = null;
@@ -6,7 +7,7 @@ let db: Database.Database | null = null;
 export function openDatabase(dbPath: string): Database.Database {
   if (db) return db;
 
-  db = new Database(dbPath);
+  db = openSqlite(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
