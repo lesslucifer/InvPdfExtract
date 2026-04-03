@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { ExtractionScript } from '../shared/types';
 
 export interface MatcherEvaluatorOptions {
@@ -18,14 +19,20 @@ export class MatcherEvaluator {
   /**
    * Finds the first script whose matcher returns true for the given file.
    * Skips matchers that throw or exceed the timeout.
+   *
+   * @param filePath - Absolute path to the file to test
+   * @param scripts - Cached scripts from the registry
+   * @param vaultDotPath - Absolute path to .invoicevault/ directory,
+   *                       used to resolve relative matcher_path values
    */
-  findMatchingScript(filePath: string, scripts: ExtractionScript[]): ExtractionScript | null {
+  findMatchingScript(filePath: string, scripts: ExtractionScript[], vaultDotPath: string): ExtractionScript | null {
     for (const script of scripts) {
       try {
-        const matched = this.runMatcher(script.matcher_path, filePath);
+        const absoluteMatcherPath = path.resolve(vaultDotPath, script.matcher_path);
+        const matched = this.runMatcher(absoluteMatcherPath, filePath);
         if (matched) return script;
       } catch (err) {
-        console.warn(`[MatcherEvaluator] Matcher ${script.name} failed:`, err);
+        console.warn(`[MatcherEvaluator] Matcher ${script.name} failed:`, (err as Error).message);
       }
     }
     return null;
@@ -33,15 +40,15 @@ export class MatcherEvaluator {
 
   private runMatcher(matcherPath: string, filePath: string): boolean {
     // Clear require cache so matchers can be updated
-    delete require.cache[require.resolve(matcherPath)];
+    try {
+      delete require.cache[require.resolve(matcherPath)];
+    } catch {
+      // resolve may throw if not cached yet — that's fine
+    }
 
-    // Use a sync timeout via busy-wait (matchers are sync functions)
     const startTime = Date.now();
     const timeoutMs = this.matcherTimeoutMs;
 
-    // Set up a timeout check — we wrap the matcher call
-    // Since matchers are sync, we can't truly interrupt them.
-    // However, we can detect if they took too long after they return.
     const matcherFn = require(matcherPath);
 
     if (typeof matcherFn !== 'function') {

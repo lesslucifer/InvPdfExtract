@@ -1,7 +1,7 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ExtractionResult } from '../shared/types';
+import { ExtractionResult, ModelTier, MODEL_TIER_MAP } from '../shared/types';
 import { DEFAULT_CLI_TIMEOUT } from '../shared/constants';
 
 /**
@@ -164,10 +164,12 @@ export function repairTruncatedJSON(raw: string): string | null {
 export class ClaudeCodeRunner {
   private cliPath: string;
   private timeout: number;
+  private model: string | undefined;
 
-  constructor(cliPath?: string, timeout?: number) {
+  constructor(cliPath?: string, timeout?: number, modelTier?: ModelTier) {
     this.cliPath = cliPath || 'claude';
     this.timeout = timeout || DEFAULT_CLI_TIMEOUT;
+    this.model = modelTier ? MODEL_TIER_MAP[modelTier] : undefined;
   }
 
   static isAvailable(cliPath?: string): boolean {
@@ -200,7 +202,7 @@ For each file:
 
 IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
-    const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt);
+    const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt, vaultRoot);
     let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
 
     try {
@@ -220,7 +222,7 @@ ${fileList}
 
 Located relative to: ${vaultRoot}`;
 
-      const retryStdout = await this.invokeClaudeCLI(retryPrompt, systemPrompt);
+      const retryStdout = await this.invokeClaudeCLI(retryPrompt, systemPrompt, vaultRoot);
       sessionLog += `\n\nRETRY PROMPT:\n${retryPrompt}\n\nRETRY RESPONSE:\n${retryStdout}`;
 
       const result = this.parseResponse(retryStdout);
@@ -228,22 +230,25 @@ Located relative to: ${vaultRoot}`;
     }
   }
 
-  async invokeRaw(userPrompt: string, systemPrompt: string): Promise<string> {
-    return this.invokeClaudeCLI(userPrompt, systemPrompt);
+  async invokeRaw(userPrompt: string, systemPrompt: string, cwd?: string): Promise<string> {
+    const raw = await this.invokeClaudeCLI(userPrompt, systemPrompt, cwd);
+    return unwrapEnvelope(raw) ?? raw;
   }
 
-  private invokeClaudeCLI(prompt: string, systemPrompt: string): Promise<string> {
+  private invokeClaudeCLI(prompt: string, systemPrompt: string, cwd?: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const args = [
         '--print',
         '--output-format', 'json',
+        ...(this.model ? ['--model', this.model] : []),
         '--system-prompt', systemPrompt,
         prompt,
       ];
 
       const proc = spawn(this.cliPath, args, {
         timeout: this.timeout,
-        cwd: undefined,
+        cwd: cwd ?? undefined,
+        stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env },
       });
 

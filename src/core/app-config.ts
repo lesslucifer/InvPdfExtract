@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import { AppConfig } from '../shared/types';
+import { DEFAULT_CLAUDE_MODELS } from '../shared/constants';
 
 const CONFIG_FILENAME = 'app-config.json';
 
@@ -16,6 +17,7 @@ export function loadAppConfig(): AppConfig {
     claudeCliPath: null,
     vaultPaths: [],
     autoStart: false,
+    claudeModels: DEFAULT_CLAUDE_MODELS,
   };
 
   if (!fs.existsSync(configPath)) {

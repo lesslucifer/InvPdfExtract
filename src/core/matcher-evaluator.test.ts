@@ -53,7 +53,7 @@ describe('MatcherEvaluator', () => {
       tempFiles.push(matcherPath);
 
       const script = makeScript({ matcher_path: matcherPath });
-      const result = evaluator.findMatchingScript('some-file.xml', [script]);
+      const result = evaluator.findMatchingScript('some-file.xml', [script], '/');
 
       expect(result).toBeTruthy();
       expect(result!.id).toBe(script.id);
@@ -66,7 +66,7 @@ describe('MatcherEvaluator', () => {
       tempFiles.push(matcherPath);
 
       const script = makeScript({ matcher_path: matcherPath });
-      const result = evaluator.findMatchingScript('some-file.xml', [script]);
+      const result = evaluator.findMatchingScript('some-file.xml', [script], '/');
 
       expect(result).toBeNull();
     });
@@ -79,7 +79,7 @@ describe('MatcherEvaluator', () => {
       const scriptA = makeScript({ id: 'first', name: 'script-a', matcher_path: matcher1 });
       const scriptB = makeScript({ id: 'second', name: 'script-b', matcher_path: matcher2 });
 
-      const result = evaluator.findMatchingScript('file.xml', [scriptA, scriptB]);
+      const result = evaluator.findMatchingScript('file.xml', [scriptA, scriptB], '/');
       expect(result).toBeTruthy();
       expect(result!.id).toBe('first');
     });
@@ -101,7 +101,7 @@ describe('MatcherEvaluator', () => {
       const goodScript = makeScript({ id: 'good', matcher_path: goodMatcher });
 
       // Should skip the bad matcher and return the good one
-      const result = evaluator.findMatchingScript('file.xml', [badScript, goodScript]);
+      const result = evaluator.findMatchingScript('file.xml', [badScript, goodScript], '/');
       expect(result).toBeTruthy();
       expect(result!.id).toBe('good');
     });
@@ -113,7 +113,7 @@ describe('MatcherEvaluator', () => {
       tempFiles.push(badMatcher);
 
       const script = makeScript({ matcher_path: badMatcher });
-      const result = evaluator.findMatchingScript('file.xml', [script]);
+      const result = evaluator.findMatchingScript('file.xml', [script], '/');
       expect(result).toBeNull();
     });
   });
@@ -139,7 +139,7 @@ describe('MatcherEvaluator', () => {
 
       // Set timeout very low so the matcher exceeds it
       const evaluatorWithTimeout = new MatcherEvaluator({ matcherTimeoutMs: 50 });
-      const result = evaluatorWithTimeout.findMatchingScript('file.xml', [script]);
+      const result = evaluatorWithTimeout.findMatchingScript('file.xml', [script], '/');
 
       // Matcher returned true but took too long, so result is discarded
       expect(result).toBeNull();
@@ -163,7 +163,7 @@ describe('MatcherEvaluator', () => {
       tempFiles.push(xmlMatcher);
 
       const script = makeScript({ matcher_path: xmlMatcher });
-      const result = evaluator.findMatchingScript(XML_FILES.inKyThuatSo911, [script]);
+      const result = evaluator.findMatchingScript(XML_FILES.inKyThuatSo911, [script], '/');
       expect(result).toBeTruthy();
     });
 
@@ -184,7 +184,7 @@ describe('MatcherEvaluator', () => {
       tempFiles.push(tmpXml);
 
       const script = makeScript({ matcher_path: xmlMatcher });
-      const result = evaluator.findMatchingScript(tmpXml, [script]);
+      const result = evaluator.findMatchingScript(tmpXml, [script], '/');
       expect(result).toBeNull();
     });
   });

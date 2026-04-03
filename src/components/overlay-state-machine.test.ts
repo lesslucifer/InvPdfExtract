@@ -185,6 +185,7 @@ describe('Overlay State Machine', () => {
         claudeCliPath: null,
         vaultPaths: [],
         autoStart: false,
+        claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
       };
       expect(determineInitialState(config)).toBe(OverlayState.NoVault);
     });
@@ -195,6 +196,7 @@ describe('Overlay State Machine', () => {
         claudeCliPath: null,
         vaultPaths: [],
         autoStart: false,
+        claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
       };
       expect(determineInitialState(config)).toBe(OverlayState.NoVault);
     });
@@ -205,6 +207,7 @@ describe('Overlay State Machine', () => {
         claudeCliPath: null,
         vaultPaths: ['/Users/test/vault'],
         autoStart: false,
+        claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
       };
       expect(determineInitialState(config)).toBe(OverlayState.Home);
     });

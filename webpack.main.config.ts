@@ -11,5 +11,6 @@ export const mainConfig: Configuration = {
   },
   externals: {
     'better-sqlite3': 'commonjs better-sqlite3',
+    'xlsx': 'commonjs xlsx',
   },
 };

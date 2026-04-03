@@ -233,7 +233,7 @@ async function startVault(vaultPath: string): Promise<void> {
 
   // Start extraction queue
   const appConfig = loadAppConfig();
-  extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined);
+  extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
 
   overlayWindow?.setVaultPath(vaultPath);
 

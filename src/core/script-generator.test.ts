@@ -32,12 +32,16 @@ function makeSampleMetadata(): SpreadsheetMetadata {
   };
 }
 
-function makeClaudeResponse(parserCode: string, matcherCode: string, docType = 'invoice_out'): string {
+function makeParserResponse(parserCode: string, docType = 'invoice_out'): string {
   return `Based on the metadata, this is a sales invoice file (${docType}).
 
 \`\`\`parser.js
 ${parserCode}
-\`\`\`
+\`\`\``;
+}
+
+function makeMatcherResponse(matcherCode: string): string {
+  return `Here is the matcher:
 
 \`\`\`matcher.js
 ${matcherCode}
@@ -52,7 +56,7 @@ const result = {
   relative_path: process.argv[2],
   doc_type: 'invoice_out',
   records: rows.map(r => ({
-    confidence: 0.9,
+    confidence: 1.0,
     field_confidence: {},
     ngay: r['Ngày lập'] || null,
     data: { so_hoa_don: r['Số HĐ'], tong_tien: r['Tổng tiền'], mst: r['MST'] },
@@ -76,22 +80,22 @@ describe('ScriptGenerator', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scriptgen-'));
     fs.mkdirSync(path.join(tmpDir, 'scripts'), { recursive: true });
     runner = new ClaudeCodeRunner();
+    generator = new ScriptGenerator(runner);
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  // ── Prompt construction ──
+  // ── generateParser ──
 
-  describe('Prompt construction', () => {
+  describe('generateParser', () => {
     it('includes sheet metadata in the prompt', async () => {
       const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
+        makeParserResponse(SAMPLE_PARSER),
       );
 
-      const metadata = makeSampleMetadata();
-      await generator_create().generateScripts(metadata, tmpDir);
+      await generator.generateParser(makeSampleMetadata(), tmpDir);
 
       const userPrompt = spy.mock.calls[0][0];
       expect(userPrompt).toContain('Invoices');
@@ -99,12 +103,24 @@ describe('ScriptGenerator', () => {
       expect(userPrompt).toContain('Tổng tiền');
     });
 
-    it('includes ExtractionFileResult schema description', async () => {
+    it('includes sample rows in the prompt', async () => {
       const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
+        makeParserResponse(SAMPLE_PARSER),
       );
 
-      await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
+      await generator.generateParser(makeSampleMetadata(), tmpDir);
+
+      const userPrompt = spy.mock.calls[0][0];
+      expect(userPrompt).toContain('HD001');
+      expect(userPrompt).toContain('0305008980');
+    });
+
+    it('includes ExtractionFileResult schema in system prompt', async () => {
+      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        makeParserResponse(SAMPLE_PARSER),
+      );
+
+      await generator.generateParser(makeSampleMetadata(), tmpDir);
 
       const systemPrompt = spy.mock.calls[0][1];
       expect(systemPrompt).toContain('ExtractionFileResult');
@@ -113,12 +129,12 @@ describe('ScriptGenerator', () => {
       expect(systemPrompt).toContain('records');
     });
 
-    it('includes DocType enum values', async () => {
+    it('includes DocType enum values in system prompt', async () => {
       const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
+        makeParserResponse(SAMPLE_PARSER),
       );
 
-      await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
+      await generator.generateParser(makeSampleMetadata(), tmpDir);
 
       const systemPrompt = spy.mock.calls[0][1];
       expect(systemPrompt).toContain('bank_statement');
@@ -126,65 +142,44 @@ describe('ScriptGenerator', () => {
       expect(systemPrompt).toContain('invoice_in');
     });
 
-    it('includes sample rows in the prompt', async () => {
-      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
-      );
-
-      await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
-
-      const userPrompt = spy.mock.calls[0][0];
-      expect(userPrompt).toContain('HD001');
-      expect(userPrompt).toContain('0305008980');
-    });
-  });
-
-  // ── Response parsing ──
-
-  describe('Response parsing', () => {
-    it('extracts parser.js code from fenced code block', async () => {
+    it('extracts parser.js code from response', async () => {
       vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
+        makeParserResponse(SAMPLE_PARSER),
       );
 
-      const result = await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
-      const parserContent = fs.readFileSync(result.parserPath, 'utf-8');
-      expect(parserContent).toContain("require('xlsx')");
-      expect(parserContent).toContain('process.argv[2]');
+      const result = await generator.generateParser(makeSampleMetadata(), tmpDir);
+      const content = fs.readFileSync(result.parserPath, 'utf-8');
+      expect(content).toContain("require('xlsx')");
+      expect(content).toContain('process.argv[2]');
     });
 
-    it('extracts matcher.js code from fenced code block', async () => {
+    it('saves parser to scripts directory', async () => {
       vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
+        makeParserResponse(SAMPLE_PARSER),
       );
 
-      const result = await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
-      const matcherContent = fs.readFileSync(result.matcherPath, 'utf-8');
-      expect(matcherContent).toContain('module.exports');
-    });
-
-    it('handles response with extra text around code blocks', async () => {
-      const response = `Here is my analysis of the file:
-
-The file appears to be a sales invoice export.
-
-\`\`\`parser.js
-${SAMPLE_PARSER}
-\`\`\`
-
-Some explanation here about the matcher:
-
-\`\`\`matcher.js
-${SAMPLE_MATCHER}
-\`\`\`
-
-Let me know if you need any changes!`;
-
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(response);
-
-      const result = await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
+      const result = await generator.generateParser(makeSampleMetadata(), tmpDir);
+      expect(result.parserPath.startsWith(path.join(tmpDir, 'scripts'))).toBe(true);
+      expect(result.parserPath.endsWith('-parser.js')).toBe(true);
       expect(fs.existsSync(result.parserPath)).toBe(true);
-      expect(fs.existsSync(result.matcherPath)).toBe(true);
+    });
+
+    it('generates unique script name from file name', async () => {
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        makeParserResponse(SAMPLE_PARSER),
+      );
+
+      const result = await generator.generateParser(makeSampleMetadata(), tmpDir);
+      expect(result.name).toContain('test-invoice');
+    });
+
+    it('infers docType from Claude response', async () => {
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        makeParserResponse(SAMPLE_PARSER, 'invoice_out'),
+      );
+
+      const result = await generator.generateParser(makeSampleMetadata(), tmpDir);
+      expect(result.docType).toBe(DocType.InvoiceOut);
     });
 
     it('throws when response has no parser code block', async () => {
@@ -193,67 +188,64 @@ Let me know if you need any changes!`;
       );
 
       await expect(
-        generator_create().generateScripts(makeSampleMetadata(), tmpDir),
+        generator.generateParser(makeSampleMetadata(), tmpDir),
       ).rejects.toThrow(/parser/i);
+    });
+
+    it('falls back to ```js block when ```parser.js not found', async () => {
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        `Here is the code:\n\`\`\`js\n${SAMPLE_PARSER}\n\`\`\``,
+      );
+
+      const result = await generator.generateParser(makeSampleMetadata(), tmpDir);
+      const content = fs.readFileSync(result.parserPath, 'utf-8');
+      expect(content).toContain("require('xlsx')");
+    });
+  });
+
+  // ── generateMatcher ──
+
+  describe('generateMatcher', () => {
+    it('generates matcher script', async () => {
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        makeMatcherResponse(SAMPLE_MATCHER),
+      );
+
+      const result = await generator.generateMatcher(makeSampleMetadata(), tmpDir, 'test-invoice-abc');
+      expect(fs.existsSync(result.matcherPath)).toBe(true);
+      const content = fs.readFileSync(result.matcherPath, 'utf-8');
+      expect(content).toContain('module.exports');
+    });
+
+    it('saves matcher to scripts directory with correct name', async () => {
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        makeMatcherResponse(SAMPLE_MATCHER),
+      );
+
+      const result = await generator.generateMatcher(makeSampleMetadata(), tmpDir, 'my-script');
+      expect(result.matcherPath).toBe(path.join(tmpDir, 'scripts', 'my-script-matcher.js'));
+    });
+
+    it('includes sheet names and headers in prompt', async () => {
+      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        makeMatcherResponse(SAMPLE_MATCHER),
+      );
+
+      await generator.generateMatcher(makeSampleMetadata(), tmpDir, 'test');
+
+      const userPrompt = spy.mock.calls[0][0];
+      expect(userPrompt).toContain('Invoices');
+      expect(userPrompt).toContain('Số HĐ');
     });
 
     it('throws when response has no matcher code block', async () => {
       vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        `\`\`\`parser.js\n${SAMPLE_PARSER}\n\`\`\`\nNo matcher here.`,
+        'No code blocks here',
       );
 
       await expect(
-        generator_create().generateScripts(makeSampleMetadata(), tmpDir),
+        generator.generateMatcher(makeSampleMetadata(), tmpDir, 'test'),
       ).rejects.toThrow(/matcher/i);
     });
-
-    it('infers docType from Claude response', async () => {
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER, 'invoice_out'),
-      );
-
-      const result = await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
-      expect(result.docType).toBe(DocType.InvoiceOut);
-    });
   });
-
-  // ── Script saving ──
-
-  describe('Script saving', () => {
-    it('saves parser script to scripts directory', async () => {
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
-      );
-
-      const result = await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
-      expect(result.parserPath.startsWith(path.join(tmpDir, 'scripts'))).toBe(true);
-      expect(result.parserPath.endsWith('-parser.js')).toBe(true);
-      expect(fs.existsSync(result.parserPath)).toBe(true);
-    });
-
-    it('saves matcher script to scripts directory', async () => {
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
-      );
-
-      const result = await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
-      expect(result.matcherPath.startsWith(path.join(tmpDir, 'scripts'))).toBe(true);
-      expect(result.matcherPath.endsWith('-matcher.js')).toBe(true);
-      expect(fs.existsSync(result.matcherPath)).toBe(true);
-    });
-
-    it('generates unique script name from file name', async () => {
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        makeClaudeResponse(SAMPLE_PARSER, SAMPLE_MATCHER),
-      );
-
-      const result = await generator_create().generateScripts(makeSampleMetadata(), tmpDir);
-      expect(result.name).toContain('test-invoice');
-    });
-  });
-
-  function generator_create(): ScriptGenerator {
-    generator = new ScriptGenerator(runner);
-    return generator;
-  }
 });

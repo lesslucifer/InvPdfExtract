@@ -38,8 +38,8 @@ function makeValidResult(): ExtractionFileResult {
     relative_path: 'test.xlsx',
     doc_type: DocType.InvoiceOut,
     records: [{
-      confidence: 0.95,
-      field_confidence: { so_hoa_don: 0.99 },
+      confidence: 1.0,
+      field_confidence: { so_hoa_don: 1.0 },
       ngay: '2026-01-01',
       data: { so_hoa_don: 'HD001', tong_tien: 1000 },
       line_items: [],
@@ -66,211 +66,220 @@ describe('ScriptVerifier', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  // ── Successful verification ──
+  // ── Claude approves on first attempt ──
 
-  describe('Successful verification', () => {
-    it('returns success when script produces valid ExtractionFileResult', async () => {
+  describe('APPROVED on first attempt', () => {
+    it('returns success when Claude approves the output', async () => {
       mockExecuteScript.mockResolvedValue(makeValidResult());
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue('APPROVED');
 
-      const result = await verifier.verifyScript(
+      const result = await verifier.verifyAndRefine(
         parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
       );
 
       expect(result.success).toBe(true);
-    });
-
-    it('output contains the parsed ExtractionFileResult', async () => {
-      const validResult = makeValidResult();
-      mockExecuteScript.mockResolvedValue(validResult);
-
-      const result = await verifier.verifyScript(
-        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-      );
-
       expect(result.output).toBeTruthy();
       expect(result.output!.records).toHaveLength(1);
-      expect(result.output!.records[0].data).toEqual({ so_hoa_don: 'HD001', tong_tien: 1000 });
+    });
+
+    it('sends metadata, script, and truncated output to Claude', async () => {
+      mockExecuteScript.mockResolvedValue(makeValidResult());
+      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue('APPROVED');
+
+      await verifier.verifyAndRefine(
+        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
+      );
+
+      const prompt = spy.mock.calls[0][0];
+      expect(prompt).toContain('Sheet1'); // metadata
+      expect(prompt).toContain('placeholder parser'); // script
+      expect(prompt).toContain('HD001'); // output
+    });
+
+    it('only calls executeScript and invokeRaw once each', async () => {
+      mockExecuteScript.mockResolvedValue(makeValidResult());
+      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue('APPROVED');
+
+      await verifier.verifyAndRefine(
+        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
+      );
+
+      expect(mockExecuteScript).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 
-  // ── Structural validation ──
+  // ── Claude fixes script ──
 
-  describe('Structural validation', () => {
-    it('fails when output missing records array', async () => {
-      mockExecuteScript.mockResolvedValue({
-        relative_path: 'test.xlsx',
-        doc_type: DocType.InvoiceOut,
-      } as any);
+  describe('Claude provides fix', () => {
+    it('retries with fixed script when Claude returns code block', async () => {
+      mockExecuteScript
+        .mockResolvedValueOnce(makeValidResult())  // first run
+        .mockResolvedValueOnce(makeValidResult());  // second run after fix
 
-      const result = await verifier.verifyScript(
+      vi.spyOn(runner, 'invokeRaw')
+        .mockResolvedValueOnce('```parser.js\nconst fixed = true;\n```')
+        .mockResolvedValueOnce('APPROVED');
+
+      const result = await verifier.verifyAndRefine(
         parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 0 },
       );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toMatch(/records/i);
+      expect(result.success).toBe(true);
+      expect(mockExecuteScript).toHaveBeenCalledTimes(2);
     });
 
-    it('fails when doc_type is invalid', async () => {
-      mockExecuteScript.mockResolvedValue({
-        relative_path: 'test.xlsx',
-        doc_type: 'not_a_type' as any,
-        records: [makeValidResult().records[0]],
-      });
+    it('overwrites parser file with fixed code', async () => {
+      mockExecuteScript.mockResolvedValue(makeValidResult());
 
-      const result = await verifier.verifyScript(
+      vi.spyOn(runner, 'invokeRaw')
+        .mockResolvedValueOnce('```parser.js\nconst FIXED = "yes";\n```')
+        .mockResolvedValueOnce('APPROVED');
+
+      await verifier.verifyAndRefine(
         parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 0 },
       );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toMatch(/doc_type/i);
-    });
-
-    it('fails when records have no data field', async () => {
-      mockExecuteScript.mockResolvedValue({
-        relative_path: 'test.xlsx',
-        doc_type: DocType.InvoiceOut,
-        records: [{ confidence: 0.9, field_confidence: {}, ngay: null }],
-      } as any);
-
-      const result = await verifier.verifyScript(
-        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 0 },
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toMatch(/data/i);
+      const content = fs.readFileSync(parserPath, 'utf-8');
+      expect(content).toContain('const FIXED = "yes"');
     });
   });
 
-  // ── Retry loop ──
+  // ── Runtime error handling ──
 
-  describe('Retry loop', () => {
-    it('retries when first execution fails, succeeds on retry', async () => {
+  describe('Runtime error handling', () => {
+    it('sends error message to Claude when script crashes', async () => {
+      mockExecuteScript
+        .mockRejectedValueOnce(new Error('TypeError: x is undefined'))
+        .mockResolvedValueOnce(makeValidResult());
+
+      const spy = vi.spyOn(runner, 'invokeRaw')
+        .mockResolvedValueOnce('```parser.js\nconst fixed = true;\n```')
+        .mockResolvedValueOnce('APPROVED');
+
+      await verifier.verifyAndRefine(
+        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
+      );
+
+      const firstPrompt = spy.mock.calls[0][0];
+      expect(firstPrompt).toContain('TypeError: x is undefined');
+      expect(firstPrompt).toContain('Runtime Error');
+    });
+
+    it('recovers from runtime error when Claude fixes it', async () => {
       mockExecuteScript
         .mockRejectedValueOnce(new Error('Script crashed'))
         .mockResolvedValueOnce(makeValidResult());
 
-      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        `\`\`\`parser.js\nconsole.log("fixed");\n\`\`\``,
-      );
+      vi.spyOn(runner, 'invokeRaw')
+        .mockResolvedValueOnce('```parser.js\nconst fixed = true;\n```')
+        .mockResolvedValueOnce('APPROVED');
 
-      const result = await verifier.verifyScript(
+      const result = await verifier.verifyAndRefine(
         parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 2 },
       );
 
       expect(result.success).toBe(true);
-      expect(spy).toHaveBeenCalledTimes(1);
-      expect(mockExecuteScript).toHaveBeenCalledTimes(2);
-    });
-
-    it('sends error details back to Claude for fix', async () => {
-      mockExecuteScript
-        .mockRejectedValueOnce(new Error('TypeError: Cannot read property x'))
-        .mockResolvedValueOnce(makeValidResult());
-
-      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        `\`\`\`parser.js\nconsole.log("fixed");\n\`\`\``,
-      );
-
-      await verifier.verifyScript(
-        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 2 },
-      );
-
-      const fixPrompt = spy.mock.calls[0][0];
-      expect(fixPrompt).toContain('TypeError: Cannot read property x');
-    });
-
-    it('stops after maxRetries failures', async () => {
-      mockExecuteScript.mockRejectedValue(new Error('Script keeps crashing'));
-
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        `\`\`\`parser.js\nconsole.log("still broken");\n\`\`\``,
-      );
-
-      const result = await verifier.verifyScript(
-        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 2 },
-      );
-
-      expect(result.success).toBe(false);
-      expect(mockExecuteScript).toHaveBeenCalledTimes(3);
-    });
-
-    it('returns error message from last attempt', async () => {
-      mockExecuteScript
-        .mockRejectedValueOnce(new Error('First error'))
-        .mockRejectedValueOnce(new Error('Second error'))
-        .mockRejectedValueOnce(new Error('Final error'));
-
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        `\`\`\`parser.js\nconsole.log("broken");\n\`\`\``,
-      );
-
-      const result = await verifier.verifyScript(
-        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 2 },
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Final error');
-    });
-
-    it('retries on structural validation failure', async () => {
-      mockExecuteScript
-        .mockResolvedValueOnce({
-          relative_path: 'test.xlsx',
-          doc_type: DocType.InvoiceOut,
-          records: [{ confidence: 0.9, field_confidence: {}, ngay: null }],
-        } as any)
-        .mockResolvedValueOnce(makeValidResult());
-
-      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        `\`\`\`parser.js\nconsole.log("fixed");\n\`\`\``,
-      );
-
-      const result = await verifier.verifyScript(
-        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 2 },
-      );
-
-      expect(result.success).toBe(true);
-      expect(spy).toHaveBeenCalledTimes(1);
-    });
-
-    it('overwrites parser file with fixed code from Claude', async () => {
-      mockExecuteScript
-        .mockRejectedValueOnce(new Error('broken'))
-        .mockResolvedValueOnce(makeValidResult());
-
-      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
-        `\`\`\`parser.js\nconst fixed = true;\n\`\`\``,
-      );
-
-      await verifier.verifyScript(
-        parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
-        { maxRetries: 1 },
-      );
-
-      const content = fs.readFileSync(parserPath, 'utf-8');
-      expect(content).toContain('const fixed = true');
     });
   });
 
-  // ── Sample cross-check ──
+  // ── Max retries ──
 
-  describe('Sample cross-check', () => {
-    it('succeeds when record count is reasonable relative to metadata row count', async () => {
-      mockExecuteScript.mockResolvedValue(makeValidResult());
+  describe('Max retries', () => {
+    it('fails after exhausting all retries', async () => {
+      mockExecuteScript.mockRejectedValue(new Error('keeps crashing'));
 
-      const result = await verifier.verifyScript(
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        '```parser.js\nconsole.log("still broken");\n```',
+      );
+
+      const result = await verifier.verifyAndRefine(
+        parserPath, '/path/to/file.xlsx', makeSampleMetadata(),
+        '/vault', { maxRetries: 2 },
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('failed after');
+      // 3 script executions (initial + 2 retries), 3 Claude calls
+      expect(mockExecuteScript).toHaveBeenCalledTimes(3);
+    });
+
+    it('respects custom maxRetries', async () => {
+      mockExecuteScript.mockRejectedValue(new Error('crash'));
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        '```parser.js\nbroken\n```',
+      );
+
+      await verifier.verifyAndRefine(
+        parserPath, '/path/to/file.xlsx', makeSampleMetadata(),
+        '/vault', { maxRetries: 1 },
+      );
+
+      expect(mockExecuteScript).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ── Output truncation ──
+
+  describe('Output truncation', () => {
+    it('truncates output to max 3 records when sending to Claude', async () => {
+      const resultWith5Records: ExtractionFileResult = {
+        relative_path: 'test.xlsx',
+        doc_type: DocType.BankStatement,
+        records: Array.from({ length: 5 }, (_, i) => ({
+          confidence: 1.0,
+          field_confidence: {},
+          ngay: '2026-01-01',
+          data: { stk: `ACC${i}`, so_tien: i * 100 },
+        })),
+      };
+      mockExecuteScript.mockResolvedValue(resultWith5Records);
+
+      const spy = vi.spyOn(runner, 'invokeRaw').mockResolvedValue('APPROVED');
+
+      await verifier.verifyAndRefine(
         parserPath, '/path/to/file.xlsx', makeSampleMetadata(), '/vault',
       );
 
-      expect(result.success).toBe(true);
+      const prompt = spy.mock.calls[0][0];
+      // Should show total count but only first 3 records
+      expect(prompt).toContain('Total records: 5');
+      expect(prompt).toContain('ACC0');
+      expect(prompt).toContain('ACC2');
+      // The 4th and 5th records should not appear
+      expect(prompt).not.toContain('ACC3');
+      expect(prompt).not.toContain('ACC4');
+    });
+  });
+
+  // ── Edge case: APPROVED but script errored ──
+
+  describe('Edge cases', () => {
+    it('returns failure if Claude says APPROVED but script had error', async () => {
+      mockExecuteScript.mockRejectedValue(new Error('Script crashed'));
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue('APPROVED');
+
+      const result = await verifier.verifyAndRefine(
+        parserPath, '/path/to/file.xlsx', makeSampleMetadata(),
+        '/vault', { maxRetries: 0 },
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Script error despite approval');
+    });
+
+    it('handles response with neither APPROVED nor code block', async () => {
+      mockExecuteScript.mockResolvedValue(makeValidResult());
+      vi.spyOn(runner, 'invokeRaw').mockResolvedValue(
+        'I think there might be an issue but I am not sure...',
+      );
+
+      const result = await verifier.verifyAndRefine(
+        parserPath, '/path/to/file.xlsx', makeSampleMetadata(),
+        '/vault', { maxRetries: 0 },
+      );
+
+      expect(result.success).toBe(false);
     });
   });
 });

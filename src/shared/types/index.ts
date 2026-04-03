@@ -197,6 +197,21 @@ export interface VaultHandle {
   config: VaultConfig;
 }
 
+// === Model Configuration ===
+
+export type ModelTier = 'fast' | 'medium' | 'heavy';
+
+export const MODEL_TIER_MAP: Record<ModelTier, string> = {
+  fast: 'haiku',
+  medium: 'sonnet',
+  heavy: 'opus',
+};
+
+export interface ClaudeModelConfig {
+  pdfExtraction: ModelTier;
+  scriptGeneration: ModelTier;
+}
+
 // === App Config (persisted in userData) ===
 
 export interface AppConfig {
@@ -204,6 +219,7 @@ export interface AppConfig {
   claudeCliPath: string | null;
   vaultPaths: string[];
   autoStart: boolean;
+  claudeModels: ClaudeModelConfig;
 }
 
 // === Claude CLI Extraction Types ===

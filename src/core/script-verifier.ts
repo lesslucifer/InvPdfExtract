@@ -10,10 +10,64 @@ const VALID_DOC_TYPES = new Set([
   DocType.InvoiceIn,
 ]);
 
+/** Max records to include in truncated output sent to Claude */
+const TRUNCATE_MAX_RECORDS = 3;
+/** Max chars per string field in truncated output */
+const TRUNCATE_FIELD_MAX_CHARS = 200;
+/** Max total chars for the JSON output sent to Claude */
+const TRUNCATE_OUTPUT_MAX_CHARS = 4000;
+
 export interface VerifyOptions {
   maxRetries?: number;
   timeoutMs?: number;
 }
+
+const JUDGE_SYSTEM_PROMPT = `You are a code reviewer for an accounting document parser script. You are given:
+1. The spreadsheet metadata (headers, column types, sample rows)
+2. The current parser script
+3. The parser's output (truncated) OR an error message
+
+Your job is to judge whether the parser script correctly extracts the data.
+
+## Checks
+- Does the doc_type match the document content? (bank_statement, invoice_out, invoice_in)
+- Are field mappings correct? (headers → schema fields)
+- Are dates in YYYY-MM-DD format?
+- Are amounts numeric (not strings)?
+- Are records being extracted (not empty)?
+- Does the output structure match ExtractionFileResult schema?
+
+## Expected Output Schema
+
+{
+  "relative_path": "...",
+  "doc_type": "bank_statement | invoice_out | invoice_in",
+  "records": [
+    {
+      "confidence": 1.0,
+      "field_confidence": { "field": 1.0, ... },
+      "ngay": "YYYY-MM-DD",
+      "data": { ... },
+      "line_items": [ ... ]
+    }
+  ]
+}
+
+### Bank Statement data fields: ten_ngan_hang, stk, mo_ta, so_tien, ten_doi_tac
+### Invoice data fields: so_hoa_don, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
+### Invoice line_items fields: mo_ta, don_gia, so_luong, thue_suat, thanh_tien
+
+## Response Format
+
+If the output looks correct, respond with EXACTLY:
+APPROVED
+
+If the script needs fixing, respond with the fixed script in a code block:
+\`\`\`parser.js
+// fixed code here
+\`\`\`
+
+Do NOT include both. Either APPROVED or a code block, never both.`;
 
 export class ScriptVerifier {
   private runner: ClaudeCodeRunner;
@@ -22,99 +76,172 @@ export class ScriptVerifier {
     this.runner = runner;
   }
 
-  async verifyScript(
+  /**
+   * Iterative verify-and-refine loop.
+   * Runs the parser on the actual file, sends output (or error) to Claude for judgment.
+   * Claude either approves or returns a fixed script. Repeats until approved or max retries.
+   */
+  async verifyAndRefine(
     parserPath: string,
     filePath: string,
     metadata: SpreadsheetMetadata,
-    vaultDotPath: string,
+    vaultRootPath: string,
     options?: VerifyOptions,
   ): Promise<VerificationResult> {
     const maxRetries = options?.maxRetries ?? SCRIPT_VERIFY_MAX_RETRIES;
-    let lastError = '';
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // 1. Run the parser script on the actual file
+      let output: ExtractionFileResult | null = null;
+      let runError: string | null = null;
+
       try {
-        // Execute the script
-        const output = await executeScript(parserPath, filePath, {
+        output = await executeScript(parserPath, filePath, {
           timeoutMs: options?.timeoutMs,
         });
-
-        // Validate structure
-        const validationError = this.validateOutput(output);
-        if (validationError) {
-          lastError = validationError;
-          if (attempt < maxRetries) {
-            await this.requestFix(parserPath, lastError, metadata);
-            continue;
-          }
-          return { success: false, error: lastError };
-        }
-
-        return { success: true, output };
       } catch (err) {
-        lastError = (err as Error).message;
-        if (attempt < maxRetries) {
-          await this.requestFix(parserPath, lastError, metadata);
-          continue;
+        runError = (err as Error).message;
+      }
+
+      // 2. Build prompt with metadata + script + output/error
+      const currentScript = fs.readFileSync(parserPath, 'utf-8');
+      const prompt = this.buildJudgePrompt(metadata, currentScript, output, runError);
+
+      // 3. Ask Claude to judge
+      console.log(`[ScriptVerifier] Attempt ${attempt + 1}/${maxRetries + 1}: ${runError ? 'error' : `${output?.records?.length ?? 0} records`}`);
+      const response = await this.runner.invokeRaw(prompt, JUDGE_SYSTEM_PROMPT, vaultRootPath);
+
+      // 4. Check Claude's verdict
+      if (this.isApproved(response)) {
+        if (!output) {
+          // Claude said APPROVED but script had an error — shouldn't happen, but handle it
+          return { success: false, error: `Script error despite approval: ${runError}` };
         }
+        console.log(`[ScriptVerifier] APPROVED on attempt ${attempt + 1}`);
+        return { success: true, output };
       }
+
+      // 5. Extract fixed script from response
+      const fixedCode = this.extractCodeBlock(response);
+      if (fixedCode) {
+        fs.writeFileSync(parserPath, fixedCode);
+        console.log(`[ScriptVerifier] Claude provided fix, retrying...`);
+        continue;
+      }
+
+      // Claude responded but no APPROVED and no code block — treat as error
+      console.warn(`[ScriptVerifier] Unexpected response (no APPROVED, no code block), retrying...`);
     }
 
-    return { success: false, error: lastError };
+    return {
+      success: false,
+      error: `Script verification failed after ${maxRetries + 1} attempts`,
+    };
   }
 
-  private validateOutput(output: ExtractionFileResult): string | null {
-    if (!output.records || !Array.isArray(output.records)) {
-      return 'Output missing "records" array';
-    }
-
-    if (!VALID_DOC_TYPES.has(output.doc_type as DocType)) {
-      return `Invalid doc_type: "${output.doc_type}". Must be one of: ${Array.from(VALID_DOC_TYPES).join(', ')}`;
-    }
-
-    for (let i = 0; i < output.records.length; i++) {
-      const record = output.records[i];
-      if (!record.data) {
-        return `Record ${i} missing "data" field`;
-      }
-    }
-
-    return null;
-  }
-
-  private async requestFix(
-    parserPath: string,
-    error: string,
+  private buildJudgePrompt(
     metadata: SpreadsheetMetadata,
-  ): Promise<void> {
-    const currentScript = fs.readFileSync(parserPath, 'utf-8');
+    script: string,
+    output: ExtractionFileResult | null,
+    error: string | null,
+  ): string {
+    const metadataStr = this.formatMetadata(metadata);
 
-    const prompt = `The following parser script produced an error. Please fix it.
+    let resultSection: string;
+    if (error) {
+      resultSection = `## Runtime Error\n${error}`;
+    } else if (output) {
+      const truncated = this.truncateOutput(output);
+      resultSection = `## Parser Output (truncated)\nTotal records: ${output.records?.length ?? 0}\n\n\`\`\`json\n${truncated}\n\`\`\``;
+    } else {
+      resultSection = `## Parser Output\nNo output produced.`;
+    }
 
-## Error
-${error}
+    return `Review this parser script's output for correctness.
 
-## Current Script
+## Spreadsheet Metadata
+${metadataStr}
+
+## Current Parser Script
 \`\`\`js
-${currentScript}
+${script}
 \`\`\`
 
-## File Metadata
-${JSON.stringify(metadata, null, 2)}
+${resultSection}
 
-Return the fixed script in a \`\`\`parser.js code block.`;
+Judge whether the parser correctly extracts the data. Respond with APPROVED if correct, or provide a fixed \`\`\`parser.js\`\`\` code block.`;
+  }
 
-    const systemPrompt = 'You are a code fixer. Return ONLY the fixed parser script in a ```parser.js code block. Do not include any other code blocks.';
+  private formatMetadata(metadata: SpreadsheetMetadata): string {
+    return metadata.sheets.map(sheet => {
+      const colInfo = sheet.columnTypes.map(c =>
+        `  - "${c.header}" (${c.inferredType}, empty: ${(c.emptyRate * 100).toFixed(0)}%, samples: ${JSON.stringify(c.sampleValues.slice(0, 3))})`
+      ).join('\n');
 
-    const response = await this.runner.invokeRaw(prompt, systemPrompt);
-    const fixedCode = this.extractCodeBlock(response);
-    if (fixedCode) {
-      fs.writeFileSync(parserPath, fixedCode);
+      const sampleData = sheet.sampleRows.length > 0
+        ? `\nSample rows:\n${sheet.sampleRows.map(r => JSON.stringify(r)).join('\n')}`
+        : '';
+
+      return `Sheet: "${sheet.name}" (${sheet.rowCount} data rows, ${sheet.colCount} columns)\nColumns:\n${colInfo}${sampleData}`;
+    }).join('\n\n');
+  }
+
+  private truncateOutput(output: ExtractionFileResult): string {
+    // Create a truncated copy with limited records and capped string fields
+    const truncated: any = {
+      relative_path: output.relative_path,
+      doc_type: output.doc_type,
+      records: (output.records || []).slice(0, TRUNCATE_MAX_RECORDS).map(record => {
+        const truncRecord: any = {
+          confidence: record.confidence,
+          ngay: record.ngay,
+          data: this.truncateStrings(record.data),
+        };
+        if (record.field_confidence) {
+          truncRecord.field_confidence = record.field_confidence;
+        }
+        if (record.line_items && record.line_items.length > 0) {
+          truncRecord.line_items = record.line_items.slice(0, 3).map(li => this.truncateStrings(li));
+          if (record.line_items.length > 3) {
+            truncRecord._line_items_total = record.line_items.length;
+          }
+        }
+        return truncRecord;
+      }),
+    };
+
+    if ((output.records?.length ?? 0) > TRUNCATE_MAX_RECORDS) {
+      truncated._total_records = output.records.length;
     }
+
+    let json = JSON.stringify(truncated, null, 2);
+    if (json.length > TRUNCATE_OUTPUT_MAX_CHARS) {
+      json = json.substring(0, TRUNCATE_OUTPUT_MAX_CHARS) + '\n... (truncated)';
+    }
+    return json;
+  }
+
+  private truncateStrings(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
+    const result: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === 'string' && value.length > TRUNCATE_FIELD_MAX_CHARS) {
+        result[key] = value.substring(0, TRUNCATE_FIELD_MAX_CHARS) + '...';
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
+  private isApproved(response: string): boolean {
+    // Check if response contains APPROVED (not inside a code block)
+    const withoutCodeBlocks = response.replace(/```[\s\S]*?```/g, '');
+    return /\bAPPROVED\b/.test(withoutCodeBlocks);
   }
 
   private extractCodeBlock(response: string): string | null {
-    const regex = /```(?:parser\.js|js)\s*\n([\s\S]*?)```/i;
+    const regex = /```(?:parser\.js|js|javascript)\s*\n([\s\S]*?)```/i;
     const match = response.match(regex);
     return match ? match[1].trim() : null;
   }

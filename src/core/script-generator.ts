@@ -1,9 +1,19 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ClaudeCodeRunner } from './claude-cli';
-import { SpreadsheetMetadata, GeneratedScripts, DocType } from '../shared/types';
+import { SpreadsheetMetadata, DocType } from '../shared/types';
 
-const SYSTEM_PROMPT = `You are a code generator for an accounting document extraction system. You generate Node.js CommonJS scripts that parse spreadsheet files (XLSX/CSV) into structured JSON.
+export interface GeneratedParser {
+  parserPath: string;
+  name: string;
+  docType: DocType;
+}
+
+export interface GeneratedMatcher {
+  matcherPath: string;
+}
+
+const PARSER_SYSTEM_PROMPT = `You are a code generator for an accounting document extraction system. You generate Node.js CommonJS scripts that parse spreadsheet files (XLSX/CSV) into structured JSON.
 
 ## Output Format: ExtractionFileResult
 
@@ -14,8 +24,8 @@ The parser script MUST output a JSON object to stdout with this exact structure:
   "doc_type": "<one of: bank_statement, invoice_out, invoice_in>",
   "records": [
     {
-      "confidence": 0.95,
-      "field_confidence": { "field_name": 0.95, ... },
+      "confidence": 1.0,
+      "field_confidence": { "field_name": 1.0, ... },
       "ngay": "YYYY-MM-DD",
       "data": { ... },
       "line_items": [ ... ]
@@ -50,23 +60,28 @@ For invoices, each record should include line_items array:
 
 ## Your Response Format
 
-You MUST respond with TWO code blocks:
+Respond with a parser script in a code block:
 
-1. A parser script labeled \`parser.js\`:
 \`\`\`parser.js
 // parser code here
 \`\`\`
 
-2. A matcher script labeled \`matcher.js\`:
+Also include in your response text (outside code blocks) what doc_type this file is: bank_statement, invoice_out, or invoice_in.`;
+
+const MATCHER_SYSTEM_PROMPT = `You are a code generator. Generate a Node.js CommonJS matcher script that identifies spreadsheet files with a specific structure.
+
+The matcher script MUST:
+- Export a function: module.exports = function(filePath) { return boolean }
+- Use require('xlsx') with { bookSheets: true } to avoid loading all data
+- Return true if the file has the same structure (sheet names, similar headers)
+- Return false otherwise
+- Be fast and lightweight — only check structure, not data content
+
+Respond with ONLY a code block:
+
 \`\`\`matcher.js
 // matcher code here
-\`\`\`
-
-The matcher script MUST export a function: module.exports = function(filePath) { return boolean }
-The matcher should identify files with the same structure (same sheet names, similar headers).
-The matcher should use require('xlsx') with { bookSheets: true } to avoid loading all data.
-
-Also include in your response text (outside code blocks) what doc_type this file is: bank_statement, invoice_out, or invoice_in.`;
+\`\`\``;
 
 export class ScriptGenerator {
   private runner: ClaudeCodeRunner;
@@ -75,34 +90,55 @@ export class ScriptGenerator {
     this.runner = runner;
   }
 
-  async generateScripts(metadata: SpreadsheetMetadata, vaultDotPath: string): Promise<GeneratedScripts> {
-    const userPrompt = this.buildUserPrompt(metadata);
-    const response = await this.runner.invokeRaw(userPrompt, SYSTEM_PROMPT);
+  /**
+   * Generate only the parser script from metadata.
+   * Matcher is generated separately after the parser is verified.
+   */
+  async generateParser(metadata: SpreadsheetMetadata, vaultDotPath: string): Promise<GeneratedParser> {
+    const userPrompt = this.buildParserPrompt(metadata);
+    const response = await this.runner.invokeRaw(userPrompt, PARSER_SYSTEM_PROMPT, path.dirname(vaultDotPath));
 
     const parserCode = this.extractCodeBlock(response, 'parser.js');
     if (!parserCode) {
       throw new Error('Claude response missing parser.js code block');
     }
 
+    const docType = this.inferDocType(response);
+    const name = this.generateName(metadata.fileName);
+
+    const scriptsDir = path.join(vaultDotPath, 'scripts');
+    if (!fs.existsSync(scriptsDir)) {
+      fs.mkdirSync(scriptsDir, { recursive: true });
+    }
+    const parserPath = path.join(scriptsDir, `${name}-parser.js`);
+
+    fs.writeFileSync(parserPath, parserCode);
+
+    return { parserPath, name, docType };
+  }
+
+  /**
+   * Generate a matcher script after the parser has been verified.
+   * The matcher identifies files with the same structure for script reuse.
+   */
+  async generateMatcher(metadata: SpreadsheetMetadata, vaultDotPath: string, name: string): Promise<GeneratedMatcher> {
+    const userPrompt = this.buildMatcherPrompt(metadata);
+    const response = await this.runner.invokeRaw(userPrompt, MATCHER_SYSTEM_PROMPT, path.dirname(vaultDotPath));
+
     const matcherCode = this.extractCodeBlock(response, 'matcher.js');
     if (!matcherCode) {
       throw new Error('Claude response missing matcher.js code block');
     }
 
-    const docType = this.inferDocType(response);
-    const name = this.generateName(metadata.fileName);
-
     const scriptsDir = path.join(vaultDotPath, 'scripts');
-    const parserPath = path.join(scriptsDir, `${name}-parser.js`);
     const matcherPath = path.join(scriptsDir, `${name}-matcher.js`);
 
-    fs.writeFileSync(parserPath, parserCode);
     fs.writeFileSync(matcherPath, matcherCode);
 
-    return { parserPath, matcherPath, name, docType };
+    return { matcherPath };
   }
 
-  private buildUserPrompt(metadata: SpreadsheetMetadata): string {
+  private buildParserPrompt(metadata: SpreadsheetMetadata): string {
     const sheetsInfo = metadata.sheets.map(sheet => {
       const colInfo = sheet.columnTypes.map(c =>
         `  - "${c.header}" (${c.inferredType}, empty: ${(c.emptyRate * 100).toFixed(0)}%, samples: ${JSON.stringify(c.sampleValues.slice(0, 3))})`
@@ -117,7 +153,7 @@ Columns:
 ${colInfo}${sampleData}`;
     }).join('\n\n');
 
-    return `Generate parser and matcher scripts for this spreadsheet file.
+    return `Generate a parser script for this spreadsheet file.
 
 File: ${metadata.fileName} (${metadata.fileType})
 Total rows: ${metadata.totalRows}
@@ -125,11 +161,29 @@ Total rows: ${metadata.totalRows}
 ${sheetsInfo}`;
   }
 
+  private buildMatcherPrompt(metadata: SpreadsheetMetadata): string {
+    const sheetsInfo = metadata.sheets.map(sheet =>
+      `Sheet: "${sheet.name}" — headers: ${JSON.stringify(sheet.headers)}`
+    ).join('\n');
+
+    return `Generate a matcher script that identifies spreadsheet files with this structure:
+
+File type: ${metadata.fileType}
+${sheetsInfo}
+
+The matcher should return true for files that have the same sheet names and similar headers.`;
+  }
+
   private extractCodeBlock(response: string, label: string): string | null {
-    // Match ```parser.js or ```js parser.js style blocks
-    const regex = new RegExp('```' + label.replace('.', '\\.') + '\\s*\\n([\\s\\S]*?)```', 'i');
-    const match = response.match(regex);
-    return match ? match[1].trim() : null;
+    // Match ```parser.js or ```matcher.js or ```js style blocks
+    const labelRegex = new RegExp('```' + label.replace('.', '\\.') + '\\s*\\n([\\s\\S]*?)```', 'i');
+    const match = response.match(labelRegex);
+    if (match) return match[1].trim();
+
+    // Fallback: match any ```js block
+    const jsRegex = /```(?:js|javascript)\s*\n([\s\S]*?)```/i;
+    const jsMatch = response.match(jsRegex);
+    return jsMatch ? jsMatch[1].trim() : null;
   }
 
   private inferDocType(response: string): DocType {
@@ -148,7 +202,6 @@ ${sheetsInfo}`;
 
   private generateName(fileName: string): string {
     const base = path.basename(fileName, path.extname(fileName));
-    // Sanitize: keep alphanumeric, hyphens, underscores
     const sanitized = base.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     const timestamp = Date.now().toString(36);
     return `${sanitized}-${timestamp}`;

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ClaudeCodeRunner, unwrapEnvelope, extractJSON, repairTruncatedJSON } from './claude-cli';
+import { ModelTier, MODEL_TIER_MAP } from '../shared/types';
 
 vi.mock('fs', () => ({
   readFileSync: vi.fn().mockReturnValue('system prompt'),
@@ -206,6 +207,77 @@ describe('ClaudeCodeRunner', () => {
       // we verify at the integration level that --output-format json is in the code.
       // This test verifies processFiles still works with the updated method.
       expect(invokeSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe('invokeRaw', () => {
+  let runner: ClaudeCodeRunner;
+
+  beforeEach(() => {
+    runner = new ClaudeCodeRunner('/usr/bin/claude');
+  });
+
+  it('unwraps JSON envelope and returns inner text', async () => {
+    const innerText = '```parser.js\nconst x = 1;\n```';
+    const envelope = JSON.stringify({ type: 'result', result: innerText });
+    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(envelope);
+
+    const result = await runner.invokeRaw('prompt', 'system');
+    expect(result).toBe(innerText);
+  });
+
+  it('passes through non-envelope text unchanged', async () => {
+    const plainText = '```parser.js\nconst x = 1;\n```';
+    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(plainText);
+
+    const result = await runner.invokeRaw('prompt', 'system');
+    expect(result).toBe(plainText);
+  });
+
+  it('unwraps envelope containing code blocks for script extraction', async () => {
+    const codeBlockResponse = 'Here is the parser:\n\n```parser.js\nconst XLSX = require("xlsx");\nconsole.log("hello");\n```\n\nThis is a bank_statement file.';
+    const envelope = JSON.stringify({ type: 'result', result: codeBlockResponse });
+    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(envelope);
+
+    const result = await runner.invokeRaw('prompt', 'system');
+    expect(result).toContain('```parser.js');
+    expect(result).toContain('require("xlsx")');
+    expect(result).toContain('bank_statement');
+  });
+});
+
+describe('model tier configuration', () => {
+  it('includes --model flag when modelTier is set', async () => {
+    const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, 'heavy');
+    const spy = vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(VALID_JSON);
+
+    await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
+
+    // invokeClaudeCLI is called with (prompt, systemPrompt, cwd)
+    // The --model flag is built inside invokeClaudeCLI, so we verify via the spawn args
+    // Since invokeClaudeCLI is mocked, we verify the runner was constructed correctly
+    expect((runner as any).model).toBe('opus');
+  });
+
+  it('maps model tiers correctly', () => {
+    expect(MODEL_TIER_MAP.fast).toBe('haiku');
+    expect(MODEL_TIER_MAP.medium).toBe('sonnet');
+    expect(MODEL_TIER_MAP.heavy).toBe('opus');
+  });
+
+  it('does not set model when no tier provided', () => {
+    const runner = new ClaudeCodeRunner('/usr/bin/claude');
+    expect((runner as any).model).toBeUndefined();
+  });
+
+  it('sets model for each tier', () => {
+    const tiers: ModelTier[] = ['fast', 'medium', 'heavy'];
+    const expected = ['haiku', 'sonnet', 'opus'];
+
+    tiers.forEach((tier, i) => {
+      const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, tier);
+      expect((runner as any).model).toBe(expected[i]);
     });
   });
 });
