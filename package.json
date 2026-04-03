@@ -17,6 +17,13 @@
     "email": "quangvu.luu92@gmail.com"
   },
   "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "electron",
+      "electron-winstaller"
+    ]
+  },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",

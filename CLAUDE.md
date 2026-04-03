@@ -16,7 +16,7 @@ yarn run package     # Package the app for distribution
 yarn run make        # Build platform-specific installers
 ```
 
-Package manager is **yarn** (v1 Classic).
+Package manager is **pnpm**.
 
 ## Architecture
 
