@@ -252,6 +252,46 @@ export interface ExtractionResult {
   results: ExtractionFileResult[];
 }
 
+// === Spreadsheet Metadata Types ===
+
+export interface ColumnTypeInfo {
+  header: string;
+  inferredType: 'string' | 'number' | 'date' | 'boolean' | 'mixed' | 'empty';
+  sampleValues: unknown[];
+  emptyRate: number;
+}
+
+export interface SheetMetadata {
+  name: string;
+  headers: string[];
+  rowCount: number;
+  colCount: number;
+  columnTypes: ColumnTypeInfo[];
+  sampleRows: Record<string, unknown>[];
+}
+
+export interface SpreadsheetMetadata {
+  fileName: string;
+  fileType: 'xlsx' | 'csv';
+  sheets: SheetMetadata[];
+  totalRows: number;
+}
+
+// === Script Generation Types ===
+
+export interface GeneratedScripts {
+  parserPath: string;
+  matcherPath: string;
+  name: string;
+  docType: DocType;
+}
+
+export interface VerificationResult {
+  success: boolean;
+  output?: ExtractionFileResult;
+  error?: string;
+}
+
 // === Search Result Types ===
 
 export interface SearchResult {
