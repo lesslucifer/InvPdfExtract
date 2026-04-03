@@ -1,5 +1,6 @@
 import { getDatabase } from './db/database';
 import { DocType } from '../shared/types';
+import * as XLSX from 'xlsx';
 
 export interface ExportOptions {
   filter?: string;
@@ -110,4 +111,47 @@ function toCsv(headers: string[], rows: any[][]): string {
     lines.push(row.map(escape).join(','));
   }
   return lines.join('\n');
+}
+
+/**
+ * Exports data to a single XLSX file with multiple sheets.
+ * Returns the XLSX buffer ready to write to disk.
+ */
+export function exportToXlsx(data: ExportData): Buffer {
+  const wb = XLSX.utils.book_new();
+
+  if (data.bankStatements.length > 0) {
+    const headers = ['Ngay', 'Ngan hang', 'STK', 'Mo ta', 'So tien', 'Doi tac', 'Confidence', 'File'];
+    const rows = data.bankStatements.map(r => [
+      r.ngay, r.ten_ngan_hang, r.stk, r.mo_ta, r.so_tien, r.ten_doi_tac, r.confidence, r.relative_path,
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Sao ke');
+  }
+
+  if (data.invoiceHeaders.length > 0) {
+    const headers = ['Loai', 'Ngay', 'So HD', 'Tong tien', 'MST', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
+    const rows = data.invoiceHeaders.map(r => [
+      r.doc_type, r.ngay, r.so_hoa_don, r.tong_tien, r.mst, r.ten_doi_tac, r.dia_chi_doi_tac, r.confidence, r.relative_path,
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Hoa don');
+  }
+
+  if (data.invoiceLineItems.length > 0) {
+    const headers = ['Loai', 'Ngay', 'So HD', '#', 'Mo ta', 'Don gia', 'So luong', 'Thue suat', 'Thanh tien'];
+    const rows = data.invoiceLineItems.map(r => [
+      r.doc_type, r.ngay, r.so_hoa_don, r.line_number, r.mo_ta, r.don_gia, r.so_luong, r.thue_suat, r.thanh_tien,
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Chi tiet');
+  }
+
+  // If no data at all, add an empty sheet
+  if (wb.SheetNames.length === 0) {
+    const ws = XLSX.utils.aoa_to_sheet([['No data']]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Empty');
+  }
+
+  return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 }

@@ -121,7 +121,7 @@ describe('SpreadsheetMetadataExtractor', () => {
 
     it('sets fileName from file path', () => {
       const meta = extractMetadata(XLSX_FILES.hoadonSold);
-      expect(meta.fileName).toBe('hoadon_sold_2026-03-22 (1).xlsx');
+      expect(meta.fileName).toBe('hoadon_sold_2026-03-22__.xlsx');
     });
   });
 

@@ -5,7 +5,6 @@ import { EditableCell } from './EditableCell';
 
 interface Props {
   result: SearchResult;
-  onOpenFile: () => void;
   onFieldUpdated: () => void;
 }
 
@@ -14,7 +13,7 @@ function formatAmount(amount: number): string {
   return new Intl.NumberFormat('vi-VN').format(amount);
 }
 
-export const ResultDetail: React.FC<Props> = ({ result, onOpenFile, onFieldUpdated }) => {
+export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [overrides, setOverrides] = useState<FieldOverrideInfo[]>([]);
   const [lineItemOverrides, setLineItemOverrides] = useState<Record<string, FieldOverrideInfo[]>>({});
@@ -155,9 +154,6 @@ export const ResultDetail: React.FC<Props> = ({ result, onOpenFile, onFieldUpdat
         </>
       )}
 
-      <div className="detail-actions">
-        <button className="detail-open-btn" onClick={onOpenFile}>Open Source File</button>
-      </div>
     </div>
   );
 };

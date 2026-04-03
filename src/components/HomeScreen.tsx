@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FolderInfo } from '../shared/types';
+import { FolderInfo, AggregateStats, SearchFilters } from '../shared/types';
+import { StickyFooter } from './StickyFooter';
+
+const ALL_FILTERS: SearchFilters = {};
 
 interface HomeScreenProps {
   onFolderBrowse: (folder: string) => void;
@@ -14,19 +17,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [recentFolders, setRecentFolders] = useState<FolderInfo[]>([]);
   const [topFolders, setTopFolders] = useState<FolderInfo[]>([]);
+  const [aggregates, setAggregates] = useState<AggregateStats>({ totalRecords: 0, totalAmount: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [recent, top] = await Promise.all([
+        const [recent, top, agg] = await Promise.all([
           window.api.listRecentFolders(5),
           window.api.listTopFolders(),
+          window.api.getAggregates(ALL_FILTERS),
         ]);
         if (cancelled) return;
         setRecentFolders(recent);
         setTopFolders(top);
+        setAggregates(agg);
       } catch (err) {
         console.error('[HomeScreen] Failed to load folders:', err);
       } finally {
@@ -56,8 +62,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   if (!hasRecent && !hasTop) {
     return (
       <div className="home-screen">
-        <div className="home-placeholder">
-          <p className="home-hint">No records yet. Add files to your vault to get started.</p>
+        <div className="home-content">
+          <div className="home-placeholder">
+            <p className="home-hint">No records yet. Add files to your vault to get started.</p>
+          </div>
         </div>
       </div>
     );
@@ -65,6 +73,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <div className="home-screen">
+      <div className="home-content">
       {(hasRecent || supplementFolders.length > 0) && (
         <div className="home-section">
           <div className="home-section-title">Recent folders</div>
@@ -110,6 +119,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           ))}
         </div>
       )}
+      </div>
+      <StickyFooter stats={aggregates} filters={ALL_FILTERS} />
     </div>
   );
 };

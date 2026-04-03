@@ -6,9 +6,10 @@ import {
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
   resolveAllConflictsForRecord, updateFtsIndex,
   listRecentFolders, listTopFolders,
+  getAggregates, gatherFilteredExportData,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
-import { FieldOverrideInput, LineItemFieldInput } from '../shared/types';
+import { FieldOverrideInput, LineItemFieldInput, SearchFilters } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault } from '../core/vault';
 
@@ -343,6 +344,10 @@ export class OverlayWindow {
       await shell.openPath(fullPath);
     });
 
+    ipcMain.handle('show-item-in-folder', async (_event, absolutePath: string) => {
+      shell.showItemInFolder(absolutePath);
+    });
+
     ipcMain.handle('check-claude-cli', async () => {
       try {
         const version = execSync('claude --version', { stdio: 'pipe' }).toString().trim();
@@ -386,14 +391,34 @@ export class OverlayWindow {
       this.hide();
     });
 
-    ipcMain.handle('get-aggregates', async () => {
-      // TODO: Phase 4 — aggregation query
-      return { totalRecords: 0, totalAmount: 0 };
+    ipcMain.handle('get-aggregates', async (_event, filters: SearchFilters) => {
+      try {
+        return getAggregates(filters);
+      } catch (err) {
+        console.error('[Overlay] get-aggregates failed:', err);
+        return { totalRecords: 0, totalAmount: 0 };
+      }
     });
 
-    ipcMain.handle('export-filtered', async () => {
-      // TODO: Phase 4 — filtered export
-      return { filesWritten: [] };
+    ipcMain.handle('export-filtered', async (_event, filters: SearchFilters) => {
+      try {
+        const result = await dialog.showSaveDialog({
+          title: 'Export to XLSX',
+          defaultPath: 'invoicevault-export.xlsx',
+          filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+        });
+        if (result.canceled || !result.filePath) return { filePath: null };
+
+        const { exportToXlsx } = await import('../core/export');
+        const data = gatherFilteredExportData(filters);
+        const buffer = exportToXlsx(data);
+        const fs = await import('fs');
+        fs.writeFileSync(result.filePath, buffer);
+        return { filePath: result.filePath };
+      } catch (err) {
+        console.error('[Overlay] export-filtered failed:', err);
+        return { filePath: null };
+      }
     });
   }
 }
