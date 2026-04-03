@@ -1,5 +1,6 @@
-import { BrowserWindow, globalShortcut, screen, ipcMain, shell } from 'electron';
+import { BrowserWindow, globalShortcut, screen, ipcMain, shell, dialog } from 'electron';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import {
   searchRecords, getLineItemsByRecord, getFieldOverrides,
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
@@ -7,6 +8,16 @@ import {
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { FieldOverrideInput } from '../shared/types';
+import { loadAppConfig, saveAppConfig } from '../core/app-config';
+import { isVault } from '../core/vault';
+
+export interface OverlayCallbacks {
+  onInitVault: (folderPath: string) => Promise<void>;
+  onSwitchVault: (vaultPath: string) => Promise<void>;
+  onStopVault: () => Promise<void>;
+  onReprocessAll: () => number;
+  onQuit: () => Promise<void>;
+}
 
 const OVERLAY_WIDTH = 700;
 const OVERLAY_MAX_HEIGHT = 500;
@@ -14,6 +25,11 @@ const OVERLAY_MAX_HEIGHT = 500;
 export class OverlayWindow {
   private window: BrowserWindow | null = null;
   private vaultPath: string | null = null;
+  private callbacks: OverlayCallbacks | null = null;
+
+  setCallbacks(callbacks: OverlayCallbacks): void {
+    this.callbacks = callbacks;
+  }
 
   registerShortcut(): void {
     const accelerator = process.platform === 'darwin' ? 'Cmd+Shift+I' : 'Ctrl+Shift+I';
@@ -201,6 +217,111 @@ export class OverlayWindow {
         console.error('[Override] Resolve all conflicts failed:', err);
         throw err;
       }
+    });
+
+    // === Spotlight UX IPC Handlers ===
+
+    ipcMain.handle('get-app-config', async () => {
+      return loadAppConfig();
+    });
+
+    ipcMain.handle('pick-folder', async () => {
+      const result = await dialog.showOpenDialog({
+        title: 'Select folder',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      return result.filePaths[0];
+    });
+
+    ipcMain.handle('init-vault', async (_event, folderPath: string) => {
+      try {
+        if (!this.callbacks) throw new Error('Overlay callbacks not set');
+        await this.callbacks.onInitVault(folderPath);
+        return { success: true };
+      } catch (err) {
+        console.error('[Overlay] init-vault failed:', err);
+        return { success: false, error: (err as Error).message };
+      }
+    });
+
+    ipcMain.handle('switch-vault', async (_event, vaultPath: string) => {
+      try {
+        if (!this.callbacks) throw new Error('Overlay callbacks not set');
+        await this.callbacks.onSwitchVault(vaultPath);
+        return { success: true };
+      } catch (err) {
+        console.error('[Overlay] switch-vault failed:', err);
+        return { success: false };
+      }
+    });
+
+    ipcMain.handle('remove-vault', async (_event, vaultPath: string) => {
+      const config = loadAppConfig();
+      const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
+      const isActive = config.lastVaultPath === vaultPath;
+
+      if (isActive && this.callbacks) {
+        await this.callbacks.onStopVault();
+      }
+
+      saveAppConfig({
+        vaultPaths,
+        lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
+      });
+
+      // If there's another vault, switch to it
+      if (isActive && vaultPaths.length > 0 && this.callbacks) {
+        await this.callbacks.onSwitchVault(vaultPaths[0]);
+      }
+    });
+
+    ipcMain.handle('open-folder', async (_event, relativePath: string) => {
+      if (!this.vaultPath) return;
+      const fullPath = path.join(this.vaultPath, relativePath);
+      await shell.openPath(fullPath);
+    });
+
+    ipcMain.handle('check-claude-cli', async () => {
+      try {
+        const version = execSync('claude --version', { stdio: 'pipe' }).toString().trim();
+        return { available: true, version };
+      } catch {
+        return { available: false };
+      }
+    });
+
+    ipcMain.handle('reprocess-all', async () => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onReprocessAll();
+      return { count };
+    });
+
+    ipcMain.handle('quit-app', async () => {
+      if (this.callbacks) {
+        await this.callbacks.onQuit();
+      }
+    });
+
+    // Stub handlers for Phase 2+ features
+    ipcMain.handle('list-recent-folders', async () => {
+      // TODO: Phase 2 — query recent folders from DB
+      return [];
+    });
+
+    ipcMain.handle('list-top-folders', async () => {
+      // TODO: Phase 2 — query top-level folders from DB
+      return [];
+    });
+
+    ipcMain.handle('get-aggregates', async () => {
+      // TODO: Phase 4 — aggregation query
+      return { totalRecords: 0, totalAmount: 0 };
+    });
+
+    ipcMain.handle('export-filtered', async () => {
+      // TODO: Phase 4 — filtered export
+      return { filesWritten: [] };
     });
   }
 }

@@ -64,6 +64,43 @@ app.on('ready', async () => {
 
   // Initialize search overlay
   overlayWindow = new OverlayWindow();
+  overlayWindow.setCallbacks({
+    onInitVault: async (folderPath: string) => {
+      if (isVault(folderPath)) {
+        await startVault(folderPath);
+      } else {
+        initVault(folderPath);
+        await startVault(folderPath);
+      }
+      const config = loadAppConfig();
+      const vaultPaths = config.vaultPaths || [];
+      if (!vaultPaths.includes(folderPath)) {
+        vaultPaths.push(folderPath);
+      }
+      saveAppConfig({ lastVaultPath: folderPath, vaultPaths });
+    },
+    onSwitchVault: async (vaultPath: string) => {
+      await startVault(vaultPath);
+      saveAppConfig({ lastVaultPath: vaultPath });
+    },
+    onStopVault: async () => {
+      await stopVault();
+    },
+    onReprocessAll: () => {
+      if (!currentVault) return 0;
+      const { getFilesByStatus, updateFileStatus } = require('./core/db/files');
+      const doneFiles = getFilesByStatus('done');
+      const errorFiles = getFilesByStatus('error');
+      const reviewFiles = getFilesByStatus('review');
+      for (const file of [...doneFiles, ...errorFiles, ...reviewFiles]) {
+        updateFileStatus(file.id, 'pending');
+      }
+      const count = doneFiles.length + errorFiles.length + reviewFiles.length;
+      extractionQueue?.trigger();
+      return count;
+    },
+    onQuit: handleQuit,
+  });
   overlayWindow.registerIpcHandlers();
   overlayWindow.registerShortcut();
 

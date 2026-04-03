@@ -39,6 +39,36 @@ export enum TrayState {
   Error = 'error',
 }
 
+export enum OverlayState {
+  NoVault = 'no-vault',
+  Home = 'home',
+  Search = 'search',
+  Settings = 'settings',
+}
+
+// === Spotlight UX Types ===
+
+export interface FolderInfo {
+  path: string;           // relative to vault root
+  recordCount: number;
+  lastActive: string;     // ISO datetime
+}
+
+export interface SearchFilters {
+  text?: string;
+  folder?: string;
+  docType?: string;
+  status?: string;
+  amountMin?: number;
+  amountMax?: number;
+  dateFilter?: string;
+}
+
+export interface AggregateStats {
+  totalRecords: number;
+  totalAmount: number;
+}
+
 // === Database Row Types ===
 
 export interface VaultFile {
@@ -273,6 +303,20 @@ export interface InvoiceVaultAPI {
   getFieldOverrides: (recordId: string) => Promise<FieldOverrideInfo[]>;
   resolveConflict: (recordId: string, fieldName: string, action: 'keep' | 'accept') => Promise<void>;
   resolveAllConflicts: (recordId: string, action: 'keep' | 'accept') => Promise<void>;
+  // Spotlight UX additions
+  getAppConfig: () => Promise<AppConfig>;
+  initVault: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
+  switchVault: (vaultPath: string) => Promise<{ success: boolean }>;
+  removeVault: (vaultPath: string) => Promise<void>;
+  pickFolder: () => Promise<string | null>;
+  openFolder: (relativePath: string) => Promise<void>;
+  listRecentFolders: (limit?: number) => Promise<FolderInfo[]>;
+  listTopFolders: () => Promise<FolderInfo[]>;
+  getAggregates: (filters: SearchFilters) => Promise<AggregateStats>;
+  exportFiltered: (filters: SearchFilters, destPath: string) => Promise<{ filesWritten: string[] }>;
+  checkClaudeCli: () => Promise<{ available: boolean; version?: string }>;
+  reprocessAll: () => Promise<{ count: number }>;
+  quitApp: () => Promise<void>;
 }
 
 // === Event Types ===
