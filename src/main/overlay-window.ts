@@ -8,7 +8,7 @@ import {
   listRecentFolders, listTopFolders,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
-import { FieldOverrideInput } from '../shared/types';
+import { FieldOverrideInput, LineItemFieldInput } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault } from '../core/vault';
 
@@ -226,6 +226,57 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Override] Resolve all conflicts failed:', err);
         throw err;
+      }
+    });
+
+    ipcMain.handle('save-line-item-field', async (_event, input: LineItemFieldInput) => {
+      try {
+        const db = getDatabase();
+        const allowedFields = ['mo_ta', 'don_gia', 'so_luong', 'thue_suat', 'thanh_tien'];
+        if (!allowedFields.includes(input.fieldName)) {
+          throw new Error(`Invalid line item field: ${input.fieldName}`);
+        }
+
+        // Get current AI value
+        const row = db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(input.lineItemId) as any;
+        if (!row) throw new Error(`Line item not found: ${input.lineItemId}`);
+        const currentAiValue = String(row[input.fieldName] ?? '');
+
+        // Update the field value
+        const numericFields = ['don_gia', 'so_luong', 'thue_suat', 'thanh_tien'];
+        const value = numericFields.includes(input.fieldName)
+          ? (input.userValue === '' ? null : parseFloat(input.userValue))
+          : input.userValue;
+        db.prepare(`UPDATE invoice_line_items SET ${input.fieldName} = ? WHERE id = ?`)
+          .run(value, input.lineItemId);
+
+        // Create/update the field override (use lineItemId as record_id)
+        upsertFieldOverride(input.lineItemId, 'invoice_line_items', input.fieldName, input.userValue, currentAiValue);
+      } catch (err) {
+        console.error('[Override] Save line item field failed:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('get-line-item-overrides', async (_event, lineItemIds: string[]) => {
+      try {
+        const result: Record<string, any[]> = {};
+        for (const id of lineItemIds) {
+          const overrides = getFieldOverrides(id);
+          if (overrides.length > 0) {
+            result[id] = overrides.map((o: any) => ({
+              field_name: o.field_name,
+              status: o.status,
+              user_value: o.user_value,
+              ai_value_at_lock: o.ai_value_at_lock,
+              ai_value_latest: o.ai_value_latest,
+            }));
+          }
+        }
+        return result;
+      } catch (err) {
+        console.error('[Override] Get line item overrides failed:', err);
+        return {};
       }
     });
 

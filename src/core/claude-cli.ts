@@ -44,10 +44,30 @@ For each file:
 IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
     const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt);
-    const sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
+    let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
 
-    const result = this.parseResponse(stdout);
-    return { result, sessionLog };
+    try {
+      const result = this.parseResponse(stdout);
+      return { result, sessionLog };
+    } catch (firstErr) {
+      // Retry once with a strong JSON-only prompt
+      console.warn(`[ClaudeCodeRunner] Parse failed, retrying with JSON emphasis: ${(firstErr as Error).message}`);
+
+      const retryPrompt = `Your previous response could not be parsed as valid JSON.
+Please try again for the same files. Return ONLY a valid JSON object matching the ExtractionResult schema.
+Do NOT include any explanation, thinking, commentary, or markdown — output raw JSON only, starting with { and ending with }.
+
+Files:
+${fileList}
+
+Located relative to: ${vaultRoot}`;
+
+      const retryStdout = await this.invokeClaudeCLI(retryPrompt, systemPrompt);
+      sessionLog += `\n\nRETRY PROMPT:\n${retryPrompt}\n\nRETRY RESPONSE:\n${retryStdout}`;
+
+      const result = this.parseResponse(retryStdout);
+      return { result, sessionLog };
+    }
   }
 
   async invokeRaw(userPrompt: string, systemPrompt: string): Promise<string> {
@@ -93,8 +113,8 @@ IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`
     });
   }
 
-  private parseResponse(raw: string): ExtractionResult {
-    // Strip markdown code fences if present
+  parseResponse(raw: string): ExtractionResult {
+    // Strategy 1: Strip markdown code fences if present
     let cleaned = raw.trim();
     if (cleaned.startsWith('```')) {
       const firstNewline = cleaned.indexOf('\n');
@@ -105,17 +125,32 @@ IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`
     }
     cleaned = cleaned.trim();
 
+    // Try direct parse first
+    const directResult = this.tryParseExtractionResult(cleaned);
+    if (directResult) return directResult;
+
+    // Strategy 2: Extract JSON substring from first { to last }
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      const extracted = raw.substring(firstBrace, lastBrace + 1);
+      const extractedResult = this.tryParseExtractionResult(extracted);
+      if (extractedResult) return extractedResult;
+    }
+
+    // All strategies failed
+    const truncated = lastBrace === -1 || raw.trimEnd().slice(-1) !== '}';
+    const hint = truncated ? ' (output appears truncated)' : '';
+    throw new Error(`Failed to parse Claude CLI response as JSON${hint}\nRaw output:\n${raw.slice(0, 500)}`);
+  }
+
+  private tryParseExtractionResult(text: string): ExtractionResult | null {
     try {
-      const parsed = JSON.parse(cleaned);
-
-      // Validate basic structure
-      if (!parsed.results || !Array.isArray(parsed.results)) {
-        throw new Error('Response missing "results" array');
-      }
-
+      const parsed = JSON.parse(text);
+      if (!parsed.results || !Array.isArray(parsed.results)) return null;
       return parsed as ExtractionResult;
-    } catch (err) {
-      throw new Error(`Failed to parse Claude CLI response as JSON: ${(err as Error).message}\nRaw output:\n${raw.slice(0, 500)}`);
+    } catch {
+      return null;
     }
   }
 }

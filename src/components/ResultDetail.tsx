@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo } from '../shared/types';
 import { EditableField } from './EditableField';
+import { EditableCell } from './EditableCell';
 
 interface Props {
   result: SearchResult;
@@ -16,6 +17,7 @@ function formatAmount(amount: number): string {
 export const ResultDetail: React.FC<Props> = ({ result, onOpenFile, onFieldUpdated }) => {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [overrides, setOverrides] = useState<FieldOverrideInfo[]>([]);
+  const [lineItemOverrides, setLineItemOverrides] = useState<Record<string, FieldOverrideInfo[]>>({});
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
 
@@ -23,12 +25,21 @@ export const ResultDetail: React.FC<Props> = ({ result, onOpenFile, onFieldUpdat
     window.api.getFieldOverrides(result.id).then(setOverrides);
   }, [result.id]);
 
+  const loadLineItemOverrides = useCallback((items: InvoiceLineItem[]) => {
+    if (items.length === 0) return;
+    const ids = items.map(i => i.id);
+    window.api.getLineItemOverrides(ids).then(setLineItemOverrides);
+  }, []);
+
   useEffect(() => {
     if (isInvoice) {
-      window.api.getLineItems(result.id).then(setLineItems);
+      window.api.getLineItems(result.id).then((items) => {
+        setLineItems(items);
+        loadLineItemOverrides(items);
+      });
     }
     loadOverrides();
-  }, [result.id, isInvoice, loadOverrides]);
+  }, [result.id, isInvoice, loadOverrides, loadLineItemOverrides]);
 
   const getOverride = (fieldName: string): FieldOverrideInfo | undefined => {
     return overrides.find(o => o.field_name === fieldName);
@@ -55,6 +66,23 @@ export const ResultDetail: React.FC<Props> = ({ result, onOpenFile, onFieldUpdat
     await window.api.resolveAllConflicts(result.id, action);
     loadOverrides();
     onFieldUpdated();
+  };
+
+  const handleLineItemSave = async (lineItemId: string, fieldName: string, userValue: string) => {
+    await window.api.saveLineItemField({ lineItemId, fieldName, userValue });
+    loadLineItemOverrides(lineItems);
+    onFieldUpdated();
+  };
+
+  const handleLineItemResolve = async (lineItemId: string, fieldName: string, action: 'keep' | 'accept') => {
+    await window.api.resolveConflict(lineItemId, fieldName, action);
+    loadLineItemOverrides(lineItems);
+    onFieldUpdated();
+  };
+
+  const getLineItemOverride = (lineItemId: string, fieldName: string): FieldOverrideInfo | undefined => {
+    const itemOverrides = lineItemOverrides[lineItemId];
+    return itemOverrides?.find(o => o.field_name === fieldName);
   };
 
   const hasConflicts = overrides.some(o => o.status === 'conflict');
@@ -113,11 +141,11 @@ export const ResultDetail: React.FC<Props> = ({ result, onOpenFile, onFieldUpdat
                   {lineItems.map((item) => (
                     <tr key={item.id}>
                       <td>{item.line_number}</td>
-                      <td>{item.mo_ta || '-'}</td>
-                      <td>{item.so_luong ?? '-'}</td>
-                      <td>{item.don_gia != null ? formatAmount(item.don_gia) : '-'}</td>
-                      <td>{item.thue_suat != null ? `${item.thue_suat}%` : '-'}</td>
-                      <td>{item.thanh_tien != null ? formatAmount(item.thanh_tien) : '-'}</td>
+                      <EditableCell value={item.mo_ta || ''} fieldName="mo_ta" lineItemId={item.id} override={getLineItemOverride(item.id, 'mo_ta')} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={String(item.so_luong ?? '')} fieldName="so_luong" lineItemId={item.id} override={getLineItemOverride(item.id, 'so_luong')} inputType="number" onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={String(item.don_gia ?? '')} fieldName="don_gia" lineItemId={item.id} override={getLineItemOverride(item.id, 'don_gia')} inputType="number" onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={item.thue_suat != null ? String(item.thue_suat) : ''} fieldName="thue_suat" lineItemId={item.id} override={getLineItemOverride(item.id, 'thue_suat')} inputType="number" onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={String(item.thanh_tien ?? '')} fieldName="thanh_tien" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien')} inputType="number" onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                     </tr>
                   ))}
                 </tbody>

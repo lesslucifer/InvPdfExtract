@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { InvoiceVaultAPI, FieldOverrideInput, SearchFilters } from './shared/types';
+import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, SearchFilters } from './shared/types';
 
 const api: InvoiceVaultAPI = {
   search: (query: string) => ipcRenderer.invoke('search', query),
@@ -11,6 +11,10 @@ const api: InvoiceVaultAPI = {
     ipcRenderer.invoke('resolve-conflict', recordId, fieldName, action),
   resolveAllConflicts: (recordId: string, action: 'keep' | 'accept') =>
     ipcRenderer.invoke('resolve-all-conflicts', recordId, action),
+  saveLineItemField: (input: LineItemFieldInput) =>
+    ipcRenderer.invoke('save-line-item-field', input),
+  getLineItemOverrides: (lineItemIds: string[]) =>
+    ipcRenderer.invoke('get-line-item-overrides', lineItemIds),
   // Spotlight UX additions
   getAppConfig: () => ipcRenderer.invoke('get-app-config'),
   initVault: (folderPath: string) => ipcRenderer.invoke('init-vault', folderPath),

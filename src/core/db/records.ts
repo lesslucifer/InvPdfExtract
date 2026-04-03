@@ -110,9 +110,41 @@ export function insertLineItem(recordId: string, lineNumber: number, data: Parti
   return db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(id) as InvoiceLineItem;
 }
 
+export function updateLineItem(lineItemId: string, data: Partial<InvoiceLineItem>): void {
+  const db = getDatabase();
+  db.prepare(`
+    UPDATE invoice_line_items
+    SET mo_ta = ?, don_gia = ?, so_luong = ?, thue_suat = ?, thanh_tien = ?
+    WHERE id = ?
+  `).run(data.mo_ta ?? null, data.don_gia ?? null, data.so_luong ?? null, data.thue_suat ?? null, data.thanh_tien ?? null, lineItemId);
+}
+
+export function softDeleteLineItem(lineItemId: string): void {
+  const db = getDatabase();
+  db.prepare("UPDATE invoice_line_items SET deleted_at = datetime('now') WHERE id = ?").run(lineItemId);
+}
+
 export function deleteLineItemsByRecord(recordId: string): void {
   const db = getDatabase();
   db.prepare('DELETE FROM invoice_line_items WHERE record_id = ?').run(recordId);
+}
+
+export function deleteUnlockedLineItemsByRecord(recordId: string): string[] {
+  const db = getDatabase();
+  // Get all line items for this record
+  const items = db.prepare('SELECT id FROM invoice_line_items WHERE record_id = ? AND deleted_at IS NULL').all(recordId) as { id: string }[];
+  const kept: string[] = [];
+  for (const item of items) {
+    const hasLock = db.prepare(
+      "SELECT COUNT(*) as cnt FROM field_overrides WHERE record_id = ? AND table_name = 'invoice_line_items' AND resolved_at IS NULL"
+    ).get(item.id) as { cnt: number };
+    if (hasLock.cnt > 0) {
+      kept.push(item.id);
+    } else {
+      db.prepare('DELETE FROM invoice_line_items WHERE id = ?').run(item.id);
+    }
+  }
+  return kept;
 }
 
 export function getLineItemsByRecord(recordId: string): InvoiceLineItem[] {

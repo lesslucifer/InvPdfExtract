@@ -445,6 +445,76 @@ body {
   font-weight: 600;
 }
 
+/* Editable cells (line items) */
+.editable-cell {
+  position: relative;
+}
+
+.editable-cell .cell-display {
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 3px;
+  transition: background 0.1s;
+  display: inline-block;
+  min-width: 20px;
+}
+
+.editable-cell .cell-display:hover {
+  background: var(--bg-hover);
+}
+
+.cell-edit-input {
+  width: 100%;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+  padding: 1px 4px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.cell-status-icon {
+  font-size: 9px;
+  margin-right: 2px;
+}
+
+.cell-conflict {
+  background: rgba(255, 159, 10, 0.08);
+}
+
+.cell-conflict-resolution {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 10px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cell-conflict-ai {
+  color: var(--confidence-medium);
+  font-style: italic;
+  margin-bottom: 3px;
+}
+
+.cell-conflict-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.cell-conflict-actions .conflict-btn {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
 /* === Gear Icon === */
 .gear-icon {
   background: none;

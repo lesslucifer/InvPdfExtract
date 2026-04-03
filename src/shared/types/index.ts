@@ -325,6 +325,12 @@ export interface FieldOverrideInput {
   userValue: string;
 }
 
+export interface LineItemFieldInput {
+  lineItemId: string;
+  fieldName: string;
+  userValue: string;
+}
+
 export interface FieldOverrideInfo {
   field_name: string;
   status: OverrideStatus;
@@ -343,6 +349,8 @@ export interface InvoiceVaultAPI {
   getFieldOverrides: (recordId: string) => Promise<FieldOverrideInfo[]>;
   resolveConflict: (recordId: string, fieldName: string, action: 'keep' | 'accept') => Promise<void>;
   resolveAllConflicts: (recordId: string, action: 'keep' | 'accept') => Promise<void>;
+  saveLineItemField: (input: LineItemFieldInput) => Promise<void>;
+  getLineItemOverrides: (lineItemIds: string[]) => Promise<{ [lineItemId: string]: FieldOverrideInfo[] }>;
   // Spotlight UX additions
   getAppConfig: () => Promise<AppConfig>;
   initVault: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
