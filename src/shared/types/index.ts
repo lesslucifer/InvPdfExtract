@@ -364,7 +364,7 @@ export interface FieldOverrideInfo {
 // === Preload API ===
 
 export interface InvoiceVaultAPI {
-  search: (query: string) => Promise<SearchResult[]>;
+  search: (query: string, offset?: number) => Promise<SearchResult[]>;
   openFile: (relativePath: string) => Promise<void>;
   getLineItems: (recordId: string) => Promise<InvoiceLineItem[]>;
   saveFieldOverride: (input: FieldOverrideInput) => Promise<void>;
