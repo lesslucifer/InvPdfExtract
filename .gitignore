@@ -6,3 +6,4 @@ dist
 cache
 data
 data_backup
+.DS_Store
