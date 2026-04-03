@@ -22,6 +22,9 @@ export interface OverlayCallbacks {
   onSwitchVault: (vaultPath: string) => Promise<void>;
   onStopVault: () => Promise<void>;
   onReprocessAll: () => number;
+  onReprocessFile: (relativePath: string) => number;
+  onReprocessFolder: (folderPrefix: string) => number;
+  onCountFolderFiles: (folderPrefix: string) => number;
   onQuit: () => Promise<void>;
 }
 
@@ -328,6 +331,24 @@ export class OverlayWindow {
     ipcMain.handle('reprocess-all', async () => {
       if (!this.callbacks) return { count: 0 };
       const count = this.callbacks.onReprocessAll();
+      return { count };
+    });
+
+    ipcMain.handle('reprocess-file', async (_event, relativePath: string) => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onReprocessFile(relativePath);
+      return { count };
+    });
+
+    ipcMain.handle('reprocess-folder', async (_event, folderPrefix: string) => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onReprocessFolder(folderPrefix);
+      return { count };
+    });
+
+    ipcMain.handle('count-folder-files', async (_event, folderPrefix: string) => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onCountFolderFiles(folderPrefix);
       return { count };
     });
 

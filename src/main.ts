@@ -83,6 +83,90 @@ app.on('ready', async () => {
       extractionQueue?.trigger();
       return count;
     },
+    onReprocessFile: (relativePath: string) => {
+      if (!currentVault) return 0;
+      const { getFileByPath, updateFileStatus } = require('./core/db/files');
+      const file = getFileByPath(relativePath);
+      if (file) {
+        updateFileStatus(file.id, 'pending');
+        extractionQueue?.trigger();
+        return 1;
+      }
+      // File not in DB — run through sync engine to insert + process
+      if (syncEngine) {
+        const fullPath = require('path').join(currentVault.rootPath, relativePath);
+        syncEngine.handleEvent('file:added', relativePath, fullPath);
+        scheduleExtraction();
+        return 1;
+      }
+      return 0;
+    },
+    onReprocessFolder: (folderPrefix: string) => {
+      if (!currentVault) return 0;
+      const { getFilesByFolder, updateFileStatus } = require('./core/db/files');
+      const files = getFilesByFolder(folderPrefix);
+      for (const file of files) {
+        updateFileStatus(file.id, 'pending');
+      }
+      // Also scan filesystem for untracked files in this folder
+      const fs = require('fs');
+      const pathMod = require('path');
+      const { WATCHED_EXTENSIONS } = require('./shared/constants');
+      const trackedPaths = new Set(files.map((f: any) => f.relative_path));
+      let newCount = 0;
+      const scanDir = (dir: string) => {
+        try {
+          const entries = fs.readdirSync(pathMod.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          for (const entry of entries) {
+            const rel = dir ? `${dir}/${entry.name}` : entry.name;
+            if (entry.isDirectory() && !entry.name.startsWith('.')) {
+              scanDir(rel);
+            } else if (entry.isFile()) {
+              const ext = pathMod.extname(entry.name).toLowerCase();
+              if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
+                const fullPath = pathMod.join(currentVault!.rootPath, rel);
+                syncEngine?.handleEvent('file:added', rel, fullPath);
+                newCount++;
+              }
+            }
+          }
+        } catch { /* skip unreadable dirs */ }
+      };
+      scanDir(folderPrefix);
+      if (files.length > 0 || newCount > 0) {
+        scheduleExtraction();
+      }
+      return files.length + newCount;
+    },
+    onCountFolderFiles: (folderPrefix: string) => {
+      if (!currentVault) return 0;
+      // Count both tracked DB files and untracked filesystem files
+      const { getFilesByFolder } = require('./core/db/files');
+      const fs = require('fs');
+      const pathMod = require('path');
+      const { WATCHED_EXTENSIONS } = require('./shared/constants');
+      const dbFiles = getFilesByFolder(folderPrefix);
+      const trackedPaths = new Set(dbFiles.map((f: any) => f.relative_path));
+      let total = dbFiles.length;
+      const scanDir = (dir: string) => {
+        try {
+          const entries = fs.readdirSync(pathMod.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          for (const entry of entries) {
+            const rel = dir ? `${dir}/${entry.name}` : entry.name;
+            if (entry.isDirectory() && !entry.name.startsWith('.')) {
+              scanDir(rel);
+            } else if (entry.isFile()) {
+              const ext = pathMod.extname(entry.name).toLowerCase();
+              if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
+                total++;
+              }
+            }
+          }
+        } catch { /* skip unreadable dirs */ }
+      };
+      scanDir(folderPrefix);
+      return total;
+    },
     onQuit: handleQuit,
   });
   overlayWindow.registerIpcHandlers();

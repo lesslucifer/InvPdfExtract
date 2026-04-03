@@ -496,4 +496,28 @@ describe('Overlay State Machine', () => {
       expect(result.folderScope).toBe('2024/Q1');
     });
   });
+
+  // === Reprocess Confirmation Logic ===
+
+  describe('shouldConfirmReprocess', () => {
+    function shouldConfirmReprocess(fileCount: number): boolean {
+      return fileCount > 10;
+    }
+
+    it('returns false for 1 file', () => {
+      expect(shouldConfirmReprocess(1)).toBe(false);
+    });
+
+    it('returns false for 10 files (boundary)', () => {
+      expect(shouldConfirmReprocess(10)).toBe(false);
+    });
+
+    it('returns true for 11 files', () => {
+      expect(shouldConfirmReprocess(11)).toBe(true);
+    });
+
+    it('returns true for 100 files', () => {
+      expect(shouldConfirmReprocess(100)).toBe(true);
+    });
+  });
 });

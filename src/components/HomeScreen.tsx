@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FolderInfo, AggregateStats, SearchFilters } from '../shared/types';
 import { StickyFooter } from './StickyFooter';
 
@@ -8,12 +8,14 @@ interface HomeScreenProps {
   onFolderBrowse: (folder: string) => void;
   onOpenFolder: (relativePath: string) => void;
   onSettingsClick: () => void;
+  onReprocessFolder?: (folderPrefix: string) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onFolderBrowse,
   onOpenFolder,
   onSettingsClick,
+  onReprocessFolder,
 }) => {
   const [recentFolders, setRecentFolders] = useState<FolderInfo[]>([]);
   const [topFolders, setTopFolders] = useState<FolderInfo[]>([]);
@@ -83,6 +85,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               folder={folder}
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
+              onReprocess={onReprocessFolder}
             />
           ))}
           {supplementFolders.map(folder => (
@@ -91,6 +94,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               folder={folder}
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
+              onReprocess={onReprocessFolder}
             />
           ))}
         </div>
@@ -115,6 +119,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               folder={folder}
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
+              onReprocess={onReprocessFolder}
             />
           ))}
         </div>
@@ -129,24 +134,72 @@ interface FolderRowProps {
   folder: FolderInfo;
   onBrowse: (folder: string) => void;
   onOpen: (relativePath: string) => void;
+  onReprocess?: (folderPrefix: string) => void;
 }
 
-const FolderRow: React.FC<FolderRowProps> = ({ folder, onBrowse, onOpen }) => {
+const FolderRow: React.FC<FolderRowProps> = ({ folder, onBrowse, onOpen, onReprocess }) => {
+  const [confirmPending, setConfirmPending] = useState(false);
+
+  const handleReprocess = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onReprocess) return;
+    try {
+      const { count } = await window.api.countFolderFiles(folder.path);
+      if (count > 10) {
+        setConfirmPending(true);
+      } else {
+        onReprocess(folder.path);
+      }
+    } catch {
+      onReprocess(folder.path);
+    }
+  }, [onReprocess, folder.path]);
+
+  const handleConfirm = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onReprocess?.(folder.path);
+    setConfirmPending(false);
+  }, [onReprocess, folder.path]);
+
+  const handleCancel = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmPending(false);
+  }, []);
+
   return (
-    <div className="folder-row" onClick={() => onBrowse(folder.path)} role="button" tabIndex={0}>
-      <span className="folder-icon">&#x1F4C1;</span>
-      <span className="folder-path">{folder.path}/</span>
-      <span className="folder-count">{folder.recordCount} rec</span>
-      <div className="folder-row-actions">
-        <button
-          className="folder-open-btn"
-          onClick={(e) => { e.stopPropagation(); onOpen(folder.path); }}
-          aria-label={`Open ${folder.path} in file manager`}
-          title="Open in Finder"
-        >
-          &#x1F4C2;
-        </button>
+    <>
+      <div className="folder-row" onClick={() => onBrowse(folder.path)} role="button" tabIndex={0}>
+        <span className="folder-icon">&#x1F4C1;</span>
+        <span className="folder-path">{folder.path}/</span>
+        <span className="folder-count">{folder.recordCount} rec</span>
+        <div className="folder-row-actions">
+          {onReprocess && (
+            <button
+              className="folder-reload-btn"
+              onClick={handleReprocess}
+              aria-label={`Reprocess all files in ${folder.path}`}
+              title="Reprocess folder"
+            >
+              &#x21BB;
+            </button>
+          )}
+          <button
+            className="folder-open-btn"
+            onClick={(e) => { e.stopPropagation(); onOpen(folder.path); }}
+            aria-label={`Open ${folder.path} in file manager`}
+            title="Open in Finder"
+          >
+            &#x1F4C2;
+          </button>
+        </div>
       </div>
-    </div>
+      {confirmPending && (
+        <div className="result-confirm-bar" onClick={(e) => e.stopPropagation()}>
+          <span>Reprocess all files in <strong>{folder.path}</strong>?</span>
+          <button className="result-confirm-yes" onClick={handleConfirm}>Yes</button>
+          <button className="result-confirm-no" onClick={handleCancel}>Cancel</button>
+        </div>
+      )}
+    </>
   );
 };

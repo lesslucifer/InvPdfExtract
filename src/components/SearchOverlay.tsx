@@ -270,6 +270,14 @@ export const SearchOverlay: React.FC = () => {
     window.api.openFile(relativePath);
   }, []);
 
+  const handleReprocessFile = useCallback(async (relativePath: string) => {
+    await window.api.reprocessFile(relativePath);
+  }, []);
+
+  const handleReprocessFolder = useCallback(async (folderPrefix: string) => {
+    await window.api.reprocessFolder(folderPrefix);
+  }, []);
+
   const handleFieldUpdated = useCallback(() => {
     if (query.trim() || folderScope || filters.docType || filters.status ||
         filters.amountMin != null || filters.amountMax != null || filters.dateFilter) {
@@ -384,6 +392,8 @@ export const SearchOverlay: React.FC = () => {
           scope={folderScope}
           onSelectFolder={handlePathSearchSelectFolder}
           onSelectFile={handlePathSearchSelectFile}
+          onReprocessFile={handleReprocessFile}
+          onReprocessFolder={handleReprocessFolder}
         />
       </div>
     );
@@ -409,6 +419,7 @@ export const SearchOverlay: React.FC = () => {
           onFolderBrowse={handleFolderBrowse}
           onOpenFolder={handleOpenFolder}
           onSettingsClick={handleGearClick}
+          onReprocessFolder={handleReprocessFolder}
         />
       )}
       {hasSearched && (
@@ -422,6 +433,8 @@ export const SearchOverlay: React.FC = () => {
           onFieldUpdated={handleFieldUpdated}
           onFolderClick={handleFolderBrowse}
           onDocTypeClick={handleDocTypeClick}
+          onReprocessFile={handleReprocessFile}
+          onReprocessFolder={handleReprocessFolder}
         />
       )}
       {hasSearched && aggregates.totalRecords > 0 && (

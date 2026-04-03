@@ -75,6 +75,11 @@ export function softDeleteFile(id: string): void {
   txn();
 }
 
+export function getFilesByFolder(folderPrefix: string): VaultFile[] {
+  const db = getDatabase();
+  return db.prepare('SELECT * FROM files WHERE relative_path LIKE ? AND deleted_at IS NULL').all(`${folderPrefix}/%`) as VaultFile[];
+}
+
 export function getAllActiveFiles(): VaultFile[] {
   const db = getDatabase();
   return db.prepare('SELECT * FROM files WHERE deleted_at IS NULL').all() as VaultFile[];

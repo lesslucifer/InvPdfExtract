@@ -13,11 +13,13 @@ interface Props {
   onFieldUpdated: () => void;
   onFolderClick?: (folder: string) => void;
   onDocTypeClick?: (docType: string) => void;
+  onReprocessFile?: (relativePath: string) => void;
+  onReprocessFolder?: (folderPrefix: string) => void;
 }
 
 export const ResultList: React.FC<Props> = ({
   results, selectedIndex, expandedId, onSelect, onToggleExpand, onOpenFile, onFieldUpdated,
-  onFolderClick, onDocTypeClick,
+  onFolderClick, onDocTypeClick, onReprocessFile, onReprocessFolder,
 }) => {
   if (results.length === 0) {
     return <div className="result-empty">No results found</div>;
@@ -38,6 +40,8 @@ export const ResultList: React.FC<Props> = ({
             onFolderClick={onFolderClick}
             onDocTypeClick={onDocTypeClick}
             onOpenFile={onOpenFile}
+            onReprocessFile={onReprocessFile}
+            onReprocessFolder={onReprocessFolder}
           />
           {expandedId === result.id && (
             <ResultDetail
