@@ -10,6 +10,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { HomeScreen } from './HomeScreen';
 import { StickyFooter } from './StickyFooter';
 import { PathResultsList } from './PathResultsList';
+import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 
 const DEBOUNCE_MS = 200;
 
@@ -297,6 +298,14 @@ export const SearchOverlay: React.FC = () => {
     goTo(OverlayState.Settings);
   }, [goTo]);
 
+  const handleStatusDotClick = useCallback(() => {
+    goTo(OverlayState.ProcessingStatus);
+  }, [goTo]);
+
+  const handleProcessingStatusBack = useCallback(() => {
+    goTo(previousState === OverlayState.ProcessingStatus ? OverlayState.Home : previousState);
+  }, [goTo, previousState]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -332,6 +341,8 @@ export const SearchOverlay: React.FC = () => {
             setFilters({ text: '' });
           } else if (overlayState === OverlayState.Settings) {
             handleSettingsBack();
+          } else if (overlayState === OverlayState.ProcessingStatus) {
+            handleProcessingStatusBack();
           } else if (expandedId) {
             setExpandedId(null);
           } else if (query) {
@@ -359,7 +370,7 @@ export const SearchOverlay: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
-      folderScope, filters, handleQueryChange, handleSettingsBack, handleClearFolderScope, doSearch]);
+      folderScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, doSearch]);
 
   // Check if there are active filter pills
   const hasFilterPills = filters.docType || filters.status ||
@@ -382,11 +393,19 @@ export const SearchOverlay: React.FC = () => {
     );
   }
 
+  if (overlayState === OverlayState.ProcessingStatus) {
+    return (
+      <div className="search-overlay">
+        <ProcessingStatusPanel onBack={handleProcessingStatusBack} />
+      </div>
+    );
+  }
+
   // PathSearch mode
   if (overlayState === OverlayState.PathSearch) {
     return (
       <div className="search-overlay">
-        <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} status={status} />
+        <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -402,7 +421,7 @@ export const SearchOverlay: React.FC = () => {
   // Home and Search states share the same layout
   return (
     <div className="search-overlay">
-      <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} status={status} />
+      <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
       {hasFilterPills && (
         <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} />
       )}

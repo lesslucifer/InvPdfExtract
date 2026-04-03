@@ -6,10 +6,11 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   onGearClick?: () => void;
+  onStatusDotClick?: () => void;
   status?: StatusIndicator;
 }
 
-export const SearchInput: React.FC<Props> = ({ value, onChange, onGearClick, status = 'idle' }) => {
+export const SearchInput: React.FC<Props> = ({ value, onChange, onGearClick, onStatusDotClick, status = 'idle' }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,11 +34,20 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onGearClick, sta
           &times;
         </button>
       )}
-      <span
-        className={`status-dot status-dot--${status}`}
-        title={status === 'idle' ? 'Idle' : status === 'processing' ? 'Processing...' : status === 'review' ? 'Needs review' : 'Error'}
-        aria-label={`Status: ${status}`}
-      />
+      {onStatusDotClick ? (
+        <button
+          className={`status-dot status-dot--${status} status-dot--clickable`}
+          title={status === 'idle' ? 'Idle' : status === 'processing' ? 'Processing...' : status === 'review' ? 'Needs review' : 'Error'}
+          aria-label={`Status: ${status}`}
+          onClick={onStatusDotClick}
+        />
+      ) : (
+        <span
+          className={`status-dot status-dot--${status}`}
+          title={status === 'idle' ? 'Idle' : status === 'processing' ? 'Processing...' : status === 'review' ? 'Needs review' : 'Error'}
+          aria-label={`Status: ${status}`}
+        />
+      )}
       {onGearClick && (
         <button className="gear-icon" onClick={onGearClick} aria-label="Settings">
           &#x2699;

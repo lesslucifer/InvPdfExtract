@@ -84,3 +84,51 @@ export function getAllActiveFiles(): VaultFile[] {
   const db = getDatabase();
   return db.prepare('SELECT * FROM files WHERE deleted_at IS NULL').all() as VaultFile[];
 }
+
+export function getFilesByStatuses(statuses: FileStatus[]): VaultFile[] {
+  const db = getDatabase();
+  const placeholders = statuses.map(() => '?').join(',');
+  return db.prepare(
+    `SELECT * FROM files WHERE status IN (${placeholders}) AND deleted_at IS NULL ORDER BY updated_at DESC`
+  ).all(...statuses) as VaultFile[];
+}
+
+export function getFileStatusesByPaths(paths: string[]): Record<string, FileStatus> {
+  if (paths.length === 0) return {};
+  const db = getDatabase();
+  const placeholders = paths.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT relative_path, status FROM files WHERE relative_path IN (${placeholders}) AND deleted_at IS NULL`
+  ).all(...paths) as { relative_path: string; status: FileStatus }[];
+  const result: Record<string, FileStatus> = {};
+  for (const r of rows) result[r.relative_path] = r.status;
+  return result;
+}
+
+const STATUS_PRIORITY: Record<string, number> = {
+  [FileStatus.Processing]: 0,
+  [FileStatus.Error]: 1,
+  [FileStatus.Review]: 2,
+  [FileStatus.Pending]: 3,
+  [FileStatus.Done]: 4,
+};
+
+export function getFolderStatuses(): Record<string, FileStatus> {
+  const db = getDatabase();
+  const rows = db.prepare(
+    `SELECT relative_path, status FROM files WHERE deleted_at IS NULL`
+  ).all() as { relative_path: string; status: FileStatus }[];
+
+  // Group by top-level folder and derive aggregate status
+  const folderStatuses: Record<string, FileStatus> = {};
+  for (const row of rows) {
+    const slashIdx = row.relative_path.indexOf('/');
+    if (slashIdx === -1) continue; // file at root, skip folder aggregation
+    const folder = row.relative_path.substring(0, slashIdx);
+    const existing = folderStatuses[folder];
+    if (!existing || (STATUS_PRIORITY[row.status] ?? 5) < (STATUS_PRIORITY[existing] ?? 5)) {
+      folderStatuses[folder] = row.status;
+    }
+  }
+  return folderStatuses;
+}

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { SearchResult, DocType } from '../shared/types';
+import { StatusDot } from './StatusDot';
 
 interface Props {
   result: SearchResult;
@@ -143,6 +144,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             )}
           </span>
         ))}
+        {result.file_status && <StatusDot status={result.file_status} />}
         {onOpenFile ? (
           <span
             className="result-file-link"

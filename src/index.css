@@ -562,9 +562,56 @@ body {
   background: var(--confidence-low); /* red */
 }
 
+.status-dot--clickable {
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  outline: none;
+}
+
+.status-dot--clickable:hover {
+  transform: scale(1.4);
+}
+
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+/* === File/Folder Status Dot === */
+.status-dot-file {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+
+.status-dot-file[role="button"] {
+  cursor: pointer;
+}
+
+.status-dot-file--pending {
+  background: var(--text-muted);
+}
+
+.status-dot-file--processing {
+  background: var(--accent);
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.status-dot-file--done {
+  background: var(--confidence-high);
+}
+
+.status-dot-file--review {
+  background: var(--confidence-medium);
+}
+
+.status-dot-file--error {
+  background: var(--confidence-low);
 }
 
 /* === No Vault Screen === */
@@ -1187,6 +1234,163 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* === Processing Status Panel === */
+.processing-status-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.processing-status-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+}
+
+.processing-status-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.processing-status-tab:hover {
+  color: var(--text);
+}
+
+.processing-status-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.processing-status-tab-count {
+  font-size: 10px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.processing-status-tab.active .processing-status-tab-count {
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--accent);
+}
+
+.processing-status-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.processing-status-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.processing-status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.processing-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.processing-status-row:hover {
+  background: var(--bg-hover);
+}
+
+.processing-status-row--error {
+  align-items: flex-start;
+}
+
+.processing-status-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.processing-status-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.processing-status-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.processing-status-confidence {
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.processing-status-confidence.high {
+  color: var(--confidence-high);
+  background: rgba(52, 199, 89, 0.1);
+}
+
+.processing-status-confidence.medium {
+  color: var(--confidence-medium);
+  background: rgba(255, 159, 10, 0.1);
+}
+
+.processing-status-confidence.low {
+  color: var(--confidence-low);
+  background: rgba(255, 59, 48, 0.1);
+}
+
+.processing-status-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.processing-status-error-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.processing-status-error-msg {
+  font-size: 11px;
+  color: var(--confidence-low);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* === Sticky Footer === */

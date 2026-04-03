@@ -183,6 +183,39 @@ export function getRecentLogs(limit: number = 50): ProcessingLog[] {
   return db.prepare('SELECT * FROM processing_logs ORDER BY timestamp DESC LIMIT ?').all(limit) as ProcessingLog[];
 }
 
+export function getErrorLogsWithPath(): Array<ProcessingLog & { relative_path: string | null }> {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT pl.*, f.relative_path
+    FROM processing_logs pl
+    LEFT JOIN extraction_batches eb ON pl.batch_id = eb.id
+    LEFT JOIN files f ON eb.file_id = f.id
+    WHERE pl.level = 'error'
+    ORDER BY pl.timestamp DESC
+    LIMIT 100
+  `).all() as any[];
+}
+
+export function getProcessedFilesWithStats(): Array<{
+  id: string; relative_path: string; status: string; doc_type: string | null;
+  updated_at: string; record_count: number; overall_confidence: number;
+}> {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT f.id, f.relative_path, f.status, f.doc_type, f.updated_at,
+      COALESCE(eb.record_count, 0) as record_count,
+      COALESCE(eb.overall_confidence, 0) as overall_confidence
+    FROM files f
+    LEFT JOIN (
+      SELECT file_id, record_count, overall_confidence,
+        ROW_NUMBER() OVER (PARTITION BY file_id ORDER BY processed_at DESC) as rn
+      FROM extraction_batches
+    ) eb ON eb.file_id = f.id AND eb.rn = 1
+    WHERE f.status IN ('done', 'review') AND f.deleted_at IS NULL
+    ORDER BY f.updated_at DESC
+  `).all() as any[];
+}
+
 // === Field Overrides ===
 
 export function getFieldOverrides(recordId: string): any[] {
@@ -454,7 +487,7 @@ export function searchRecords(query: string, limit: number = 50): any[] {
   params.push(limit);
 
   const sql = `
-    SELECT r.*, f.relative_path,
+    SELECT r.*, f.relative_path, f.status as file_status,
       COALESCE(id2.so_hoa_don, '') as so_hoa_don,
       COALESCE(id2.tong_tien, 0) as tong_tien,
       COALESCE(id2.mst, '') as mst,

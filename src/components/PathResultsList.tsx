@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { FileStatus } from '../shared/types';
+import { StatusDot } from './StatusDot';
 
 const CONFIRM_THRESHOLD = 10;
 
@@ -25,6 +27,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   const [items, setItems] = useState<PathItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [confirmPath, setConfirmPath] = useState<string | null>(null);
+  const [itemStatuses, setItemStatuses] = useState<Record<string, FileStatus>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -34,6 +37,14 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
         const results = await window.api.listVaultPaths(query, scope ?? undefined);
         setItems(results);
         setSelectedIndex(0);
+
+        // Fetch statuses for files and folders
+        const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
+        const [fileStatuses, folderStatuses] = await Promise.all([
+          filePaths.length > 0 ? window.api.getFileStatusesByPaths(filePaths) : Promise.resolve({}),
+          window.api.getFolderStatuses(),
+        ]);
+        setItemStatuses({ ...folderStatuses, ...fileStatuses });
       } catch {
         setItems([]);
       }
@@ -126,6 +137,9 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
             onMouseEnter={() => setSelectedIndex(idx)}
           >
             <span className="path-results-icon">{item.isDir ? '📁' : '📄'}</span>
+            {itemStatuses[item.isDir ? item.name : item.relativePath] && (
+              <StatusDot status={itemStatuses[item.isDir ? item.name : item.relativePath]} />
+            )}
             <span className="path-results-name">{item.name}</span>
             <span className="path-results-path">{item.relativePath}</span>
             {showReload && (

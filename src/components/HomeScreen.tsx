@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FolderInfo, AggregateStats, SearchFilters } from '../shared/types';
+import { FolderInfo, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
 import { StickyFooter } from './StickyFooter';
+import { StatusDot } from './StatusDot';
 
 const ALL_FILTERS: SearchFilters = {};
 
@@ -20,21 +21,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [recentFolders, setRecentFolders] = useState<FolderInfo[]>([]);
   const [topFolders, setTopFolders] = useState<FolderInfo[]>([]);
   const [aggregates, setAggregates] = useState<AggregateStats>({ totalRecords: 0, totalAmount: 0 });
+  const [folderStatuses, setFolderStatuses] = useState<Record<string, FileStatus>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [recent, top, agg] = await Promise.all([
+        const [recent, top, agg, statuses] = await Promise.all([
           window.api.listRecentFolders(5),
           window.api.listTopFolders(),
           window.api.getAggregates(ALL_FILTERS),
+          window.api.getFolderStatuses(),
         ]);
         if (cancelled) return;
         setRecentFolders(recent);
         setTopFolders(top);
         setAggregates(agg);
+        setFolderStatuses(statuses);
       } catch (err) {
         console.error('[HomeScreen] Failed to load folders:', err);
       } finally {
@@ -83,6 +87,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <FolderRow
               key={folder.path}
               folder={folder}
+              folderStatus={folderStatuses[folder.path]}
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
               onReprocess={onReprocessFolder}
@@ -92,6 +97,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <FolderRow
               key={folder.path}
               folder={folder}
+              folderStatus={folderStatuses[folder.path]}
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
               onReprocess={onReprocessFolder}
@@ -117,6 +123,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <FolderRow
               key={folder.path}
               folder={folder}
+              folderStatus={folderStatuses[folder.path]}
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
               onReprocess={onReprocessFolder}
@@ -132,12 +139,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
 interface FolderRowProps {
   folder: FolderInfo;
+  folderStatus?: FileStatus;
   onBrowse: (folder: string) => void;
   onOpen: (relativePath: string) => void;
   onReprocess?: (folderPrefix: string) => void;
 }
 
-const FolderRow: React.FC<FolderRowProps> = ({ folder, onBrowse, onOpen, onReprocess }) => {
+const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, onOpen, onReprocess }) => {
   const [confirmPending, setConfirmPending] = useState(false);
 
   const handleReprocess = useCallback(async (e: React.MouseEvent) => {
@@ -170,6 +178,7 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, onBrowse, onOpen, onRepro
     <>
       <div className="folder-row" onClick={() => onBrowse(folder.path)} role="button" tabIndex={0}>
         <span className="folder-icon">&#x1F4C1;</span>
+        {folderStatus && <StatusDot status={folderStatus} />}
         <span className="folder-path">{folder.path}/</span>
         <span className="folder-count">{folder.recordCount} rec</span>
         <div className="folder-row-actions">

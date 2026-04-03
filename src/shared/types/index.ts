@@ -45,6 +45,7 @@ export enum OverlayState {
   Search = 'search',
   PathSearch = 'path-search',
   Settings = 'settings',
+  ProcessingStatus = 'processing-status',
 }
 
 // === Spotlight UX Types ===
@@ -301,6 +302,7 @@ export interface SearchResult {
   confidence: number;
   ngay: string | null;
   relative_path: string;
+  file_status: FileStatus;
   // Bank statement fields
   ten_ngan_hang: string;
   stk: string;
@@ -324,6 +326,25 @@ export interface FieldOverrideInput {
   tableName: string;
   fieldName: string;
   userValue: string;
+}
+
+export interface ProcessedFileInfo {
+  id: string;
+  relative_path: string;
+  status: string;
+  doc_type: string | null;
+  updated_at: string;
+  record_count: number;
+  overall_confidence: number;
+}
+
+export interface ErrorLogEntry {
+  id: string;
+  batch_id: string | null;
+  level: LogLevel;
+  message: string;
+  timestamp: string;
+  relative_path: string | null;
 }
 
 export interface LineItemFieldInput {
@@ -373,6 +394,13 @@ export interface InvoiceVaultAPI {
   quitApp: () => Promise<void>;
   onStatusUpdate: (callback: (status: 'idle' | 'processing' | 'review' | 'error') => void) => () => void;
   listVaultPaths: (query: string, scope?: string) => Promise<Array<{ name: string; relativePath: string; isDir: boolean }>>;
+  // Processing status
+  getFilesByStatuses: (statuses: FileStatus[]) => Promise<VaultFile[]>;
+  getErrorLogsWithPath: () => Promise<ErrorLogEntry[]>;
+  getProcessedFilesWithStats: () => Promise<ProcessedFileInfo[]>;
+  getFileStatusesByPaths: (paths: string[]) => Promise<{ [path: string]: FileStatus }>;
+  getFolderStatuses: () => Promise<{ [folder: string]: FileStatus }>;
+  onFileStatusChanged: (callback: (data: { fileIds: string[]; status: FileStatus }) => void) => () => void;
 }
 
 // === Event Types ===

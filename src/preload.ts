@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, SearchFilters } from './shared/types';
+import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from './shared/types';
 
 const api: InvoiceVaultAPI = {
   search: (query: string) => ipcRenderer.invoke('search', query),
@@ -40,6 +40,17 @@ const api: InvoiceVaultAPI = {
     ipcRenderer.on('overlay-status-update', listener);
     // Return an unsubscribe function
     return () => ipcRenderer.removeListener('overlay-status-update', listener);
+  },
+  // Processing status
+  getFilesByStatuses: (statuses: FileStatus[]) => ipcRenderer.invoke('get-files-by-statuses', statuses),
+  getErrorLogsWithPath: () => ipcRenderer.invoke('get-error-logs-with-path'),
+  getProcessedFilesWithStats: () => ipcRenderer.invoke('get-processed-files-with-stats'),
+  getFileStatusesByPaths: (paths: string[]) => ipcRenderer.invoke('get-file-statuses-by-paths', paths),
+  getFolderStatuses: () => ipcRenderer.invoke('get-folder-statuses'),
+  onFileStatusChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: { fileIds: string[]; status: FileStatus }) => callback(data);
+    ipcRenderer.on('file-status-changed', listener);
+    return () => ipcRenderer.removeListener('file-status-changed', listener);
   },
 };
 

@@ -7,9 +7,11 @@ import {
   resolveAllConflictsForRecord, updateFtsIndex,
   listRecentFolders, listTopFolders,
   getAggregates, gatherFilteredExportData,
+  getErrorLogsWithPath, getProcessedFilesWithStats,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
-import { FieldOverrideInput, LineItemFieldInput, SearchFilters } from '../shared/types';
+import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
+import { FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault } from '../core/vault';
 import { eventBus } from '../core/event-bus';
@@ -147,10 +149,25 @@ export class OverlayWindow {
     const send = (status: StatusIndicator) => {
       this.window?.webContents.send('overlay-status-update', status);
     };
-    eventBus.on('extraction:started', () => send('processing'));
-    eventBus.on('extraction:completed', () => send('idle'));
-    eventBus.on('extraction:error', () => send('error'));
-    eventBus.on('review:needed', () => send('review'));
+    const sendFileStatus = (fileIds: string[], status: FileStatus) => {
+      this.window?.webContents.send('file-status-changed', { fileIds, status });
+    };
+    eventBus.on('extraction:started', (data) => {
+      send('processing');
+      sendFileStatus(data.fileIds, FileStatus.Processing);
+    });
+    eventBus.on('extraction:completed', (data) => {
+      send('idle');
+      sendFileStatus([data.fileId], FileStatus.Done);
+    });
+    eventBus.on('extraction:error', (data) => {
+      send('error');
+      sendFileStatus([data.fileId], FileStatus.Error);
+    });
+    eventBus.on('review:needed', (data) => {
+      send('review');
+      sendFileStatus([data.fileId], FileStatus.Review);
+    });
   }
 
   registerIpcHandlers(): void {
@@ -443,6 +460,52 @@ export class OverlayWindow {
     ipcMain.handle('list-vault-paths', async (_event, query: string, scope?: string) => {
       if (typeof query === 'string' && query.includes('..')) return [];
       return this.pathCache?.query(query ?? '', scope ?? undefined) ?? [];
+    });
+
+    // Processing status handlers
+    ipcMain.handle('get-files-by-statuses', async (_event, statuses: FileStatus[]) => {
+      try {
+        return getFilesByStatuses(statuses);
+      } catch (err) {
+        console.error('[Overlay] get-files-by-statuses failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-error-logs-with-path', async () => {
+      try {
+        return getErrorLogsWithPath();
+      } catch (err) {
+        console.error('[Overlay] get-error-logs-with-path failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-processed-files-with-stats', async () => {
+      try {
+        return getProcessedFilesWithStats();
+      } catch (err) {
+        console.error('[Overlay] get-processed-files-with-stats failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-file-statuses-by-paths', async (_event, paths: string[]) => {
+      try {
+        return getFileStatusesByPaths(paths);
+      } catch (err) {
+        console.error('[Overlay] get-file-statuses-by-paths failed:', err);
+        return {};
+      }
+    });
+
+    ipcMain.handle('get-folder-statuses', async () => {
+      try {
+        return getFolderStatuses();
+      } catch (err) {
+        console.error('[Overlay] get-folder-statuses failed:', err);
+        return {};
+      }
     });
 
     ipcMain.handle('export-filtered', async (_event, filters: SearchFilters) => {
