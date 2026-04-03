@@ -11,12 +11,12 @@ Previously a Node.js CLI tool (preserved on `v1` branch). Now being rewritten as
 ## Commands
 
 ```bash
-pnpm start           # Launch Electron app in dev mode (electron-forge)
-pnpm run package     # Package the app for distribution
-pnpm run make        # Build platform-specific installers
+yarn start           # Launch Electron app in dev mode (electron-forge)
+yarn run package     # Package the app for distribution
+yarn run make        # Build platform-specific installers
 ```
 
-Package manager is **pnpm** (see `.npmrc` for config).
+Package manager is **yarn** (v1 Classic).
 
 ## Architecture
 

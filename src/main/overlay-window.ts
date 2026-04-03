@@ -17,9 +17,17 @@ export class OverlayWindow {
 
   registerShortcut(): void {
     const accelerator = process.platform === 'darwin' ? 'Cmd+Shift+I' : 'Ctrl+Shift+I';
-    globalShortcut.register(accelerator, () => {
+    const registered = globalShortcut.register(accelerator, () => {
       this.toggle();
     });
+    if (!registered) {
+      console.warn('[Overlay] Failed to register shortcut — it may be in use by another app');
+    }
+  }
+
+  /** Allow triggering the overlay from tray menu or other callers */
+  showOverlay(): void {
+    this.show();
   }
 
   unregisterShortcut(): void {
@@ -43,7 +51,9 @@ export class OverlayWindow {
       this.createWindow();
     }
     this.positionWindow();
+    this.window!.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     this.window!.show();
+    this.window!.setVisibleOnAllWorkspaces(false);
     this.window!.focus();
   }
 
@@ -71,6 +81,7 @@ export class OverlayWindow {
       skipTaskbar: true,
       resizable: false,
       show: false,
+      hasShadow: false,
       webPreferences: {
         preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
         contextIsolation: true,

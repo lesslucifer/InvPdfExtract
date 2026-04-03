@@ -15,6 +15,7 @@ export class TrayManager {
   private onProcessNow: (() => void) | null = null;
   private onReprocessAll: (() => void) | null = null;
   private onSwitchVault: ((vaultPath: string) => void) | null = null;
+  private onSearchOverlay: (() => void) | null = null;
   private onQuit: (() => void) | null = null;
   private activityWindow: BrowserWindow | null = null;
 
@@ -23,12 +24,14 @@ export class TrayManager {
     onProcessNow: () => void;
     onReprocessAll?: () => void;
     onSwitchVault?: (vaultPath: string) => void;
+    onSearchOverlay?: () => void;
     onQuit: () => void;
   }) {
     this.onInitVault = opts.onInitVault;
     this.onProcessNow = opts.onProcessNow;
     this.onReprocessAll = opts.onReprocessAll ?? null;
     this.onSwitchVault = opts.onSwitchVault ?? null;
+    this.onSearchOverlay = opts.onSearchOverlay ?? null;
     this.onQuit = opts.onQuit;
   }
 
@@ -38,7 +41,14 @@ export class TrayManager {
     const icon = this.icons.get(TrayState.Idle)!;
     this.tray = new Tray(icon);
     this.tray.setToolTip('InvoiceVault');
+    // Set a title as fallback — visible on macOS even if the icon has issues
+    this.tray.setTitle('IV');
     this.updateMenu();
+
+    // On macOS, also respond to click (left-click) to show the context menu
+    this.tray.on('click', () => {
+      this.tray?.popUpContextMenu();
+    });
 
     this.subscribeToEvents();
   }
@@ -49,6 +59,7 @@ export class TrayManager {
   }
 
   setState(state: TrayState): void {
+    console.log("SET_STATE_TRAY", state)
     this.state = state;
     const icon = this.icons.get(state);
     if (icon && this.tray) {
@@ -71,9 +82,10 @@ export class TrayManager {
 
   private loadIcons(): void {
     // In dev: resources/ is at project root; in packaged: extraResource copies to Resources/
+    // Note: webpack mocks __dirname to '/' so we use app.getAppPath() instead
     const iconDir = app.isPackaged
       ? path.join(process.resourcesPath, 'resources')
-      : path.join(__dirname, '..', '..', 'resources');
+      : path.join(app.getAppPath(), 'resources');
     const states: [TrayState, string][] = [
       [TrayState.Idle, 'tray-idle.png'],
       [TrayState.Processing, 'tray-processing.png'],
@@ -85,12 +97,16 @@ export class TrayManager {
       const imgPath = path.join(iconDir, filename);
       try {
         const img = nativeImage.createFromPath(imgPath);
-        // Resize for macOS tray (16x16 is standard)
-        const resized = img.resize({ width: 16, height: 16 });
+        if (img.isEmpty()) {
+          console.warn(`[Tray] Icon loaded but empty: ${imgPath}`);
+          this.icons.set(state, nativeImage.createEmpty());
+          continue;
+        }
+        // macOS menu bar icons should be 18x18 or 22x22
+        const resized = img.resize({ width: 18, height: 18 });
         this.icons.set(state, resized);
       } catch (err) {
         console.warn(`[Tray] Failed to load icon: ${imgPath}`, err);
-        // Create a fallback empty icon
         this.icons.set(state, nativeImage.createEmpty());
       }
     }
@@ -111,6 +127,12 @@ export class TrayManager {
     }));
 
     const template: Electron.MenuItemConstructorOptions[] = [
+      {
+        label: 'Search...',
+        accelerator: process.platform === 'darwin' ? 'Cmd+Shift+I' : 'Ctrl+Shift+I',
+        click: () => this.onSearchOverlay?.(),
+      },
+      { type: 'separator' as const },
       {
         label: 'Initialize New Vault...',
         click: () => this.onInitVault?.(),
@@ -149,16 +171,16 @@ export class TrayManager {
         click: () => this.showActivityLog(),
       },
       { type: 'separator' as const },
-      {
-        label: 'Auto-start on Login',
-        type: 'checkbox' as const,
-        checked: config.autoStart,
-        click: (menuItem) => {
-          const autoStart = menuItem.checked;
-          saveAppConfig({ autoStart });
-          app.setLoginItemSettings({ openAtLogin: autoStart });
-        },
-      },
+      // {
+      //   label: 'Auto-start on Login',
+      //   type: 'checkbox' as const,
+      //   checked: config.autoStart,
+      //   click: (menuItem) => {
+      //     const autoStart = menuItem.checked;
+      //     saveAppConfig({ autoStart });
+      //     app.setLoginItemSettings({ openAtLogin: autoStart });
+      //   },
+      // },
       { type: 'separator' as const },
       {
         label: `Vault: ${this.vaultPath ? path.basename(this.vaultPath) : 'None'}`,

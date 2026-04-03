@@ -33,6 +33,11 @@ app.on('window-all-closed', () => {
 app.on('ready', async () => {
   console.log('[InvoiceVault] App ready');
 
+  // Hide dock icon on macOS — this is a tray-only app
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.hide();
+  }
+
   // Check Claude CLI availability
   if (!ClaudeCodeRunner.isAvailable()) {
     console.warn('[InvoiceVault] Claude CLI not found. Extraction will fail until installed.');
@@ -40,7 +45,7 @@ app.on('ready', async () => {
 
   // Apply auto-start setting
   const initialConfig = loadAppConfig();
-  app.setLoginItemSettings({ openAtLogin: initialConfig.autoStart });
+  // app.setLoginItemSettings({ openAtLogin: initialConfig.autoStart });
 
   // Initialize tray
   trayManager = new TrayManager({
@@ -48,6 +53,7 @@ app.on('ready', async () => {
     onProcessNow: handleProcessNow,
     onReprocessAll: handleReprocessAll,
     onSwitchVault: handleSwitchVault,
+    onSearchOverlay: () => overlayWindow?.showOverlay(),
     onQuit: handleQuit,
   });
   trayManager.init();
