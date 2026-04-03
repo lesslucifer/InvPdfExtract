@@ -16,7 +16,7 @@ pnpm run package     # Package the app for distribution
 pnpm run make        # Build platform-specific installers
 ```
 
-Package manager is **pnpm** (see `.npmrc` for config).
+Package manager is **pnpm**.
 
 ## Architecture
 
