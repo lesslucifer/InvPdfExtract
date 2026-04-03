@@ -43,6 +43,7 @@ export enum OverlayState {
   NoVault = 'no-vault',
   Home = 'home',
   Search = 'search',
+  PathSearch = 'path-search',
   Settings = 'settings',
 }
 
@@ -360,6 +361,7 @@ export interface InvoiceVaultAPI {
   hideOverlay: () => Promise<void>;
   quitApp: () => Promise<void>;
   onStatusUpdate: (callback: (status: 'idle' | 'processing' | 'review' | 'error') => void) => () => void;
+  listVaultPaths: (query: string) => Promise<Array<{ name: string; relativePath: string; isDir: boolean }>>;
 }
 
 // === Event Types ===

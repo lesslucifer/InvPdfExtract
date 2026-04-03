@@ -13,6 +13,7 @@ import { FieldOverrideInput, SearchFilters } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault } from '../core/vault';
 import { eventBus } from '../core/event-bus';
+import { VaultPathCache } from '../core/vault-path-cache';
 
 export type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -32,9 +33,14 @@ export class OverlayWindow {
   private vaultPath: string | null = null;
   private callbacks: OverlayCallbacks | null = null;
   private isHiding = false;
+  private pathCache: VaultPathCache | null = null;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
     this.callbacks = callbacks;
+  }
+
+  setPathCache(cache: VaultPathCache): void {
+    this.pathCache = cache;
   }
 
   registerShortcut(): void {
@@ -360,6 +366,11 @@ export class OverlayWindow {
         console.error('[Overlay] get-aggregates failed:', err);
         return { totalRecords: 0, totalAmount: 0 };
       }
+    });
+
+    ipcMain.handle('list-vault-paths', async (_event, query: string) => {
+      if (typeof query === 'string' && query.includes('..')) return [];
+      return this.pathCache?.query(query ?? '') ?? [];
     });
 
     ipcMain.handle('export-filtered', async (_event, filters: SearchFilters) => {

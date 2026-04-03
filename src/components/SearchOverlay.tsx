@@ -9,6 +9,7 @@ import { NoVaultScreen } from './NoVaultScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { HomeScreen } from './HomeScreen';
 import { StickyFooter } from './StickyFooter';
+import { PathResultsList } from './PathResultsList';
 
 const DEBOUNCE_MS = 200;
 
@@ -28,6 +29,10 @@ export const SearchOverlay: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [aggregates, setAggregates] = useState<AggregateStats>({ totalRecords: 0, totalAmount: 0 });
+  // PathSearch state — the text after the leading '/'
+  const [pathQuery, setPathQuery] = useState('');
+  // Track the state before PathSearch was entered so Backspace-to-empty can restore it
+  const prePathStateRef = useRef<OverlayState>(OverlayState.Home);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // On mount: check if vault exists
@@ -50,12 +55,11 @@ export const SearchOverlay: React.FC = () => {
     setOverlayState(state);
   }, [overlayState]);
 
-  // Build the full query string from free text + structured filters + folder scope
-  const buildFullQuery = useCallback((text: string, currentFilters: ParsedQuery, folder: string | null): string => {
+  // Build the full query string from free text + structured filters
+  const buildFullQuery = useCallback((text: string, currentFilters: ParsedQuery): string => {
     const merged: ParsedQuery = {
       ...currentFilters,
       text: text.trim(),
-      folder: folder || undefined,
     };
     return buildQueryString(merged);
   }, []);
@@ -72,16 +76,16 @@ export const SearchOverlay: React.FC = () => {
   }), []);
 
   const doSearch = useCallback(async (text: string, currentFilters: ParsedQuery, folder: string | null) => {
-    const searchQuery = buildFullQuery(text, currentFilters, folder);
-    if (!searchQuery) {
+    const searchQuery = buildFullQuery(text, currentFilters);
+    const sf = buildSearchFilters(text, currentFilters, folder);
+    if (!searchQuery && !folder) {
       setResults([]);
       setHasSearched(false);
       setAggregates({ totalRecords: 0, totalAmount: 0 });
       return;
     }
-    const sf = buildSearchFilters(text, currentFilters, folder);
     const [res, agg] = await Promise.all([
-      window.api.search(searchQuery),
+      window.api.search(searchQuery || ''),
       window.api.getAggregates(sf),
     ]);
     setResults(res);
@@ -106,6 +110,37 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   const handleQueryChange = useCallback((value: string) => {
+    // PathSearch: first char is '/' or '\'
+    if ((value.startsWith('/') || value.startsWith('\\')) &&
+        overlayState !== OverlayState.PathSearch) {
+      prePathStateRef.current = overlayState;
+      setOverlayState(OverlayState.PathSearch);
+      setPathQuery(value.slice(1));
+      setQuery(value);
+      return;
+    }
+
+    // Already in PathSearch mode — update pathQuery
+    if (overlayState === OverlayState.PathSearch) {
+      if (!value) {
+        // Backspace to empty — return to previous state
+        setOverlayState(prePathStateRef.current === OverlayState.PathSearch
+          ? OverlayState.Home
+          : prePathStateRef.current);
+        setQuery('');
+        setPathQuery('');
+      } else if (!value.startsWith('/') && !value.startsWith('\\')) {
+        // User deleted the leading slash — exit PathSearch to normal flow
+        setOverlayState(OverlayState.Home);
+        setQuery(value);
+        setPathQuery('');
+      } else {
+        setPathQuery(value.slice(1));
+        setQuery(value);
+      }
+      return;
+    }
+
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -168,6 +203,19 @@ export const SearchOverlay: React.FC = () => {
       doSearch(query, newFilters, folderScope);
     }
   }, [filters, query, folderScope, doSearch]);
+
+  const handlePathSearchSelectFolder = useCallback((relativePath: string) => {
+    setFolderScope(relativePath);
+    setQuery('');
+    setPathQuery('');
+    setOverlayState(OverlayState.Search);
+    doSearch('', filters, relativePath);
+  }, [doSearch, filters]);
+
+  const handlePathSearchSelectFile = useCallback((relativePath: string) => {
+    window.api.openFile(relativePath);
+    // Stay in PathSearch mode
+  }, []);
 
   const handleFolderBrowse = useCallback((folder: string) => {
     setFolderScope(folder);
@@ -246,6 +294,7 @@ export const SearchOverlay: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowDown':
+          // PathResultsList manages its own keyboard nav via its own event listener
           if (overlayState === OverlayState.Search || overlayState === OverlayState.Home) {
             e.preventDefault();
             setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
@@ -266,7 +315,14 @@ export const SearchOverlay: React.FC = () => {
         case 'Escape':
           e.preventDefault();
           // Escape cascade
-          if (overlayState === OverlayState.Settings) {
+          if (overlayState === OverlayState.PathSearch) {
+            // PathSearch Esc → full reset to Home
+            setOverlayState(OverlayState.Home);
+            setQuery('');
+            setPathQuery('');
+            setFolderScope(null);
+            setFilters({ text: '' });
+          } else if (overlayState === OverlayState.Settings) {
             handleSettingsBack();
           } else if (expandedId) {
             setExpandedId(null);
@@ -294,8 +350,8 @@ export const SearchOverlay: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, folderScope,
-      filters, handleQueryChange, handleSettingsBack, handleClearFolderScope, doSearch]);
+  }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
+      folderScope, filters, handleQueryChange, handleSettingsBack, handleClearFolderScope, doSearch]);
 
   // Check if there are active filter pills
   const hasFilterPills = filters.docType || filters.status ||
@@ -314,6 +370,20 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className="search-overlay">
         <SettingsPanel onBack={handleSettingsBack} />
+      </div>
+    );
+  }
+
+  // PathSearch mode
+  if (overlayState === OverlayState.PathSearch) {
+    return (
+      <div className="search-overlay">
+        <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} status={status} />
+        <PathResultsList
+          query={pathQuery}
+          onSelectFolder={handlePathSearchSelectFolder}
+          onSelectFile={handlePathSearchSelectFile}
+        />
       </div>
     );
   }

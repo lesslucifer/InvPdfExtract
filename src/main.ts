@@ -7,6 +7,7 @@ import { FileWatcher } from './core/watcher';
 import { SyncEngine } from './core/sync-engine';
 import { ExtractionQueue } from './core/extraction-queue';
 import { ClaudeCodeRunner } from './core/claude-cli';
+import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
 import { VaultHandle } from './shared/types';
 
@@ -21,6 +22,7 @@ let fileWatcher: FileWatcher | null = null;
 let syncEngine: SyncEngine | null = null;
 let extractionQueue: ExtractionQueue | null = null;
 let currentVault: VaultHandle | null = null;
+let vaultPathCache: VaultPathCache | null = null;
 
 // Prevent default window creation — overlay-only app
 app.on('window-all-closed', () => {
@@ -132,8 +134,16 @@ async function startVault(vaultPath: string): Promise<void> {
   // Start file watcher
   fileWatcher = new FileWatcher(currentVault.rootPath, (event, relativePath, fullPath) => {
     syncEngine!.handleEvent(event, relativePath, fullPath);
+    // Keep path cache in sync
+    if (event === 'file:added') vaultPathCache?.onFileAdded(relativePath);
+    else if (event === 'file:deleted') vaultPathCache?.onFileDeleted(relativePath);
   });
   fileWatcher.start();
+
+  // Build path cache in background — non-blocking
+  vaultPathCache = new VaultPathCache(currentVault.rootPath);
+  vaultPathCache.build().catch(err => console.error('[VaultPathCache] Build failed:', err));
+  overlayWindow?.setPathCache(vaultPathCache);
 
   // Start extraction queue
   const appConfig = loadAppConfig();
@@ -152,6 +162,7 @@ async function stopVault(): Promise<void> {
   }
   syncEngine = null;
   extractionQueue = null;
+  vaultPathCache = null;
 
   if (currentVault) {
     closeVault();

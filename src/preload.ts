@@ -27,6 +27,7 @@ const api: InvoiceVaultAPI = {
   reprocessAll: () => ipcRenderer.invoke('reprocess-all'),
   hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
   quitApp: () => ipcRenderer.invoke('quit-app'),
+  listVaultPaths: (query: string) => ipcRenderer.invoke('list-vault-paths', query),
   onStatusUpdate: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, status: 'idle' | 'processing' | 'review' | 'error') => callback(status);
     ipcRenderer.on('overlay-status-update', listener);

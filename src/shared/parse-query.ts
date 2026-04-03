@@ -19,7 +19,6 @@ export interface ParsedQuery {
   text: string;
   docType?: string;
   status?: string;
-  folder?: string;
   amountMin?: number;
   amountMax?: number;
   dateFilter?: string;
@@ -45,12 +44,6 @@ export function parseSearchQuery(raw: string): ParsedQuery {
     // status: filter
     if (lower.startsWith('status:')) {
       result.status = lower.slice(7);
-      continue;
-    }
-
-    // in: folder filter
-    if (lower.startsWith('in:')) {
-      result.folder = part.slice(3);
       continue;
     }
 
@@ -90,8 +83,6 @@ export function parseSearchQuery(raw: string): ParsedQuery {
 /** Reconstruct a query string from structured filters */
 export function buildQueryString(parsed: ParsedQuery): string {
   const parts: string[] = [];
-
-  if (parsed.folder) parts.push(`in:${parsed.folder}`);
 
   if (parsed.docType) {
     const typeMap: Record<string, string> = {

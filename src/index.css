@@ -1104,3 +1104,57 @@ body {
 .sticky-footer-toast-open:hover {
   background: var(--bg-hover);
 }
+
+/* === Path Results List (Phase 6: PathSearch mode) === */
+
+.path-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  max-height: 340px;
+}
+
+.path-results-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+
+.path-results-item.selected,
+.path-results-item:hover {
+  background: var(--bg-hover);
+}
+
+.path-results-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.path-results-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.path-results-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.path-results-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}

@@ -2,27 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { parseSearchQuery, buildQueryString, ParsedQuery } from './parse-query';
 
 describe('parseSearchQuery', () => {
-  describe('browse mode (folder-only queries)', () => {
-    it('parses folder-only query with no text', () => {
-      const result = parseSearchQuery('in:2024/Q1');
-      expect(result.folder).toBe('2024/Q1');
-      expect(result.text).toBe('');
-    });
-
-    it('parses folder with text search', () => {
-      const result = parseSearchQuery('in:2024/Q1 invoice');
-      expect(result.folder).toBe('2024/Q1');
-      expect(result.text).toBe('invoice');
-    });
-
-    it('parses folder with type filter', () => {
-      const result = parseSearchQuery('in:2024 type:bank');
-      expect(result.folder).toBe('2024');
-      expect(result.docType).toBe('bank_statement');
-      expect(result.text).toBe('');
-    });
-  });
-
   describe('text search', () => {
     it('parses plain text', () => {
       const result = parseSearchQuery('abc company');
@@ -150,12 +129,17 @@ describe('parseSearchQuery', () => {
 
   describe('combined queries', () => {
     it('parses complex query with all filters', () => {
-      const result = parseSearchQuery('in:2024/Q1 type:bank >5000000 2024-03 some text');
-      expect(result.folder).toBe('2024/Q1');
+      const result = parseSearchQuery('type:bank >5000000 2024-03 some text');
       expect(result.docType).toBe('bank_statement');
       expect(result.amountMin).toBe(5_000_000);
       expect(result.dateFilter).toBe('2024-03');
       expect(result.text).toBe('some text');
+    });
+
+    it('treats in: token as plain text (no longer parsed)', () => {
+      const result = parseSearchQuery('in:2024/Q1 invoice');
+      expect((result as any).folder).toBeUndefined();
+      expect(result.text).toBe('in:2024/Q1 invoice');
     });
   });
 });
@@ -163,10 +147,6 @@ describe('parseSearchQuery', () => {
 describe('buildQueryString', () => {
   it('builds from text only', () => {
     expect(buildQueryString({ text: 'hello' })).toBe('hello');
-  });
-
-  it('builds from folder only', () => {
-    expect(buildQueryString({ text: '', folder: '2024/Q1' })).toBe('in:2024/Q1');
   });
 
   it('builds from docType', () => {
@@ -210,14 +190,13 @@ describe('buildQueryString', () => {
   it('builds complex query with all fields', () => {
     const result = buildQueryString({
       text: 'some text',
-      folder: '2024/Q1',
       docType: 'bank_statement',
       status: 'conflict',
       amountMin: 5_000_000,
       amountMax: 10_000_000,
       dateFilter: '2024-03',
     });
-    expect(result).toBe('in:2024/Q1 type:bank status:conflict 5tr-10tr 2024-03 some text');
+    expect(result).toBe('type:bank status:conflict 5tr-10tr 2024-03 some text');
   });
 
   it('returns empty string for empty parsed query', () => {
@@ -234,11 +213,10 @@ describe('buildQueryString', () => {
     });
 
     it('preserves complex query', () => {
-      const original = 'in:2024/Q1 type:bank >5000000 2024-03 some text';
+      const original = 'type:bank >5000000 2024-03 some text';
       const parsed = parseSearchQuery(original);
       const rebuilt = buildQueryString(parsed);
       const reparsed = parseSearchQuery(rebuilt);
-      expect(reparsed.folder).toBe('2024/Q1');
       expect(reparsed.docType).toBe('bank_statement');
       expect(reparsed.amountMin).toBe(5_000_000);
       expect(reparsed.dateFilter).toBe('2024-03');
