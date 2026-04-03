@@ -10,6 +10,7 @@ import { ClaudeCodeRunner } from './core/claude-cli';
 import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
 import { VaultHandle } from './shared/types';
+import { startIpcBridge, stopIpcBridge } from './main/ipc-bridge';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -172,6 +173,7 @@ app.on('ready', async () => {
   overlayWindow.registerIpcHandlers();
   overlayWindow.subscribeToStatusEvents();
   overlayWindow.registerShortcut();
+  startIpcBridge();
 
   // Wire extraction queue trigger on file events
   eventBus.on('file:added', () => {
@@ -258,6 +260,7 @@ async function stopVault(): Promise<void> {
 
 async function handleQuit(): Promise<void> {
   console.log('[InvoiceVault] Shutting down...');
+  stopIpcBridge();
   await stopVault();
   eventBus.removeAllListeners();
   overlayWindow?.destroy();
