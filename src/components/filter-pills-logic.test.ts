@@ -21,8 +21,14 @@ const DOC_TYPE_PILLS: Record<string, { icon: string; label: string }> = {
 };
 
 function formatAmount(n: number): string {
+  if (n >= 1_000_000_000 && n % 1_000_000_000 === 0) {
+    return `${n / 1_000_000_000}t`;
+  }
   if (n >= 1_000_000 && n % 1_000_000 === 0) {
     return `${n / 1_000_000}tr`;
+  }
+  if (n >= 1_000 && n % 1_000 === 0) {
+    return `${n / 1_000}k`;
   }
   return new Intl.NumberFormat('vi-VN').format(n);
 }
@@ -145,14 +151,37 @@ describe('FilterPills logic', () => {
   });
 
   describe('formatAmount', () => {
-    it('formats millions as triệu', () => {
-      expect(formatAmount(5_000_000)).toBe('5tr');
+    it('formats thousands as k', () => {
+      expect(formatAmount(100_000)).toBe('100k');
+      expect(formatAmount(5_000)).toBe('5k');
     });
 
-    it('formats non-million amounts with locale formatting', () => {
+    it('formats millions as tr', () => {
+      expect(formatAmount(5_000_000)).toBe('5tr');
+      expect(formatAmount(100_000_000)).toBe('100tr');
+    });
+
+    it('formats billions as t', () => {
+      expect(formatAmount(1_000_000_000)).toBe('1t');
+      expect(formatAmount(100_000_000_000)).toBe('100t');
+    });
+
+    it('formats non-round amounts with locale formatting', () => {
       const result = formatAmount(1234567);
       // vi-VN uses dot separator
       expect(result).toMatch(/1[.,]234[.,]567/);
+    });
+
+    it('prefers largest clean suffix', () => {
+      // 2,000,000,000 is both 2000tr and 2t — should pick t
+      expect(formatAmount(2_000_000_000)).toBe('2t');
+      // 3,000,000 is both 3000k and 3tr — should pick tr
+      expect(formatAmount(3_000_000)).toBe('3tr');
+    });
+
+    it('pill displays 100k–100t for input 100k-100b', () => {
+      const pills = getPills({ text: '', amountMin: 100_000, amountMax: 100_000_000_000 });
+      expect(pills[0].label).toBe('100k–100t');
     });
   });
 });

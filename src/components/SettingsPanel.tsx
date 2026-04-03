@@ -143,6 +143,7 @@ export const SettingsPanel: React.FC<Props> = ({ onBack }) => {
       <div className="settings-section">
         <div className="settings-section-label">Search Filters</div>
         <div className="cheatsheet">
+          <div className="cheatsheet-group-label">Document Type</div>
           <div className="cheatsheet-row">
             <code className="cheatsheet-code">type:bank</code>
             <span className="cheatsheet-desc">Bank statements (also: <code>type:saoke</code>)</span>
@@ -155,18 +156,37 @@ export const SettingsPanel: React.FC<Props> = ({ onBack }) => {
             <code className="cheatsheet-code">type:in</code>
             <span className="cheatsheet-desc">Purchase invoices (also: <code>type:hdv</code>)</span>
           </div>
+
+          <div className="cheatsheet-group-label">Amount</div>
           <div className="cheatsheet-row">
-            <code className="cheatsheet-code">&gt;5000000</code>
-            <span className="cheatsheet-desc">Amount greater than 5M</span>
+            <code className="cheatsheet-code">&gt;5tr</code>
+            <span className="cheatsheet-desc">Greater than 5 million</span>
+          </div>
+          <div className="cheatsheet-row">
+            <code className="cheatsheet-code">&lt;100k</code>
+            <span className="cheatsheet-desc">Less than 100 thousand</span>
           </div>
           <div className="cheatsheet-row">
             <code className="cheatsheet-code">5tr-10tr</code>
-            <span className="cheatsheet-desc">Amount range 5M&ndash;10M</span>
+            <span className="cheatsheet-desc">Range 5M&ndash;10M</span>
           </div>
+          <div className="cheatsheet-suffixes">
+            <code>k</code> = 1,000 &nbsp;&middot;&nbsp;
+            <code>tr</code> / <code>m</code> = 1,000,000 &nbsp;&middot;&nbsp;
+            <code>t</code> / <code>b</code> = 1,000,000,000
+          </div>
+
+          <div className="cheatsheet-group-label">Date</div>
           <div className="cheatsheet-row">
             <code className="cheatsheet-code">2024-03</code>
-            <span className="cheatsheet-desc">Filter by month (or <code>2024-03-15</code>)</span>
+            <span className="cheatsheet-desc">Filter by month</span>
           </div>
+          <div className="cheatsheet-row">
+            <code className="cheatsheet-code">2024-03-15</code>
+            <span className="cheatsheet-desc">Filter by exact date</span>
+          </div>
+
+          <div className="cheatsheet-group-label">Status</div>
           <div className="cheatsheet-row">
             <code className="cheatsheet-code">status:conflict</code>
             <span className="cheatsheet-desc">Records with field conflicts</span>

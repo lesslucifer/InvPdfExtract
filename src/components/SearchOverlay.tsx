@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { SearchResult, OverlayState } from '../shared/types';
+import { SearchResult, OverlayState, AggregateStats, SearchFilters } from '../shared/types';
 import { parseSearchQuery, buildQueryString, ParsedQuery } from '../shared/parse-query';
 import { SearchInput } from './SearchInput';
 import { FilterPills } from './FilterPills';
@@ -8,6 +8,7 @@ import { ResultList } from './ResultList';
 import { NoVaultScreen } from './NoVaultScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { HomeScreen } from './HomeScreen';
+import { StickyFooter } from './StickyFooter';
 
 const DEBOUNCE_MS = 200;
 
@@ -23,6 +24,7 @@ export const SearchOverlay: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [aggregates, setAggregates] = useState<AggregateStats>({ totalRecords: 0, totalAmount: 0 });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // On mount: check if vault exists
@@ -49,19 +51,36 @@ export const SearchOverlay: React.FC = () => {
     return buildQueryString(merged);
   }, []);
 
+  // Build SearchFilters object for IPC calls (aggregates, export)
+  const buildSearchFilters = useCallback((text: string, currentFilters: ParsedQuery, folder: string | null): SearchFilters => ({
+    text: text.trim() || undefined,
+    folder: folder || undefined,
+    docType: currentFilters.docType,
+    status: currentFilters.status,
+    amountMin: currentFilters.amountMin,
+    amountMax: currentFilters.amountMax,
+    dateFilter: currentFilters.dateFilter,
+  }), []);
+
   const doSearch = useCallback(async (text: string, currentFilters: ParsedQuery, folder: string | null) => {
     const searchQuery = buildFullQuery(text, currentFilters, folder);
     if (!searchQuery) {
       setResults([]);
       setHasSearched(false);
+      setAggregates({ totalRecords: 0, totalAmount: 0 });
       return;
     }
-    const res = await window.api.search(searchQuery);
+    const sf = buildSearchFilters(text, currentFilters, folder);
+    const [res, agg] = await Promise.all([
+      window.api.search(searchQuery),
+      window.api.getAggregates(sf),
+    ]);
     setResults(res);
     setSelectedIndex(0);
     setExpandedId(null);
     setHasSearched(true);
-  }, [buildFullQuery]);
+    setAggregates(agg);
+  }, [buildFullQuery, buildSearchFilters]);
 
   // Extract filters only from completed tokens (followed by a space).
   // The last token — the one the user is still typing — stays as raw text.
@@ -323,6 +342,12 @@ export const SearchOverlay: React.FC = () => {
           onFieldUpdated={handleFieldUpdated}
           onFolderClick={handleFolderBrowse}
           onDocTypeClick={handleDocTypeClick}
+        />
+      )}
+      {hasSearched && aggregates.totalRecords > 0 && (
+        <StickyFooter
+          stats={aggregates}
+          filters={buildSearchFilters(query, filters, folderScope)}
         />
       )}
     </div>

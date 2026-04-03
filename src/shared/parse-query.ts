@@ -1,3 +1,20 @@
+const AMOUNT_SUFFIXES: Record<string, number> = {
+  k: 1_000,
+  tr: 1_000_000,
+  m: 1_000_000,
+  b: 1_000_000_000,
+  t: 1_000_000_000,
+};
+
+/** Parse a number that may have a money suffix (k, tr, m, b, t) */
+function parseAmountWithSuffix(s: string): number | null {
+  const match = s.match(/^(\d+(?:\.\d+)?)(k|tr|m|b|t)?$/);
+  if (!match) return null;
+  const num = parseFloat(match[1]);
+  const multiplier = match[2] ? AMOUNT_SUFFIXES[match[2]] : 1;
+  return num * multiplier;
+}
+
 export interface ParsedQuery {
   text: string;
   docType?: string;
@@ -37,26 +54,30 @@ export function parseSearchQuery(raw: string): ParsedQuery {
       continue;
     }
 
-    // Amount range: >N, <N, N-M, Ntr-Mtr
-    const trMatch = lower.match(/^(\d+)tr-(\d+)tr$/);
-    if (trMatch) {
-      result.amountMin = parseInt(trMatch[1]) * 1_000_000;
-      result.amountMax = parseInt(trMatch[2]) * 1_000_000;
-      continue;
-    }
-    if (lower.startsWith('>') && !isNaN(Number(lower.slice(1)))) {
-      result.amountMin = Number(lower.slice(1));
-      continue;
-    }
-    if (lower.startsWith('<') && !isNaN(Number(lower.slice(1)))) {
-      result.amountMax = Number(lower.slice(1));
-      continue;
-    }
-
-    // Date filter: YYYY-MM or YYYY-MM-DD
+    // Date filter: YYYY-MM or YYYY-MM-DD (must be checked before amount range)
     if (/^\d{4}-\d{2}(-\d{2})?$/.test(part)) {
       result.dateFilter = part;
       continue;
+    }
+
+    // Amount range: >N, <N, N-M with optional suffixes (k, tr, m, b, t)
+    const rangeMatch = lower.match(/^(\d+(?:\.\d+)?(?:k|tr|m|b|t)?)-(\d+(?:\.\d+)?(?:k|tr|m|b|t)?)$/);
+    if (rangeMatch) {
+      const min = parseAmountWithSuffix(rangeMatch[1]);
+      const max = parseAmountWithSuffix(rangeMatch[2]);
+      if (min != null && max != null) {
+        result.amountMin = min;
+        result.amountMax = max;
+        continue;
+      }
+    }
+    if (lower.startsWith('>')) {
+      const amt = parseAmountWithSuffix(lower.slice(1));
+      if (amt != null) { result.amountMin = amt; continue; }
+    }
+    if (lower.startsWith('<')) {
+      const amt = parseAmountWithSuffix(lower.slice(1));
+      if (amt != null) { result.amountMax = amt; continue; }
     }
 
     tokens.push(part);

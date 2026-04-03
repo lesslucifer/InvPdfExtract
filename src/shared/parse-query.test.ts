@@ -76,6 +76,56 @@ describe('parseSearchQuery', () => {
     it('parses less than', () => {
       expect(parseSearchQuery('<5000000').amountMax).toBe(5_000_000);
     });
+
+    it('parses >Ntr suffix', () => {
+      const result = parseSearchQuery('>3tr');
+      expect(result.amountMin).toBe(3_000_000);
+    });
+
+    it('parses <Ntr suffix', () => {
+      const result = parseSearchQuery('<5tr');
+      expect(result.amountMax).toBe(5_000_000);
+    });
+
+    it('parses plain number range (N-M)', () => {
+      const result = parseSearchQuery('300000-500000');
+      expect(result.amountMin).toBe(300_000);
+      expect(result.amountMax).toBe(500_000);
+    });
+
+    it('parses k suffix (thousands)', () => {
+      expect(parseSearchQuery('>100k').amountMin).toBe(100_000);
+      expect(parseSearchQuery('<500k').amountMax).toBe(500_000);
+      expect(parseSearchQuery('100k-500k').amountMin).toBe(100_000);
+      expect(parseSearchQuery('100k-500k').amountMax).toBe(500_000);
+    });
+
+    it('parses m suffix (millions)', () => {
+      expect(parseSearchQuery('>10m').amountMin).toBe(10_000_000);
+      expect(parseSearchQuery('<5m').amountMax).toBe(5_000_000);
+    });
+
+    it('parses b suffix (billions)', () => {
+      expect(parseSearchQuery('>1b').amountMin).toBe(1_000_000_000);
+      expect(parseSearchQuery('<2b').amountMax).toBe(2_000_000_000);
+    });
+
+    it('parses t suffix (tỷ = billions)', () => {
+      expect(parseSearchQuery('>1t').amountMin).toBe(1_000_000_000);
+      expect(parseSearchQuery('1t-5t').amountMin).toBe(1_000_000_000);
+      expect(parseSearchQuery('1t-5t').amountMax).toBe(5_000_000_000);
+    });
+
+    it('supports mixed suffixes in ranges', () => {
+      const result = parseSearchQuery('500k-2m');
+      expect(result.amountMin).toBe(500_000);
+      expect(result.amountMax).toBe(2_000_000);
+    });
+
+    it('supports decimal with suffix', () => {
+      expect(parseSearchQuery('>1.5tr').amountMin).toBe(1_500_000);
+      expect(parseSearchQuery('>2.5b').amountMin).toBe(2_500_000_000);
+    });
   });
 
   describe('date filters', () => {

@@ -13,8 +13,14 @@ const DOC_TYPE_PILLS: Record<string, { icon: string; label: string }> = {
 };
 
 function formatAmount(n: number): string {
+  if (n >= 1_000_000_000 && n % 1_000_000_000 === 0) {
+    return `${n / 1_000_000_000}t`;
+  }
   if (n >= 1_000_000 && n % 1_000_000 === 0) {
     return `${n / 1_000_000}tr`;
+  }
+  if (n >= 1_000 && n % 1_000 === 0) {
+    return `${n / 1_000}k`;
   }
   return new Intl.NumberFormat('vi-VN').format(n);
 }

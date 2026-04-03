@@ -37,11 +37,11 @@ export const ResultList: React.FC<Props> = ({
             }}
             onFolderClick={onFolderClick}
             onDocTypeClick={onDocTypeClick}
+            onOpenFile={onOpenFile}
           />
           {expandedId === result.id && (
             <ResultDetail
               result={result}
-              onOpenFile={() => onOpenFile(result.relative_path)}
               onFieldUpdated={onFieldUpdated}
             />
           )}

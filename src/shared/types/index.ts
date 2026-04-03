@@ -353,7 +353,8 @@ export interface InvoiceVaultAPI {
   listRecentFolders: (limit?: number) => Promise<FolderInfo[]>;
   listTopFolders: () => Promise<FolderInfo[]>;
   getAggregates: (filters: SearchFilters) => Promise<AggregateStats>;
-  exportFiltered: (filters: SearchFilters, destPath: string) => Promise<{ filesWritten: string[] }>;
+  exportFiltered: (filters: SearchFilters) => Promise<{ filePath: string | null }>;
+  showItemInFolder: (absolutePath: string) => Promise<void>;
   checkClaudeCli: () => Promise<{ available: boolean; version?: string }>;
   reprocessAll: () => Promise<{ count: number }>;
   hideOverlay: () => Promise<void>;

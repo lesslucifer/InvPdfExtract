@@ -8,6 +8,7 @@ interface Props {
   onClick: () => void;
   onFolderClick?: (folder: string) => void;
   onDocTypeClick?: (docType: string) => void;
+  onOpenFile?: (relativePath: string) => void;
 }
 
 const DOC_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -43,7 +44,7 @@ function splitPath(relativePath: string): { segments: PathSegment[]; filename: s
   return { segments, filename };
 }
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick }) => {
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick, onOpenFile }) => {
   const meta = DOC_TYPE_LABELS[result.doc_type] || DOC_TYPE_LABELS[DocType.Unknown];
   const isBank = result.doc_type === DocType.BankStatement;
 
@@ -98,7 +99,16 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             {seg.label}/
           </span>
         ))}
-        <span>{filename}</span>
+        {onOpenFile ? (
+          <span
+            className="result-file-link"
+            onClick={(e) => { e.stopPropagation(); onOpenFile(result.relative_path); }}
+          >
+            {filename}
+          </span>
+        ) : (
+          <span>{filename}</span>
+        )}
       </div>
     </div>
   );
