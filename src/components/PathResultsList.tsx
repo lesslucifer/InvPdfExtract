@@ -11,11 +11,13 @@ interface PathItem {
 interface Props {
   /** Text after the leading '/' — pass '' for bare '/' (shows top-level dirs) */
   query: string;
+  /** When set, results are limited to entries under this folder */
+  scope?: string | null;
   onSelectFolder: (relativePath: string) => void;
   onSelectFile: (relativePath: string) => void;
 }
 
-export const PathResultsList: React.FC<Props> = ({ query, onSelectFolder, onSelectFile }) => {
+export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder, onSelectFile }) => {
   const [items, setItems] = useState<PathItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,7 +26,7 @@ export const PathResultsList: React.FC<Props> = ({ query, onSelectFolder, onSele
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await window.api.listVaultPaths(query);
+        const results = await window.api.listVaultPaths(query, scope ?? undefined);
         setItems(results);
         setSelectedIndex(0);
       } catch {
@@ -35,7 +37,7 @@ export const PathResultsList: React.FC<Props> = ({ query, onSelectFolder, onSele
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, scope]);
 
   const handleSelect = useCallback((item: PathItem) => {
     if (item.isDir) {

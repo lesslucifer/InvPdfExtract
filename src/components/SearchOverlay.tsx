@@ -381,6 +381,7 @@ export const SearchOverlay: React.FC = () => {
         <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} status={status} />
         <PathResultsList
           query={pathQuery}
+          scope={folderScope}
           onSelectFolder={handlePathSearchSelectFolder}
           onSelectFile={handlePathSearchSelectFile}
         />

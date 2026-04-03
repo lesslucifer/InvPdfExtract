@@ -361,7 +361,7 @@ export interface InvoiceVaultAPI {
   hideOverlay: () => Promise<void>;
   quitApp: () => Promise<void>;
   onStatusUpdate: (callback: (status: 'idle' | 'processing' | 'review' | 'error') => void) => () => void;
-  listVaultPaths: (query: string) => Promise<Array<{ name: string; relativePath: string; isDir: boolean }>>;
+  listVaultPaths: (query: string, scope?: string) => Promise<Array<{ name: string; relativePath: string; isDir: boolean }>>;
 }
 
 // === Event Types ===

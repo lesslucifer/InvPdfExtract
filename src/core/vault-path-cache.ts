@@ -127,19 +127,30 @@ export class VaultPathCache {
     }
   }
 
-  /** Query the cache. `query` is the text after the leading `/`. */
-  query(rawQuery: string): Array<{ name: string; relativePath: string; isDir: boolean }> {
+  /**
+   * Query the cache.
+   * @param rawQuery — text after the leading `/`
+   * @param scope — optional folder scope; when set, only entries under this prefix are returned
+   */
+  query(rawQuery: string, scope?: string): Array<{ name: string; relativePath: string; isDir: boolean }> {
     if (!this.built) return [];
 
     // Guard against path traversal
     if (rawQuery.includes('..')) return [];
 
     const q = rawQuery.toLowerCase().trim();
+    const scopePrefix = scope ? scope.toLowerCase().replace(/\/$/, '') + '/' : null;
+
+    const inScope = (entry: PathEntry): boolean => {
+      if (!scopePrefix) return true;
+      return entry.lowerPath.startsWith(scopePrefix);
+    };
 
     if (!q) {
-      // Bare '/' — return top-level dirs sorted alphabetically, up to MAX_RESULTS
+      // Bare '/' — return immediate children of scope (or top-level dirs if no scope)
+      const targetDepth = scopePrefix ? scopePrefix.split('/').length : 1;
       return this.dirs
-        .filter(e => !e.relativePath.includes('/'))
+        .filter(e => inScope(e) && e.relativePath.split('/').length === targetDepth)
         .slice(0, MAX_RESULTS)
         .map(e => ({ name: e.name, relativePath: e.relativePath, isDir: true }));
     }
@@ -147,6 +158,7 @@ export class VaultPathCache {
     const scored: ScoredEntry[] = [];
 
     for (const entry of this.dirs) {
+      if (!inScope(entry)) continue;
       const score = scoreEntry(entry, q);
       if (score > 0) scored.push({ entry, score });
     }
@@ -155,6 +167,7 @@ export class VaultPathCache {
     const dirCount = scored.length;
 
     for (const entry of this.files) {
+      if (!inScope(entry)) continue;
       const score = scoreEntry(entry, q);
       if (score > 0) scored.push({ entry, score });
     }

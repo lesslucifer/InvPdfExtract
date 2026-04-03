@@ -368,9 +368,9 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('list-vault-paths', async (_event, query: string) => {
+    ipcMain.handle('list-vault-paths', async (_event, query: string, scope?: string) => {
       if (typeof query === 'string' && query.includes('..')) return [];
-      return this.pathCache?.query(query ?? '') ?? [];
+      return this.pathCache?.query(query ?? '', scope ?? undefined) ?? [];
     });
 
     ipcMain.handle('export-filtered', async (_event, filters: SearchFilters) => {

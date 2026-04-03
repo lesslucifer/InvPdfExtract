@@ -172,3 +172,54 @@ describe('VaultPathCache surgical updates', () => {
     });
   });
 });
+
+describe('VaultPathCache.query with scope', () => {
+  function scopedCache(): VaultPathCache {
+    return makeCache(
+      { path: '2024', isDir: true },
+      { path: '2024/Q1', isDir: true },
+      { path: '2024/Q2', isDir: true },
+      { path: '2024/Q1/inv001.pdf', isDir: false },
+      { path: '2024/Q2/inv002.pdf', isDir: false },
+      { path: '2025', isDir: true },
+      { path: '2025/Q1', isDir: true },
+      { path: '2025/Q1/inv003.pdf', isDir: false },
+    );
+  }
+
+  it('bare query with scope returns immediate child dirs of the scope', () => {
+    const cache = scopedCache();
+    const results = cache.query('', '2024');
+    const paths = results.map(r => r.relativePath);
+    expect(paths).toContain('2024/Q1');
+    expect(paths).toContain('2024/Q2');
+    expect(paths).not.toContain('2025/Q1');
+    expect(paths).not.toContain('2024');
+  });
+
+  it('text query with scope only returns entries under scope', () => {
+    const cache = scopedCache();
+    const results = cache.query('inv', '2024/Q1');
+    const paths = results.map(r => r.relativePath);
+    expect(paths).toContain('2024/Q1/inv001.pdf');
+    expect(paths).not.toContain('2024/Q2/inv002.pdf');
+    expect(paths).not.toContain('2025/Q1/inv003.pdf');
+  });
+
+  it('scope with trailing slash is handled correctly', () => {
+    const cache = scopedCache();
+    const results = cache.query('inv', '2024/Q1/');
+    const paths = results.map(r => r.relativePath);
+    expect(paths).toContain('2024/Q1/inv001.pdf');
+    expect(paths).not.toContain('2024/Q2/inv002.pdf');
+  });
+
+  it('no scope returns all matching entries', () => {
+    const cache = scopedCache();
+    const results = cache.query('inv');
+    const paths = results.map(r => r.relativePath);
+    expect(paths).toContain('2024/Q1/inv001.pdf');
+    expect(paths).toContain('2024/Q2/inv002.pdf');
+    expect(paths).toContain('2025/Q1/inv003.pdf');
+  });
+});
