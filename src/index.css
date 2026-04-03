@@ -917,64 +917,27 @@ body {
   background: var(--bg-hover);
 }
 
-/* Clickable path segments in result rows */
-.result-file-segment {
-  cursor: pointer;
-  border-radius: 2px;
-  padding: 0 1px;
+/* Folder name in result file path */
+.result-file-folder {
+  color: var(--text-muted);
+  margin-right: 1px;
 }
 
-.result-file-segment:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-/* Clickable filename link */
-.result-file-link {
-  cursor: pointer;
-  border-radius: 2px;
-  padding: 0 1px;
-}
-
-.result-file-link:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-/* Folder segment group (segment + optional reload button) */
-.result-file-segment-group {
-  display: inline;
-}
-
-/* Reload/reprocess button on result rows */
-.result-reload-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-left: 2px;
-  padding: 0;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
+/* Filename in result file path */
+.result-file-name {
   color: var(--text-secondary);
-  font-size: 12px;
+}
+
+/* Clickable folder/file elements */
+.result-file-clickable {
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-  vertical-align: middle;
+  border-radius: 2px;
+  padding: 0 1px;
 }
 
-.result-file:hover .result-reload-btn,
-.result-row.selected .result-reload-btn {
-  opacity: 0.6;
-}
-
-.result-reload-btn:hover {
-  opacity: 1 !important;
-  background: var(--accent);
-  color: white;
+.result-file-clickable:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 /* Confirmation bar for folder reprocess */

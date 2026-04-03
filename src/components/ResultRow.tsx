@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import { SearchResult, DocType } from '../shared/types';
 import { StatusDot } from './StatusDot';
 
@@ -10,8 +10,6 @@ interface Props {
   onFolderClick?: (folder: string) => void;
   onDocTypeClick?: (docType: string) => void;
   onOpenFile?: (relativePath: string) => void;
-  onReprocessFile?: (relativePath: string) => void;
-  onReprocessFolder?: (folderPrefix: string) => void;
 }
 
 const DOC_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -32,23 +30,36 @@ function confidenceClass(confidence: number): string {
   return 'confidence-low';
 }
 
-interface PathSegment {
-  label: string;
-  folder: string;
+/**
+ * Truncate a string in the middle, preserving start and end.
+ * For filenames, keeps the extension visible.
+ */
+function middleEllipsis(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  // For filenames with extension, preserve the extension
+  const dotIdx = text.lastIndexOf('.');
+  if (dotIdx > 0 && text.length - dotIdx <= 6) {
+    const ext = text.slice(dotIdx);
+    const nameMax = maxLen - ext.length - 3; // 3 for '...'
+    if (nameMax < 4) return text.slice(0, maxLen - 3) + '...';
+    return text.slice(0, nameMax) + '...' + ext;
+  }
+  const half = Math.floor((maxLen - 3) / 2);
+  return text.slice(0, half) + '...' + text.slice(text.length - half);
 }
 
-function splitPath(relativePath: string): { segments: PathSegment[]; filename: string } {
+function splitPath(relativePath: string): { folder: string; folderFull: string; filename: string } {
   const parts = relativePath.split('/');
   const filename = parts.pop() || '';
-  const segments: PathSegment[] = parts.map((label, i) => ({
-    label,
-    folder: parts.slice(0, i + 1).join('/'),
-  }));
-  return { segments, filename };
+  const folderFull = parts.join('/');
+  const folder = parts.length > 0 ? parts[parts.length - 1] : '';
+  return { folder, folderFull, filename };
 }
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick, onOpenFile, onReprocessFile, onReprocessFolder }) => {
-  const [confirmFolder, setConfirmFolder] = useState<string | null>(null);
+const FOLDER_MAX_LEN = 30;
+const FILENAME_MAX_LEN = 35;
+
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick, onOpenFile }) => {
   const meta = DOC_TYPE_LABELS[result.doc_type] || DOC_TYPE_LABELS[DocType.Unknown];
   const isBank = result.doc_type === DocType.BankStatement;
 
@@ -59,40 +70,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
   const amount = isBank ? result.so_tien : result.tong_tien;
   const counterparty = result.ten_doi_tac;
 
-  const { segments, filename } = splitPath(result.relative_path);
-
-  const handleReprocessFile = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onReprocessFile?.(result.relative_path);
-  }, [onReprocessFile, result.relative_path]);
-
-  const handleReprocessFolder = useCallback(async (e: React.MouseEvent, folder: string) => {
-    e.stopPropagation();
-    if (!onReprocessFolder) return;
-    try {
-      const { count } = await window.api.countFolderFiles(folder);
-      if (count > 10) {
-        setConfirmFolder(folder);
-      } else {
-        onReprocessFolder(folder);
-      }
-    } catch {
-      onReprocessFolder(folder);
-    }
-  }, [onReprocessFolder]);
-
-  const handleConfirmReprocess = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirmFolder && onReprocessFolder) {
-      onReprocessFolder(confirmFolder);
-    }
-    setConfirmFolder(null);
-  }, [confirmFolder, onReprocessFolder]);
-
-  const handleCancelReprocess = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setConfirmFolder(null);
-  }, []);
+  const { folder, folderFull, filename } = splitPath(result.relative_path);
 
   return (
     <div
@@ -127,52 +105,30 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         </div>
       </div>
       <div className="result-file" title={result.relative_path}>
-        {segments.map((seg) => (
-          <span key={seg.folder} className="result-file-segment-group">
-            <span
-              className={onFolderClick ? 'result-file-segment' : undefined}
-              onClick={onFolderClick ? (e) => { e.stopPropagation(); onFolderClick(seg.folder); } : undefined}
-            >
-              {seg.label}/
-            </span>
-            {onReprocessFolder && (
-              <button
-                className="result-reload-btn"
-                title={`Reprocess all files in ${seg.folder}`}
-                onClick={(e) => handleReprocessFolder(e, seg.folder)}
-              >↻</button>
-            )}
+        {folder && (
+          <span
+            className={`result-file-folder${onFolderClick ? ' result-file-clickable' : ''}`}
+            title={folderFull}
+            onClick={onFolderClick ? (e) => { e.stopPropagation(); onFolderClick(folderFull); } : undefined}
+          >
+            {middleEllipsis(folder, FOLDER_MAX_LEN)}/
           </span>
-        ))}
+        )}
         {result.file_status && <StatusDot status={result.file_status} />}
         {onOpenFile ? (
           <span
-            className="result-file-link"
+            className="result-file-name result-file-clickable"
             onClick={(e) => { e.stopPropagation(); onOpenFile(result.relative_path); }}
           >
-            {filename}
+            {middleEllipsis(filename, FILENAME_MAX_LEN)}
           </span>
         ) : (
-          <span>{filename}</span>
-        )}
-        {onReprocessFile && (
-          <button
-            className="result-reload-btn"
-            title="Reprocess this file"
-            onClick={handleReprocessFile}
-          >↻</button>
+          <span className="result-file-name">{middleEllipsis(filename, FILENAME_MAX_LEN)}</span>
         )}
       </div>
-      {confirmFolder && (
-        <div className="result-confirm-bar" onClick={(e) => e.stopPropagation()}>
-          <span>Reprocess all files in <strong>{confirmFolder}</strong>?</span>
-          <button className="result-confirm-yes" onClick={handleConfirmReprocess}>Yes</button>
-          <button className="result-confirm-no" onClick={handleCancelReprocess}>Cancel</button>
-        </div>
-      )}
     </div>
   );
 };
 
 // Export for testing
-export { splitPath };
+export { splitPath, middleEllipsis };

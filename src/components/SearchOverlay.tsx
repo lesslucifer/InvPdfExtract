@@ -466,8 +466,6 @@ export const SearchOverlay: React.FC = () => {
           onFieldUpdated={handleFieldUpdated}
           onFolderClick={handleFolderBrowse}
           onDocTypeClick={handleDocTypeClick}
-          onReprocessFile={handleReprocessFile}
-          onReprocessFolder={handleReprocessFolder}
           onLoadMore={loadMore}
           hasMore={hasMore}
           isLoadingMore={isLoadingMore}
