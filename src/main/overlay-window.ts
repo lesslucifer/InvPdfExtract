@@ -171,10 +171,9 @@ export class OverlayWindow {
   }
 
   registerIpcHandlers(): void {
-    ipcMain.handle('search', async (_event, query: string) => {
-      if (!query || query.trim().length === 0) return [];
+    ipcMain.handle('search', async (_event, query: string, offset: number = 0) => {
       try {
-        return searchRecords(query.trim(), 50);
+        return searchRecords((query || '').trim(), 50, offset);
       } catch (err) {
         console.error('[Search] Query failed:', err);
         return [];

@@ -479,12 +479,12 @@ const BASE_JOINS = `
   LEFT JOIN invoice_data id2 ON r.id = id2.record_id
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 
-export function searchRecords(query: string, limit: number = 50): any[] {
+export function searchRecords(query: string, limit: number = 50, offset: number = 0): any[] {
   const db = getDatabase();
   const parsed = parseSearchQuery(query);
   const { conditions, params } = buildFilterClauses(parsed);
 
-  params.push(limit);
+  params.push(limit, offset);
 
   const sql = `
     SELECT r.*, f.relative_path, f.status as file_status,
@@ -500,7 +500,7 @@ export function searchRecords(query: string, limit: number = 50): any[] {
     ${BASE_JOINS}
     WHERE ${conditions.join(' AND ')}
     ORDER BY r.updated_at DESC
-    LIMIT ?
+    LIMIT ? OFFSET ?
   `;
 
   return db.prepare(sql).all(...params);

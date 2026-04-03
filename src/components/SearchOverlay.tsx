@@ -7,12 +7,12 @@ import { BreadcrumbBar } from './BreadcrumbBar';
 import { ResultList } from './ResultList';
 import { NoVaultScreen } from './NoVaultScreen';
 import { SettingsPanel } from './SettingsPanel';
-import { HomeScreen } from './HomeScreen';
 import { StickyFooter } from './StickyFooter';
 import { PathResultsList } from './PathResultsList';
 import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 
 const DEBOUNCE_MS = 200;
+const PAGE_SIZE = 50;
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -30,6 +30,9 @@ export const SearchOverlay: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [aggregates, setAggregates] = useState<AggregateStats>({ totalRecords: 0, totalAmount: 0 });
+  const [pageOffset, setPageOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   // PathSearch state — the text after the leading '/'
   const [pathQuery, setPathQuery] = useState('');
   // Track the state before PathSearch was entered so Backspace-to-empty can restore it
@@ -76,25 +79,48 @@ export const SearchOverlay: React.FC = () => {
     dateFilter: currentFilters.dateFilter,
   }), []);
 
-  const doSearch = useCallback(async (text: string, currentFilters: ParsedQuery, folder: string | null) => {
+  const doSearch = useCallback(async (text: string, currentFilters: ParsedQuery, folder: string | null, append = false) => {
     const searchQuery = buildFullQuery(text, currentFilters);
     const sf = buildSearchFilters(text, currentFilters, folder);
-    if (!searchQuery && !folder) {
-      setResults([]);
-      setHasSearched(false);
-      setAggregates({ totalRecords: 0, totalAmount: 0 });
-      return;
+    const currentOffset = append ? pageOffset : 0;
+
+    if (append) {
+      if (isLoadingMore || !hasMore) return;
+      setIsLoadingMore(true);
     }
+
     const [res, agg] = await Promise.all([
-      window.api.search(searchQuery || ''),
-      window.api.getAggregates(sf),
+      window.api.search(searchQuery || '', currentOffset),
+      append ? Promise.resolve(aggregates) : window.api.getAggregates(sf),
     ]);
-    setResults(res);
-    setSelectedIndex(0);
-    setExpandedId(null);
+
+    if (append) {
+      setResults(prev => [...prev, ...res]);
+      setIsLoadingMore(false);
+    } else {
+      setResults(res);
+      setSelectedIndex(0);
+      setExpandedId(null);
+      setAggregates(agg);
+    }
+
+    setPageOffset(currentOffset + res.length);
+    setHasMore(res.length === PAGE_SIZE);
     setHasSearched(true);
-    setAggregates(agg);
-  }, [buildFullQuery, buildSearchFilters]);
+  }, [buildFullQuery, buildSearchFilters, pageOffset, hasMore, isLoadingMore, aggregates]);
+
+  // Load all invoices on mount (replaces HomeScreen folder listing)
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (initialLoadDone.current) return;
+    if (overlayState === OverlayState.NoVault) return;
+    initialLoadDone.current = true;
+    doSearch('', filters, folderScope);
+  }, [overlayState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadMore = useCallback(() => {
+    doSearch(query, filters, folderScope, true);
+  }, [doSearch, query, filters, folderScope]);
 
   // Extract filters only from completed tokens (followed by a space).
   // The last token — the one the user is still typing — stays as raw text.
@@ -171,8 +197,7 @@ export const SearchOverlay: React.FC = () => {
       filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
     if (!value.trim() && overlayState === OverlayState.Search && !folderScope && !hasActiveFilters) {
       setOverlayState(OverlayState.Home);
-      setResults([]);
-      setHasSearched(false);
+      doSearch('', filters, null);
       return;
     }
 
@@ -198,8 +223,7 @@ export const SearchOverlay: React.FC = () => {
 
     if (!hasRemaining) {
       setOverlayState(OverlayState.Home);
-      setResults([]);
-      setHasSearched(false);
+      doSearch('', { text: '' }, null);
     } else {
       doSearch(query, newFilters, folderScope);
     }
@@ -236,8 +260,7 @@ export const SearchOverlay: React.FC = () => {
       filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
     if (!query.trim() && !hasActiveFilters) {
       setOverlayState(OverlayState.Home);
-      setResults([]);
-      setHasSearched(false);
+      doSearch('', { text: '' }, null);
     } else {
       doSearch(query, filters, null);
     }
@@ -353,8 +376,7 @@ export const SearchOverlay: React.FC = () => {
             setFilters({ text: '' });
             if (!folderScope) {
               setOverlayState(OverlayState.Home);
-              setResults([]);
-              setHasSearched(false);
+              doSearch('', { text: '' }, null);
             } else {
               doSearch('', { text: '' }, folderScope);
             }
@@ -433,14 +455,6 @@ export const SearchOverlay: React.FC = () => {
           onClear={handleClearFolderScope}
         />
       )}
-      {overlayState === OverlayState.Home && !hasSearched && (
-        <HomeScreen
-          onFolderBrowse={handleFolderBrowse}
-          onOpenFolder={handleOpenFolder}
-          onSettingsClick={handleGearClick}
-          onReprocessFolder={handleReprocessFolder}
-        />
-      )}
       {hasSearched && (
         <ResultList
           results={results}
@@ -454,6 +468,9 @@ export const SearchOverlay: React.FC = () => {
           onDocTypeClick={handleDocTypeClick}
           onReprocessFile={handleReprocessFile}
           onReprocessFolder={handleReprocessFolder}
+          onLoadMore={loadMore}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
         />
       )}
       {hasSearched && aggregates.totalRecords > 0 && (

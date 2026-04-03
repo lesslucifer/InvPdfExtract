@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from './shared/types';
 
 const api: InvoiceVaultAPI = {
-  search: (query: string) => ipcRenderer.invoke('search', query),
+  search: (query: string, offset?: number) => ipcRenderer.invoke('search', query, offset ?? 0),
   openFile: (relativePath: string) => ipcRenderer.invoke('open-file', relativePath),
   getLineItems: (recordId: string) => ipcRenderer.invoke('get-line-items', recordId),
   saveFieldOverride: (input: FieldOverrideInput) => ipcRenderer.invoke('save-field-override', input),
