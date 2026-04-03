@@ -27,6 +27,12 @@ const api: InvoiceVaultAPI = {
   reprocessAll: () => ipcRenderer.invoke('reprocess-all'),
   hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
   quitApp: () => ipcRenderer.invoke('quit-app'),
+  onStatusUpdate: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: 'idle' | 'processing' | 'review' | 'error') => callback(status);
+    ipcRenderer.on('overlay-status-update', listener);
+    // Return an unsubscribe function
+    return () => ipcRenderer.removeListener('overlay-status-update', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

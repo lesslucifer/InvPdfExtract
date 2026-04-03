@@ -12,9 +12,12 @@ import { StickyFooter } from './StickyFooter';
 
 const DEBOUNCE_MS = 200;
 
+type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
+
 export const SearchOverlay: React.FC = () => {
   const [overlayState, setOverlayState] = useState<OverlayState>(OverlayState.Home);
   const [previousState, setPreviousState] = useState<OverlayState>(OverlayState.Home);
+  const [status, setStatus] = useState<StatusIndicator>('idle');
 
   // Search state — query is the free text only (filters are separate)
   const [query, setQuery] = useState('');
@@ -34,6 +37,12 @@ export const SearchOverlay: React.FC = () => {
         setOverlayState(OverlayState.NoVault);
       }
     });
+  }, []);
+
+  // Subscribe to processing status updates from main process
+  useEffect(() => {
+    const unsubscribe = window.api.onStatusUpdate(setStatus);
+    return unsubscribe;
   }, []);
 
   const goTo = useCallback((state: OverlayState) => {
@@ -312,7 +321,7 @@ export const SearchOverlay: React.FC = () => {
   // Home and Search states share the same layout
   return (
     <div className="search-overlay">
-      <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} />
+      <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} status={status} />
       {hasFilterPills && (
         <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} />
       )}

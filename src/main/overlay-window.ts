@@ -12,6 +12,9 @@ import { getDatabase } from '../core/db/database';
 import { FieldOverrideInput, SearchFilters } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault } from '../core/vault';
+import { eventBus } from '../core/event-bus';
+
+export type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
 export interface OverlayCallbacks {
   onInitVault: (folderPath: string) => Promise<void>;
@@ -129,6 +132,16 @@ export class OverlayWindow {
     const x = Math.round((width - OVERLAY_WIDTH) / 2);
     const y = Math.round(height * 0.2); // 20% from top
     this.window.setPosition(x, y);
+  }
+
+  subscribeToStatusEvents(): void {
+    const send = (status: StatusIndicator) => {
+      this.window?.webContents.send('overlay-status-update', status);
+    };
+    eventBus.on('extraction:started', () => send('processing'));
+    eventBus.on('extraction:completed', () => send('idle'));
+    eventBus.on('extraction:error', () => send('error'));
+    eventBus.on('review:needed', () => send('review'));
   }
 
   registerIpcHandlers(): void {

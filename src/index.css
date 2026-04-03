@@ -465,6 +465,38 @@ body {
   background: var(--bg-hover);
 }
 
+/* === Status Dot === */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 2px;
+  transition: background-color 0.3s;
+}
+
+.status-dot--idle {
+  background: var(--confidence-high); /* green */
+}
+
+.status-dot--processing {
+  background: var(--accent); /* blue */
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.status-dot--review {
+  background: var(--confidence-medium); /* orange */
+}
+
+.status-dot--error {
+  background: var(--confidence-low); /* red */
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* === No Vault Screen === */
 .no-vault-screen {
   display: flex;

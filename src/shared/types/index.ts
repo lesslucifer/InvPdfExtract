@@ -359,6 +359,7 @@ export interface InvoiceVaultAPI {
   reprocessAll: () => Promise<{ count: number }>;
   hideOverlay: () => Promise<void>;
   quitApp: () => Promise<void>;
+  onStatusUpdate: (callback: (status: 'idle' | 'processing' | 'review' | 'error') => void) => () => void;
 }
 
 // === Event Types ===
