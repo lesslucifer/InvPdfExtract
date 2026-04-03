@@ -5,6 +5,7 @@ import {
   searchRecords, getLineItemsByRecord, getFieldOverrides,
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
   resolveAllConflictsForRecord, updateFtsIndex,
+  listRecentFolders, listTopFolders,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { FieldOverrideInput } from '../shared/types';
@@ -26,6 +27,7 @@ export class OverlayWindow {
   private window: BrowserWindow | null = null;
   private vaultPath: string | null = null;
   private callbacks: OverlayCallbacks | null = null;
+  private isHiding = false;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
     this.callbacks = callbacks;
@@ -67,15 +69,21 @@ export class OverlayWindow {
       this.createWindow();
     }
     this.positionWindow();
+    // Guard against spurious blur events during show/focus sequence
+    this.isHiding = true;
     this.window!.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     this.window!.show();
     this.window!.setVisibleOnAllWorkspaces(false);
     this.window!.focus();
+    // Re-enable blur handler after the show/focus settles
+    setTimeout(() => { this.isHiding = false; }, 100);
   }
 
   hide(): void {
-    if (this.window) {
+    if (this.window && this.window.isVisible()) {
+      this.isHiding = true;
       this.window.hide();
+      this.isHiding = false;
     }
   }
 
@@ -108,7 +116,9 @@ export class OverlayWindow {
     this.window.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
     this.window.on('blur', () => {
-      this.hide();
+      if (!this.isHiding) {
+        this.hide();
+      }
     });
   }
 
@@ -303,15 +313,26 @@ export class OverlayWindow {
       }
     });
 
-    // Stub handlers for Phase 2+ features
-    ipcMain.handle('list-recent-folders', async () => {
-      // TODO: Phase 2 — query recent folders from DB
-      return [];
+    ipcMain.handle('list-recent-folders', async (_event, limit?: number) => {
+      try {
+        return listRecentFolders(limit);
+      } catch (err) {
+        console.error('[Overlay] list-recent-folders failed:', err);
+        return [];
+      }
     });
 
     ipcMain.handle('list-top-folders', async () => {
-      // TODO: Phase 2 — query top-level folders from DB
-      return [];
+      try {
+        return listTopFolders();
+      } catch (err) {
+        console.error('[Overlay] list-top-folders failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('hide-overlay', async () => {
+      this.hide();
     });
 
     ipcMain.handle('get-aggregates', async () => {

@@ -10,6 +10,83 @@ import { OverlayState, AppConfig } from '../shared/types';
 
 // === Extracted state logic (mirrors SearchOverlay.tsx) ===
 
+// --- Folder scope logic (Phase 2) ---
+
+function buildSearchQuery(text: string, folder: string | null): string {
+  const parts: string[] = [];
+  if (folder) parts.push(`in:${folder}`);
+  if (text.trim()) parts.push(text.trim());
+  return parts.join(' ');
+}
+
+interface FolderScopeTransition {
+  overlayState: OverlayState;
+  folderScope: string | null;
+  query: string;
+  hasSearched: boolean;
+}
+
+function handleFolderBrowse(
+  current: FolderScopeTransition,
+  folder: string,
+): FolderScopeTransition {
+  return {
+    overlayState: OverlayState.Search,
+    folderScope: folder,
+    query: '',
+    hasSearched: true, // browse triggers immediate search
+  };
+}
+
+function handleClearFolderScope(): FolderScopeTransition {
+  return {
+    overlayState: OverlayState.Home,
+    folderScope: null,
+    query: '',
+    hasSearched: false,
+  };
+}
+
+function handleQueryChangeWithFolder(
+  value: string,
+  currentState: OverlayState,
+  folderScope: string | null,
+): { newState: OverlayState; shouldClearResults: boolean } {
+  if (value.trim() && currentState === OverlayState.Home) {
+    return { newState: OverlayState.Search, shouldClearResults: false };
+  }
+  if (!value.trim() && currentState === OverlayState.Search && !folderScope) {
+    return { newState: OverlayState.Home, shouldClearResults: true };
+  }
+  return { newState: currentState, shouldClearResults: false };
+}
+
+function handleEscapeWithFolder(
+  overlayState: OverlayState,
+  previousState: OverlayState,
+  expandedId: string | null,
+  query: string,
+  folderScope: string | null,
+): EscapeResult & { clearFolderScope?: boolean; hideOverlay?: boolean } {
+  if (overlayState === OverlayState.Settings) {
+    const backTo = previousState === OverlayState.Settings ? OverlayState.Home : previousState;
+    return { newState: backTo };
+  }
+  if (expandedId) {
+    return { clearExpanded: true };
+  }
+  if (query) {
+    return { clearQuery: true };
+  }
+  if (folderScope) {
+    return { clearFolderScope: true };
+  }
+  // Nothing left to undo — hide the overlay
+  return { hideOverlay: true };
+}
+
+// --- Original logic ---
+
 function determineInitialState(config: AppConfig): OverlayState {
   if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
     return OverlayState.NoVault;
@@ -203,6 +280,110 @@ describe('Overlay State Machine', () => {
     it('treats whitespace-only as empty', () => {
       const newState = handleQueryChange('   ', OverlayState.Search);
       expect(newState).toBe(OverlayState.Home);
+    });
+  });
+
+  // === Phase 2: Folder Scope Tests ===
+
+  describe('buildSearchQuery', () => {
+    it('returns folder-only query when no text', () => {
+      expect(buildSearchQuery('', '2024/Q1')).toBe('in:2024/Q1');
+    });
+
+    it('returns text-only query when no folder', () => {
+      expect(buildSearchQuery('invoice', null)).toBe('invoice');
+    });
+
+    it('combines folder and text', () => {
+      expect(buildSearchQuery('invoice', '2024/Q1')).toBe('in:2024/Q1 invoice');
+    });
+
+    it('returns empty string when both are empty', () => {
+      expect(buildSearchQuery('', null)).toBe('');
+    });
+
+    it('trims text whitespace', () => {
+      expect(buildSearchQuery('  invoice  ', null)).toBe('invoice');
+    });
+  });
+
+  describe('handleFolderBrowse', () => {
+    it('sets folderScope and transitions to Search', () => {
+      const result = handleFolderBrowse(
+        { overlayState: OverlayState.Home, folderScope: null, query: '', hasSearched: false },
+        '2024/Q1',
+      );
+      expect(result.overlayState).toBe(OverlayState.Search);
+      expect(result.folderScope).toBe('2024/Q1');
+      expect(result.query).toBe('');
+      expect(result.hasSearched).toBe(true);
+    });
+  });
+
+  describe('handleClearFolderScope', () => {
+    it('returns to Home with cleared state', () => {
+      const result = handleClearFolderScope();
+      expect(result.overlayState).toBe(OverlayState.Home);
+      expect(result.folderScope).toBeNull();
+      expect(result.query).toBe('');
+      expect(result.hasSearched).toBe(false);
+    });
+  });
+
+  describe('handleQueryChangeWithFolder (folder-aware transitions)', () => {
+    it('does not return to Home when clearing query with active folder scope', () => {
+      const result = handleQueryChangeWithFolder('', OverlayState.Search, '2024/Q1');
+      expect(result.newState).toBe(OverlayState.Search);
+      expect(result.shouldClearResults).toBe(false);
+    });
+
+    it('returns to Home when clearing query without folder scope', () => {
+      const result = handleQueryChangeWithFolder('', OverlayState.Search, null);
+      expect(result.newState).toBe(OverlayState.Home);
+      expect(result.shouldClearResults).toBe(true);
+    });
+
+    it('transitions Home -> Search when typing with folder scope', () => {
+      const result = handleQueryChangeWithFolder('test', OverlayState.Home, '2024/Q1');
+      expect(result.newState).toBe(OverlayState.Search);
+    });
+  });
+
+  describe('handleEscapeWithFolder (extended escape cascade)', () => {
+    it('clears folder scope after clearing query', () => {
+      const result = handleEscapeWithFolder(
+        OverlayState.Search, OverlayState.Home, null, '', '2024/Q1',
+      );
+      expect(result.clearFolderScope).toBe(true);
+      expect(result.clearQuery).toBeUndefined();
+    });
+
+    it('clears query before clearing folder scope', () => {
+      const result = handleEscapeWithFolder(
+        OverlayState.Search, OverlayState.Home, null, 'test', '2024/Q1',
+      );
+      expect(result.clearQuery).toBe(true);
+      expect(result.clearFolderScope).toBeUndefined();
+    });
+
+    it('collapses expanded before clearing query or folder', () => {
+      const result = handleEscapeWithFolder(
+        OverlayState.Search, OverlayState.Home, 'rec-1', 'test', '2024/Q1',
+      );
+      expect(result.clearExpanded).toBe(true);
+      expect(result.clearQuery).toBeUndefined();
+      expect(result.clearFolderScope).toBeUndefined();
+    });
+
+    it('hides overlay when nothing to undo', () => {
+      const result = handleEscapeWithFolder(
+        OverlayState.Home, OverlayState.Home, null, '', null,
+      );
+      expect(result.hideOverlay).toBe(true);
+      expect(result.clearFolderScope).toBeUndefined();
+      expect(result.clearQuery).toBeUndefined();
+      expect(result.clearExpanded).toBeUndefined();
+      expect(result.newState).toBeUndefined();
     });
   });
 });

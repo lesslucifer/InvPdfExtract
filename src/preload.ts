@@ -24,6 +24,7 @@ const api: InvoiceVaultAPI = {
   exportFiltered: (filters: SearchFilters, destPath: string) => ipcRenderer.invoke('export-filtered', filters, destPath),
   checkClaudeCli: () => ipcRenderer.invoke('check-claude-cli'),
   reprocessAll: () => ipcRenderer.invoke('reprocess-all'),
+  hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
   quitApp: () => ipcRenderer.invoke('quit-app'),
 };
 

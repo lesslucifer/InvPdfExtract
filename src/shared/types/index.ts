@@ -316,6 +316,7 @@ export interface InvoiceVaultAPI {
   exportFiltered: (filters: SearchFilters, destPath: string) => Promise<{ filesWritten: string[] }>;
   checkClaudeCli: () => Promise<{ available: boolean; version?: string }>;
   reprocessAll: () => Promise<{ count: number }>;
+  hideOverlay: () => Promise<void>;
   quitApp: () => Promise<void>;
 }
 

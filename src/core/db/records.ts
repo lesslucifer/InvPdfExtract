@@ -3,6 +3,7 @@ import { getDatabase } from './database';
 import {
   ExtractionBatch, Record, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
+  FolderInfo,
 } from '../../shared/types';
 
 // === Extraction Batches ===
@@ -261,6 +262,61 @@ export function getLockedFieldsForRecord(recordId: string): Map<string, { tableN
     map.set(o.field_name, { tableName: o.table_name, userValue: o.user_value, aiValueAtLock: o.ai_value_at_lock });
   }
   return map;
+}
+
+// === Folder Queries ===
+
+export function listRecentFolders(limit: number = 5): FolderInfo[] {
+  const db = getDatabase();
+  // Group files by their two-level parent directory, ordered by most recent activity
+  const rows = db.prepare(`
+    SELECT
+      CASE
+        WHEN INSTR(SUBSTR(relative_path, 1, LENGTH(relative_path) - LENGTH(REPLACE(relative_path, '/', ''))), '/') > 0
+        THEN SUBSTR(relative_path, 1, INSTR(SUBSTR(relative_path, INSTR(relative_path, '/') + 1), '/') + INSTR(relative_path, '/') - 1)
+        ELSE SUBSTR(relative_path, 1, INSTR(relative_path, '/') - 1)
+      END AS folder,
+      COUNT(DISTINCT r.id) AS record_count,
+      MAX(f.updated_at) AS last_active
+    FROM files f
+    JOIN records r ON r.file_id = f.id AND r.deleted_at IS NULL
+    WHERE f.deleted_at IS NULL
+      AND INSTR(f.relative_path, '/') > 0
+    GROUP BY folder
+    HAVING folder IS NOT NULL AND folder != ''
+    ORDER BY last_active DESC
+    LIMIT ?
+  `).all(limit) as Array<{ folder: string; record_count: number; last_active: string }>;
+
+  return rows.map(r => ({
+    path: r.folder,
+    recordCount: r.record_count,
+    lastActive: r.last_active,
+  }));
+}
+
+export function listTopFolders(): FolderInfo[] {
+  const db = getDatabase();
+  // Group by first path segment only
+  const rows = db.prepare(`
+    SELECT
+      SUBSTR(relative_path, 1, INSTR(relative_path, '/') - 1) AS folder,
+      COUNT(DISTINCT r.id) AS record_count,
+      MAX(f.updated_at) AS last_active
+    FROM files f
+    JOIN records r ON r.file_id = f.id AND r.deleted_at IS NULL
+    WHERE f.deleted_at IS NULL
+      AND INSTR(f.relative_path, '/') > 0
+    GROUP BY folder
+    HAVING folder IS NOT NULL AND folder != ''
+    ORDER BY record_count DESC
+  `).all() as Array<{ folder: string; record_count: number; last_active: string }>;
+
+  return rows.map(r => ({
+    path: r.folder,
+    recordCount: r.record_count,
+    lastActive: r.last_active,
+  }));
 }
 
 // === Search ===

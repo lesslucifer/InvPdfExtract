@@ -4,6 +4,7 @@ import { SearchInput } from './SearchInput';
 import { ResultList } from './ResultList';
 import { NoVaultScreen } from './NoVaultScreen';
 import { SettingsPanel } from './SettingsPanel';
+import { HomeScreen } from './HomeScreen';
 
 const DEBOUNCE_MS = 200;
 
@@ -13,6 +14,7 @@ export const SearchOverlay: React.FC = () => {
 
   // Search state
   const [query, setQuery] = useState('');
+  const [folderScope, setFolderScope] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -33,33 +35,65 @@ export const SearchOverlay: React.FC = () => {
     setOverlayState(state);
   }, [overlayState]);
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
+  const buildSearchQuery = useCallback((text: string, folder: string | null): string => {
+    const parts: string[] = [];
+    if (folder) parts.push(`in:${folder}`);
+    if (text.trim()) parts.push(text.trim());
+    return parts.join(' ');
+  }, []);
+
+  const doSearch = useCallback(async (text: string, folder: string | null) => {
+    const searchQuery = buildSearchQuery(text, folder);
+    if (!searchQuery) {
       setResults([]);
       setHasSearched(false);
       return;
     }
-    const res = await window.api.search(q);
+    const res = await window.api.search(searchQuery);
     setResults(res);
     setSelectedIndex(0);
     setExpandedId(null);
     setHasSearched(true);
-  }, []);
+  }, [buildSearchQuery]);
 
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(value), DEBOUNCE_MS);
 
     // Transition to search state when typing
     if (value.trim() && overlayState === OverlayState.Home) {
       setOverlayState(OverlayState.Search);
     }
-    // Return to home when clearing
-    if (!value.trim() && overlayState === OverlayState.Search) {
+    // Return to home when clearing (only if no folder scope)
+    if (!value.trim() && overlayState === OverlayState.Search && !folderScope) {
       setOverlayState(OverlayState.Home);
+      setResults([]);
+      setHasSearched(false);
+      return;
     }
-  }, [doSearch, overlayState]);
+
+    debounceRef.current = setTimeout(() => doSearch(value, folderScope), DEBOUNCE_MS);
+  }, [doSearch, overlayState, folderScope]);
+
+  const handleFolderBrowse = useCallback((folder: string) => {
+    setFolderScope(folder);
+    setQuery('');
+    goTo(OverlayState.Search);
+    // Immediately search for all records in this folder
+    doSearch('', folder);
+  }, [goTo, doSearch]);
+
+  const handleClearFolderScope = useCallback(() => {
+    setFolderScope(null);
+    setQuery('');
+    setResults([]);
+    setHasSearched(false);
+    setOverlayState(OverlayState.Home);
+  }, []);
+
+  const handleOpenFolder = useCallback((relativePath: string) => {
+    window.api.openFolder(relativePath);
+  }, []);
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -70,10 +104,10 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   const handleFieldUpdated = useCallback(() => {
-    if (query.trim()) {
-      doSearch(query);
+    if (query.trim() || folderScope) {
+      doSearch(query, folderScope);
     }
-  }, [query, doSearch]);
+  }, [query, folderScope, doSearch]);
 
   const handleVaultCreated = useCallback(() => {
     goTo(OverlayState.Home);
@@ -118,15 +152,19 @@ export const SearchOverlay: React.FC = () => {
             setExpandedId(null);
           } else if (query) {
             handleQueryChange('');
+          } else if (folderScope) {
+            handleClearFolderScope();
+          } else {
+            // Nothing left to undo — close the overlay
+            window.api.hideOverlay();
           }
-          // If nothing to undo, the window blur handler will hide overlay
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, handleQueryChange, handleSettingsBack]);
+  }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, folderScope, handleQueryChange, handleSettingsBack, handleClearFolderScope]);
 
   // Render based on state
   if (overlayState === OverlayState.NoVault) {
@@ -149,10 +187,20 @@ export const SearchOverlay: React.FC = () => {
   return (
     <div className="search-overlay">
       <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} />
-      {overlayState === OverlayState.Home && !hasSearched && (
-        <div className="home-placeholder">
-          <p className="home-hint">Type to search invoices, bank statements, MST...</p>
+      {folderScope && (
+        <div className="folder-scope-bar">
+          <span className="folder-scope-label" onClick={() => handleOpenFolder(folderScope)} role="button" title="Open in Finder">&#x1F4C1; {folderScope}/</span>
+          <button className="folder-scope-clear" onClick={handleClearFolderScope} aria-label="Clear folder scope">
+            &times;
+          </button>
         </div>
+      )}
+      {overlayState === OverlayState.Home && !hasSearched && (
+        <HomeScreen
+          onFolderBrowse={handleFolderBrowse}
+          onOpenFolder={handleOpenFolder}
+          onSettingsClick={handleGearClick}
+        />
       )}
       {hasSearched && (
         <ResultList

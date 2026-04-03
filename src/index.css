@@ -531,7 +531,19 @@ body {
   font-size: 12px;
 }
 
-/* === Home Placeholder === */
+/* === Home Screen === */
+.home-screen {
+  padding: 8px 0;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.home-loading {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
 .home-placeholder {
   padding: 32px 24px;
   text-align: center;
@@ -540,6 +552,139 @@ body {
 .home-hint {
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.home-section {
+  padding: 4px 0;
+}
+
+.home-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.home-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 16px 4px;
+}
+
+.home-section-header .home-section-title {
+  padding: 0;
+}
+
+/* Folder row */
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.folder-row:hover {
+  background: var(--bg-hover);
+}
+
+.folder-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.folder-path {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.folder-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.folder-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.folder-row:hover .folder-row-actions {
+  opacity: 1;
+}
+
+.folder-open-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.folder-open-btn:hover {
+  color: var(--text);
+  background: var(--bg-secondary);
+}
+
+/* Folder scope bar */
+.folder-scope-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.folder-scope-label {
+  flex: 1;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.folder-scope-label:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.folder-scope-clear {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.folder-scope-clear:hover {
+  color: var(--text);
+  background: var(--bg-hover);
 }
 
 /* === Settings Panel === */
