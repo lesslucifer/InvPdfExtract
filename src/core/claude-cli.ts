@@ -50,6 +50,10 @@ IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`
     return { result, sessionLog };
   }
 
+  async invokeRaw(userPrompt: string, systemPrompt: string): Promise<string> {
+    return this.invokeClaudeCLI(userPrompt, systemPrompt);
+  }
+
   private invokeClaudeCLI(prompt: string, systemPrompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const args = ['--print', '--system-prompt', systemPrompt, prompt];

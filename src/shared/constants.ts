@@ -23,6 +23,10 @@ export const DEFAULT_BATCH_SIZE = 5;
 export const DEFAULT_CLI_TIMEOUT = 120_000; // 2 minutes
 export const WATCHER_DEBOUNCE_MS = 300;
 
+export const METADATA_SAMPLE_ROWS = 5;
+export const METADATA_SAMPLE_VALUES = 5;
+export const SCRIPT_VERIFY_MAX_RETRIES = 3;
+
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
   [DocType.BankStatement]: 'Sao kê ngân hàng',
   [DocType.InvoiceOut]: 'Hóa đơn đầu ra',
