@@ -1,10 +1,18 @@
 import type { Configuration } from 'webpack';
-import { rules } from './webpack.rules';
 
 export const rendererConfig: Configuration = {
   module: {
     rules: [
-      ...rules,
+      {
+        test: /\.tsx?$/,
+        exclude: /(node_modules|\.webpack)/,
+        use: {
+          loader: 'ts-loader',
+          options: {
+            transpileOnly: true,
+          },
+        },
+      },
       {
         test: /\.css$/,
         use: [

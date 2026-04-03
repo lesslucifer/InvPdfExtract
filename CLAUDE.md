@@ -70,6 +70,13 @@ Phases 2+3 can run in parallel. MVP = Phases 0-4.
 | NCC (nha cung cap) | supplier |
 | KH (khach hang) | customer |
 
+## Testing
+
+- Test framework: **Vitest** (node environment, globals enabled)
+- Test pattern: `src/**/*.test.ts`
+- Run tests: `npx vitest run`
+- **Always write tests for UX changes.** When implementing UI/overlay features (state transitions, IPC handlers, component logic), include corresponding tests. Extract testable logic into pure functions when React components can't be rendered in the node test environment.
+
 ## SQLite Schema
 
 The database (`vault.db` in `.invoicevault/`) uses these core tables: `files`, `extraction_batches`, `records`, `bank_statement_data`, `invoice_data`, `invoice_line_items`, `extraction_scripts`, `file_script_assignments`, `field_overrides`, `processing_logs`. Full schema definitions are in PRD Section 9. All deletions are soft deletes (`deleted_at` column). FTS5 is used for search.

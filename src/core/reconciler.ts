@@ -7,6 +7,7 @@ import {
   createBatch, insertRecord, updateRecord, getRecordsByFileId,
   getRecordByFingerprint, softDeleteRecord, upsertBankStatementData,
   upsertInvoiceData, insertLineItem, deleteLineItemsByRecord,
+  getLineItemsByRecord, updateLineItem, deleteUnlockedLineItemsByRecord,
   updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict,
 } from './db/records';
 import { getFileByPath, updateFileStatus, updateFileDocType } from './db/files';
@@ -181,18 +182,8 @@ export class Reconciler {
 
       upsertInvoiceData(recordId, { record_id: recordId, ...fields });
 
-      // Replace line items (delete old, insert new)
-      deleteLineItemsByRecord(recordId);
-      const lineItems = extractedRecord.line_items || [];
-      for (let i = 0; i < lineItems.length; i++) {
-        insertLineItem(recordId, i + 1, {
-          mo_ta: lineItems[i].mo_ta ?? null,
-          don_gia: lineItems[i].don_gia ?? null,
-          so_luong: lineItems[i].so_luong ?? null,
-          thue_suat: lineItems[i].thue_suat ?? null,
-          thanh_tien: lineItems[i].thanh_tien ?? null,
-        });
-      }
+      // Reconcile line items: respect locked fields, detect conflicts
+      this.reconcileLineItems(recordId, extractedRecord.line_items || []);
 
       updateFtsIndex(recordId, {
         so_hoa_don: fields.so_hoa_don,
@@ -200,6 +191,61 @@ export class Reconciler {
         ten_doi_tac: fields.ten_doi_tac,
         dia_chi_doi_tac: fields.dia_chi_doi_tac,
       });
+    }
+  }
+
+  private reconcileLineItems(recordId: string, newLineItems: ExtractionRecord['line_items']): void {
+    const existingItems = getLineItemsByRecord(recordId);
+    const existingByLineNumber = new Map(existingItems.map(item => [item.line_number, item]));
+    const items = newLineItems || [];
+
+    // Check which existing items have locked fields
+    const hasLockedFields = (lineItemId: string): boolean => {
+      const locks = getLockedFieldsForRecord(lineItemId);
+      return locks.size > 0;
+    };
+
+    const processedLineNumbers = new Set<number>();
+
+    for (let i = 0; i < items.length; i++) {
+      const lineNumber = i + 1;
+      processedLineNumbers.add(lineNumber);
+      const existing = existingByLineNumber.get(lineNumber);
+
+      const newData = {
+        mo_ta: items[i].mo_ta ?? null,
+        don_gia: items[i].don_gia ?? null,
+        so_luong: items[i].so_luong ?? null,
+        thue_suat: items[i].thue_suat ?? null,
+        thanh_tien: items[i].thanh_tien ?? null,
+      };
+
+      if (existing && hasLockedFields(existing.id)) {
+        // Apply locked field logic: keep user values, detect conflicts
+        const lockedFields = getLockedFieldsForRecord(existing.id);
+        const fields: Record<string, any> = { ...newData };
+        this.applyLockedFields(existing.id, 'invoice_line_items', fields, lockedFields);
+        updateLineItem(existing.id, fields);
+      } else if (existing) {
+        // No locks — update freely
+        updateLineItem(existing.id, newData);
+      } else {
+        // New line item
+        insertLineItem(recordId, lineNumber, newData);
+      }
+    }
+
+    // Handle existing items not in new extraction
+    for (const [lineNumber, existing] of existingByLineNumber) {
+      if (!processedLineNumbers.has(lineNumber)) {
+        if (hasLockedFields(existing.id)) {
+          // Keep user-edited items that AI no longer returns
+        } else {
+          // Delete items with no locks
+          const db = getDatabase();
+          db.prepare('DELETE FROM invoice_line_items WHERE id = ?').run(existing.id);
+        }
+      }
     }
   }
 

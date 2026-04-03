@@ -33,6 +33,11 @@ app.on('window-all-closed', () => {
 app.on('ready', async () => {
   console.log('[InvoiceVault] App ready');
 
+  // Hide dock icon on macOS — this is a tray-only app
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.hide();
+  }
+
   // Check Claude CLI availability
   if (!ClaudeCodeRunner.isAvailable()) {
     console.warn('[InvoiceVault] Claude CLI not found. Extraction will fail until installed.');
@@ -40,7 +45,7 @@ app.on('ready', async () => {
 
   // Apply auto-start setting
   const initialConfig = loadAppConfig();
-  app.setLoginItemSettings({ openAtLogin: initialConfig.autoStart });
+  // app.setLoginItemSettings({ openAtLogin: initialConfig.autoStart });
 
   // Initialize tray
   trayManager = new TrayManager({
@@ -48,6 +53,7 @@ app.on('ready', async () => {
     onProcessNow: handleProcessNow,
     onReprocessAll: handleReprocessAll,
     onSwitchVault: handleSwitchVault,
+    onSearchOverlay: () => overlayWindow?.showOverlay(),
     onQuit: handleQuit,
   });
   trayManager.init();
@@ -58,6 +64,43 @@ app.on('ready', async () => {
 
   // Initialize search overlay
   overlayWindow = new OverlayWindow();
+  overlayWindow.setCallbacks({
+    onInitVault: async (folderPath: string) => {
+      if (isVault(folderPath)) {
+        await startVault(folderPath);
+      } else {
+        initVault(folderPath);
+        await startVault(folderPath);
+      }
+      const config = loadAppConfig();
+      const vaultPaths = config.vaultPaths || [];
+      if (!vaultPaths.includes(folderPath)) {
+        vaultPaths.push(folderPath);
+      }
+      saveAppConfig({ lastVaultPath: folderPath, vaultPaths });
+    },
+    onSwitchVault: async (vaultPath: string) => {
+      await startVault(vaultPath);
+      saveAppConfig({ lastVaultPath: vaultPath });
+    },
+    onStopVault: async () => {
+      await stopVault();
+    },
+    onReprocessAll: () => {
+      if (!currentVault) return 0;
+      const { getFilesByStatus, updateFileStatus } = require('./core/db/files');
+      const doneFiles = getFilesByStatus('done');
+      const errorFiles = getFilesByStatus('error');
+      const reviewFiles = getFilesByStatus('review');
+      for (const file of [...doneFiles, ...errorFiles, ...reviewFiles]) {
+        updateFileStatus(file.id, 'pending');
+      }
+      const count = doneFiles.length + errorFiles.length + reviewFiles.length;
+      extractionQueue?.trigger();
+      return count;
+    },
+    onQuit: handleQuit,
+  });
   overlayWindow.registerIpcHandlers();
   overlayWindow.registerShortcut();
 

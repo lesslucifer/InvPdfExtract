@@ -39,6 +39,36 @@ export enum TrayState {
   Error = 'error',
 }
 
+export enum OverlayState {
+  NoVault = 'no-vault',
+  Home = 'home',
+  Search = 'search',
+  Settings = 'settings',
+}
+
+// === Spotlight UX Types ===
+
+export interface FolderInfo {
+  path: string;           // relative to vault root
+  recordCount: number;
+  lastActive: string;     // ISO datetime
+}
+
+export interface SearchFilters {
+  text?: string;
+  folder?: string;
+  docType?: string;
+  status?: string;
+  amountMin?: number;
+  amountMax?: number;
+  dateFilter?: string;
+}
+
+export interface AggregateStats {
+  totalRecords: number;
+  totalAmount: number;
+}
+
 // === Database Row Types ===
 
 export interface VaultFile {
@@ -222,6 +252,46 @@ export interface ExtractionResult {
   results: ExtractionFileResult[];
 }
 
+// === Spreadsheet Metadata Types ===
+
+export interface ColumnTypeInfo {
+  header: string;
+  inferredType: 'string' | 'number' | 'date' | 'boolean' | 'mixed' | 'empty';
+  sampleValues: unknown[];
+  emptyRate: number;
+}
+
+export interface SheetMetadata {
+  name: string;
+  headers: string[];
+  rowCount: number;
+  colCount: number;
+  columnTypes: ColumnTypeInfo[];
+  sampleRows: Record<string, unknown>[];
+}
+
+export interface SpreadsheetMetadata {
+  fileName: string;
+  fileType: 'xlsx' | 'csv';
+  sheets: SheetMetadata[];
+  totalRows: number;
+}
+
+// === Script Generation Types ===
+
+export interface GeneratedScripts {
+  parserPath: string;
+  matcherPath: string;
+  name: string;
+  docType: DocType;
+}
+
+export interface VerificationResult {
+  success: boolean;
+  output?: ExtractionFileResult;
+  error?: string;
+}
+
 // === Search Result Types ===
 
 export interface SearchResult {
@@ -255,6 +325,12 @@ export interface FieldOverrideInput {
   userValue: string;
 }
 
+export interface LineItemFieldInput {
+  lineItemId: string;
+  fieldName: string;
+  userValue: string;
+}
+
 export interface FieldOverrideInfo {
   field_name: string;
   status: OverrideStatus;
@@ -273,6 +349,24 @@ export interface InvoiceVaultAPI {
   getFieldOverrides: (recordId: string) => Promise<FieldOverrideInfo[]>;
   resolveConflict: (recordId: string, fieldName: string, action: 'keep' | 'accept') => Promise<void>;
   resolveAllConflicts: (recordId: string, action: 'keep' | 'accept') => Promise<void>;
+  saveLineItemField: (input: LineItemFieldInput) => Promise<void>;
+  getLineItemOverrides: (lineItemIds: string[]) => Promise<{ [lineItemId: string]: FieldOverrideInfo[] }>;
+  // Spotlight UX additions
+  getAppConfig: () => Promise<AppConfig>;
+  initVault: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
+  switchVault: (vaultPath: string) => Promise<{ success: boolean }>;
+  removeVault: (vaultPath: string) => Promise<void>;
+  pickFolder: () => Promise<string | null>;
+  openFolder: (relativePath: string) => Promise<void>;
+  listRecentFolders: (limit?: number) => Promise<FolderInfo[]>;
+  listTopFolders: () => Promise<FolderInfo[]>;
+  getAggregates: (filters: SearchFilters) => Promise<AggregateStats>;
+  exportFiltered: (filters: SearchFilters) => Promise<{ filePath: string | null }>;
+  showItemInFolder: (absolutePath: string) => Promise<void>;
+  checkClaudeCli: () => Promise<{ available: boolean; version?: string }>;
+  reprocessAll: () => Promise<{ count: number }>;
+  hideOverlay: () => Promise<void>;
+  quitApp: () => Promise<void>;
 }
 
 // === Event Types ===

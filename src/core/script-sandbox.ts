@@ -3,6 +3,8 @@ import { ExtractionFileResult } from '../shared/types';
 
 export interface ExecuteScriptOptions {
   timeoutMs?: number;
+  cwd?: string;
+  modulePaths?: string[];
 }
 
 /**
@@ -18,9 +20,15 @@ export function executeScript(
   const timeoutMs = options.timeoutMs ?? 30000;
 
   return new Promise((resolve, reject) => {
+    const env = options.modulePaths
+      ? { ...process.env, NODE_PATH: options.modulePaths.join(':') }
+      : process.env;
+
     const child = fork(scriptPath, [filePath], {
       silent: true,
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+      cwd: options.cwd,
+      env,
     });
 
     let stdout = '';

@@ -5,8 +5,11 @@ import { ClaudeCodeRunner } from './claude-cli';
 import { Reconciler } from './reconciler';
 import { ScriptRegistry } from './script-registry';
 import { MatcherEvaluator } from './matcher-evaluator';
+import { ScriptGenerator } from './script-generator';
+import { ScriptVerifier } from './script-verifier';
 import { executeScript } from './script-sandbox';
 import { parseXmlInvoice } from './parsers/xml-invoice-parser';
+import { extractMetadata } from './parsers/spreadsheet-metadata';
 import { getDatabase } from './db/database';
 import { eventBus } from './event-bus';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult } from '../shared/types';
@@ -19,6 +22,8 @@ export class ExtractionQueue {
   private reconciler: Reconciler;
   private scriptRegistry: ScriptRegistry;
   private matcherEvaluator: MatcherEvaluator;
+  private scriptGenerator: ScriptGenerator;
+  private scriptVerifier: ScriptVerifier;
   private vault: VaultHandle;
   private batchSize: number;
   private processing = false;
@@ -30,6 +35,8 @@ export class ExtractionQueue {
     this.reconciler = new Reconciler(vault.config.confidence_threshold);
     this.scriptRegistry = new ScriptRegistry(getDatabase());
     this.matcherEvaluator = new MatcherEvaluator();
+    this.scriptGenerator = new ScriptGenerator(this.runner);
+    this.scriptVerifier = new ScriptVerifier(this.runner);
     this.batchSize = DEFAULT_BATCH_SIZE;
   }
 
@@ -127,9 +134,9 @@ export class ExtractionQueue {
         }
       }
 
-      // 3. Fall back to Claude CLI for script generation
-      console.log(`[ExtractionQueue] No cached script matched, falling back to Claude CLI: ${file.relative_path}`);
-      await this.processUnstructuredBatch([file]);
+      // 3. For spreadsheets, use metadata-driven script generation
+      console.log(`[ExtractionQueue] No cached script matched, generating via metadata pipeline: ${file.relative_path}`);
+      await this.processSpreadsheetWithMetadata(file, fullPath);
     } catch (err) {
       console.error(`[ExtractionQueue] Error processing structured file ${file.relative_path}:`, err);
       updateFileStatus(file.id, FileStatus.Error);
@@ -138,6 +145,51 @@ export class ExtractionQueue {
         fileId: file.id,
         error: (err as Error).message,
       });
+    }
+  }
+
+  private async processSpreadsheetWithMetadata(file: VaultFile, fullPath: string): Promise<void> {
+    try {
+      // 1. Extract metadata (pure code, no AI)
+      const metadata = extractMetadata(fullPath);
+      console.log(`[ExtractionQueue] Extracted metadata: ${metadata.sheets.length} sheets, ${metadata.totalRows} total rows`);
+
+      // 2. Generate parser + matcher scripts via AI
+      const generated = await this.scriptGenerator.generateScripts(metadata, this.vault.dotPath);
+      console.log(`[ExtractionQueue] Generated scripts: ${generated.name}`);
+
+      // 3. Verify the generated script works
+      const verification = await this.scriptVerifier.verifyScript(
+        generated.parserPath, fullPath, metadata, this.vault.dotPath,
+      );
+
+      if (!verification.success) {
+        console.error(`[ExtractionQueue] Script verification failed: ${verification.error}`);
+        // Fall back to Claude CLI as last resort
+        await this.processUnstructuredBatch([file]);
+        return;
+      }
+
+      // 4. Register the script for reuse
+      const script = this.scriptRegistry.registerScript({
+        name: generated.name,
+        docType: generated.docType,
+        scriptPath: path.relative(this.vault.dotPath, generated.parserPath),
+        matcherPath: path.relative(this.vault.dotPath, generated.matcherPath),
+        description: `Auto-generated parser for ${metadata.fileName}`,
+      });
+      this.scriptRegistry.recordUsage(script.id, file.id);
+
+      // 5. Reconcile the verified output
+      this.reconciler.reconcileResults(
+        { results: [verification.output!] },
+        `script:${generated.name}`,
+      );
+      console.log(`[ExtractionQueue] XLSX processed and reconciled: ${file.relative_path}`);
+    } catch (err) {
+      console.error(`[ExtractionQueue] Metadata pipeline failed for ${file.relative_path}:`, err);
+      // Fall back to Claude CLI as last resort
+      await this.processUnstructuredBatch([file]);
     }
   }
 

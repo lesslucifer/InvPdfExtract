@@ -57,6 +57,9 @@ export function openVault(folderPath: string): VaultHandle {
 
   openDatabase(dbPath);
 
+  // Ensure extraction prompt exists (may be missing in older vaults)
+  writeDefaultExtractionPrompt(dotPath);
+
   console.log(`[Vault] Opened ${folderPath}`);
 
   return { rootPath: folderPath, dotPath, dbPath, config };

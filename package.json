@@ -9,8 +9,9 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
-    "test": "vitest run",
-    "publish": "electron-forge publish"
+    "publish": "electron-forge publish",
+    "postinstall": "node scripts/download-prebuilts.js",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": {
@@ -31,7 +32,8 @@
     "electron-squirrel-startup": "^1.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",
@@ -43,17 +45,21 @@
     "@electron-forge/plugin-fuses": "^7.11.1",
     "@electron-forge/plugin-webpack": "^7.11.1",
     "@electron/fuses": "^1.0.0",
+    "@electron/rebuild": "^4.0.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@types/uuid": "^11.0.0",
     "@vercel/webpack-asset-relocator-loader": "^1.10.0",
     "css-loader": "^7.1.2",
+    "csv-parse": "^6.2.1",
     "electron": "41.1.1",
+    "fast-xml-parser": "^5.5.9",
     "fork-ts-checker-webpack-plugin": "^9.0.2",
     "node-loader": "^2.1.0",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.1",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.2"
   }
 }
