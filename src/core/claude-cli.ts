@@ -4,6 +4,163 @@ import * as path from 'path';
 import { ExtractionResult } from '../shared/types';
 import { DEFAULT_CLI_TIMEOUT } from '../shared/constants';
 
+/**
+ * Unwrap the --output-format json envelope from Claude CLI.
+ * Returns the model's text output, or null if not an envelope.
+ */
+export function unwrapEnvelope(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.type === 'result') {
+      if (typeof parsed.result === 'string') {
+        return parsed.result;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Bracket-counting JSON extractor. Finds the first balanced {...} in the
+ * raw string that parses as valid JSON with a `results` array.
+ * Properly skips characters inside JSON string literals.
+ */
+export function extractJSON(raw: string): string | null {
+  for (let start = 0; start < raw.length; start++) {
+    if (raw[start] !== '{') continue;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < raw.length; i++) {
+      const ch = raw[i];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (ch === '\\' && inString) {
+        escaped = true;
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (ch === '{' || ch === '[') depth++;
+      else if (ch === '}' || ch === ']') depth--;
+
+      if (depth === 0) {
+        const candidate = raw.substring(start, i + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (parsed && Array.isArray(parsed.results)) {
+            return candidate;
+          }
+        } catch {
+          // not valid JSON from this start position, try next {
+        }
+        break;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Attempt to repair truncated JSON by closing open strings, arrays, and objects.
+ * Returns the repaired string or null if repair is not possible.
+ */
+export function repairTruncatedJSON(raw: string): string | null {
+  const firstBrace = raw.indexOf('{');
+  if (firstBrace === -1) return null;
+
+  let text = raw.substring(firstBrace);
+  const stack: ('{' | '[')[] = [];
+  let inString = false;
+  let escaped = false;
+  // Track whether the current context expects a value (after ':') or a key (after ',' or '{')
+  let expectingValue = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\' && inString) {
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === '{') { stack.push('{'); expectingValue = false; }
+    else if (ch === '[') { stack.push('['); expectingValue = true; }
+    else if (ch === '}') { stack.pop(); expectingValue = false; }
+    else if (ch === ']') { stack.pop(); expectingValue = false; }
+    else if (ch === ':') { expectingValue = true; }
+    else if (ch === ',') {
+      // After comma in object context → expecting key (not value)
+      // After comma in array context → expecting value
+      const top = stack[stack.length - 1];
+      expectingValue = top === '[';
+    }
+  }
+
+  // Nothing to repair — already balanced
+  if (stack.length === 0 && !inString) return null;
+
+  let repaired = text;
+
+  if (inString) {
+    // Close the open string
+    repaired += '"';
+    if (!expectingValue) {
+      // We were in a key string (not after ':'). Add ': null' to complete the pair.
+      repaired += ': null';
+    }
+  } else if (expectingValue) {
+    // After ':' or ',' in array with no value yet — check if there's a dangling comma or colon
+    const trimmed = repaired.trimEnd();
+    if (trimmed.endsWith(':')) {
+      repaired += ' null';
+    }
+  }
+
+  // Remove trailing comma before closing brackets
+  repaired = repaired.replace(/,\s*$/, '');
+
+  // Close all open containers in reverse order
+  while (stack.length > 0) {
+    const open = stack.pop()!;
+    repaired += open === '{' ? '}' : ']';
+  }
+
+  // Verify it parses
+  try {
+    JSON.parse(repaired);
+    return repaired;
+  } catch {
+    return null;
+  }
+}
+
 export class ClaudeCodeRunner {
   private cliPath: string;
   private timeout: number;
@@ -56,6 +213,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`
       const retryPrompt = `Your previous response could not be parsed as valid JSON.
 Please try again for the same files. Return ONLY a valid JSON object matching the ExtractionResult schema.
 Do NOT include any explanation, thinking, commentary, or markdown — output raw JSON only, starting with { and ending with }.
+If your previous output was truncated, produce a shorter response.
 
 Files:
 ${fileList}
@@ -76,7 +234,12 @@ Located relative to: ${vaultRoot}`;
 
   private invokeClaudeCLI(prompt: string, systemPrompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const args = ['--print', '--system-prompt', systemPrompt, prompt];
+      const args = [
+        '--print',
+        '--output-format', 'json',
+        '--system-prompt', systemPrompt,
+        prompt,
+      ];
 
       const proc = spawn(this.cliPath, args, {
         timeout: this.timeout,
@@ -114,8 +277,12 @@ Located relative to: ${vaultRoot}`;
   }
 
   parseResponse(raw: string): ExtractionResult {
-    // Strategy 1: Strip markdown code fences if present
-    let cleaned = raw.trim();
+    // Step 0: Unwrap --output-format json envelope if present
+    const unwrapped = unwrapEnvelope(raw);
+    const text = unwrapped ?? raw;
+
+    // Step 1: Strip markdown code fences if present
+    let cleaned = text.trim();
     if (cleaned.startsWith('```')) {
       const firstNewline = cleaned.indexOf('\n');
       cleaned = cleaned.slice(firstNewline + 1);
@@ -125,23 +292,32 @@ Located relative to: ${vaultRoot}`;
     }
     cleaned = cleaned.trim();
 
-    // Try direct parse first
+    // Step 2: Try direct parse
     const directResult = this.tryParseExtractionResult(cleaned);
     if (directResult) return directResult;
 
-    // Strategy 2: Extract JSON substring from first { to last }
-    const firstBrace = raw.indexOf('{');
-    const lastBrace = raw.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      const extracted = raw.substring(firstBrace, lastBrace + 1);
+    // Step 3: Bracket-counting JSON extraction
+    const extracted = extractJSON(text);
+    if (extracted) {
       const extractedResult = this.tryParseExtractionResult(extracted);
       if (extractedResult) return extractedResult;
     }
 
-    // All strategies failed
-    const truncated = lastBrace === -1 || raw.trimEnd().slice(-1) !== '}';
-    const hint = truncated ? ' (output appears truncated)' : '';
-    throw new Error(`Failed to parse Claude CLI response as JSON${hint}\nRaw output:\n${raw.slice(0, 500)}`);
+    // Step 4: Truncated JSON repair
+    const repaired = repairTruncatedJSON(text);
+    if (repaired) {
+      const repairedResult = this.tryParseExtractionResult(repaired);
+      if (repairedResult) {
+        console.warn('[ClaudeCodeRunner] Parsed truncated JSON — extraction data may be incomplete');
+        return repairedResult;
+      }
+    }
+
+    // Step 5: All strategies failed
+    const hasOpenBrace = text.indexOf('{') !== -1;
+    const endsWithBrace = text.trimEnd().endsWith('}');
+    const hint = hasOpenBrace && !endsWithBrace ? ' (output appears truncated)' : '';
+    throw new Error(`Failed to parse Claude CLI response as JSON${hint}\nRaw output:\n${text.slice(0, 500)}`);
   }
 
   private tryParseExtractionResult(text: string): ExtractionResult | null {
