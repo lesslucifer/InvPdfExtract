@@ -67,7 +67,8 @@ function handleEscapeWithFolder(
   expandedId: string | null,
   query: string,
   folderScope: string | null,
-): EscapeResult & { clearFolderScope?: boolean; hideOverlay?: boolean } {
+  hasFilterPills: boolean = false,
+): EscapeResult & { clearFolderScope?: boolean; clearFilters?: boolean; hideOverlay?: boolean } {
   if (overlayState === OverlayState.Settings) {
     const backTo = previousState === OverlayState.Settings ? OverlayState.Home : previousState;
     return { newState: backTo };
@@ -77,6 +78,9 @@ function handleEscapeWithFolder(
   }
   if (query) {
     return { clearQuery: true };
+  }
+  if (hasFilterPills) {
+    return { clearFilters: true };
   }
   if (folderScope) {
     return { clearFolderScope: true };
@@ -384,6 +388,31 @@ describe('Overlay State Machine', () => {
       expect(result.clearQuery).toBeUndefined();
       expect(result.clearExpanded).toBeUndefined();
       expect(result.newState).toBeUndefined();
+    });
+
+    it('clears filter pills after clearing query but before clearing folder', () => {
+      const result = handleEscapeWithFolder(
+        OverlayState.Search, OverlayState.Home, null, '', '2024/Q1', true,
+      );
+      expect(result.clearFilters).toBe(true);
+      expect(result.clearFolderScope).toBeUndefined();
+      expect(result.clearQuery).toBeUndefined();
+    });
+
+    it('clears query before clearing filter pills', () => {
+      const result = handleEscapeWithFolder(
+        OverlayState.Search, OverlayState.Home, null, 'test', '2024/Q1', true,
+      );
+      expect(result.clearQuery).toBe(true);
+      expect(result.clearFilters).toBeUndefined();
+    });
+
+    it('clears filter pills when no folder scope or query', () => {
+      const result = handleEscapeWithFolder(
+        OverlayState.Search, OverlayState.Home, null, '', null, true,
+      );
+      expect(result.clearFilters).toBe(true);
+      expect(result.hideOverlay).toBeUndefined();
     });
   });
 });

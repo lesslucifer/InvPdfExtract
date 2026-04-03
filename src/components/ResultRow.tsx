@@ -6,6 +6,8 @@ interface Props {
   isSelected: boolean;
   isExpanded: boolean;
   onClick: () => void;
+  onFolderClick?: (folder: string) => void;
+  onDocTypeClick?: (docType: string) => void;
 }
 
 const DOC_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -26,7 +28,22 @@ function confidenceClass(confidence: number): string {
   return 'confidence-low';
 }
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick }) => {
+interface PathSegment {
+  label: string;
+  folder: string;
+}
+
+function splitPath(relativePath: string): { segments: PathSegment[]; filename: string } {
+  const parts = relativePath.split('/');
+  const filename = parts.pop() || '';
+  const segments: PathSegment[] = parts.map((label, i) => ({
+    label,
+    folder: parts.slice(0, i + 1).join('/'),
+  }));
+  return { segments, filename };
+}
+
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick }) => {
   const meta = DOC_TYPE_LABELS[result.doc_type] || DOC_TYPE_LABELS[DocType.Unknown];
   const isBank = result.doc_type === DocType.BankStatement;
 
@@ -37,6 +54,8 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
   const amount = isBank ? result.so_tien : result.tong_tien;
   const counterparty = result.ten_doi_tac;
 
+  const { segments, filename } = splitPath(result.relative_path);
+
   return (
     <div
       className={`result-row ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}`}
@@ -45,7 +64,13 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
       aria-selected={isSelected}
     >
       <div className="result-row-main">
-        <span className="result-icon" title={meta.label}>{meta.icon}</span>
+        <span
+          className={`result-icon ${onDocTypeClick ? 'result-icon-clickable' : ''}`}
+          title={meta.label}
+          onClick={onDocTypeClick ? (e) => { e.stopPropagation(); onDocTypeClick(result.doc_type); } : undefined}
+        >
+          {meta.icon}
+        </span>
         <div className="result-info">
           <div className="result-primary">
             <span className="result-label">{primaryLabel}</span>
@@ -63,7 +88,21 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           </span>
         </div>
       </div>
-      <div className="result-file" title={result.relative_path}>{result.relative_path}</div>
+      <div className="result-file" title={result.relative_path}>
+        {segments.map((seg) => (
+          <span
+            key={seg.folder}
+            className={onFolderClick ? 'result-file-segment' : undefined}
+            onClick={onFolderClick ? (e) => { e.stopPropagation(); onFolderClick(seg.folder); } : undefined}
+          >
+            {seg.label}/
+          </span>
+        ))}
+        <span>{filename}</span>
+      </div>
     </div>
   );
 };
+
+// Export for testing
+export { splitPath };

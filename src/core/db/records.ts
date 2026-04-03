@@ -321,73 +321,7 @@ export function listTopFolders(): FolderInfo[] {
 
 // === Search ===
 
-interface ParsedQuery {
-  text: string;
-  docType?: string;
-  status?: string;
-  folder?: string;
-  amountMin?: number;
-  amountMax?: number;
-  dateFilter?: string;
-}
-
-function parseSearchQuery(raw: string): ParsedQuery {
-  const result: ParsedQuery = { text: '' };
-  const tokens: string[] = [];
-
-  const parts = raw.split(/\s+/);
-  for (const part of parts) {
-    const lower = part.toLowerCase();
-
-    // type: filter
-    if (lower.startsWith('type:')) {
-      const val = lower.slice(5);
-      if (val === 'bank' || val === 'saoke') result.docType = 'bank_statement';
-      else if (val === 'hdra' || val === 'out') result.docType = 'invoice_out';
-      else if (val === 'hdv' || val === 'in') result.docType = 'invoice_in';
-      continue;
-    }
-
-    // status: filter
-    if (lower.startsWith('status:')) {
-      result.status = lower.slice(7);
-      continue;
-    }
-
-    // in: folder filter
-    if (lower.startsWith('in:')) {
-      result.folder = part.slice(3);
-      continue;
-    }
-
-    // Amount range: >N, <N, N-M, Ntr-Mtr
-    const trMatch = lower.match(/^(\d+)tr-(\d+)tr$/);
-    if (trMatch) {
-      result.amountMin = parseInt(trMatch[1]) * 1_000_000;
-      result.amountMax = parseInt(trMatch[2]) * 1_000_000;
-      continue;
-    }
-    if (lower.startsWith('>') && !isNaN(Number(lower.slice(1)))) {
-      result.amountMin = Number(lower.slice(1));
-      continue;
-    }
-    if (lower.startsWith('<') && !isNaN(Number(lower.slice(1)))) {
-      result.amountMax = Number(lower.slice(1));
-      continue;
-    }
-
-    // Date filter: YYYY-MM or YYYY-MM-DD
-    if (/^\d{4}-\d{2}(-\d{2})?$/.test(part)) {
-      result.dateFilter = part;
-      continue;
-    }
-
-    tokens.push(part);
-  }
-
-  result.text = tokens.join(' ');
-  return result;
-}
+import { parseSearchQuery } from '../../shared/parse-query';
 
 export function searchRecords(query: string, limit: number = 50): any[] {
   const db = getDatabase();

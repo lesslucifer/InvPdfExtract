@@ -1,0 +1,88 @@
+import React from 'react';
+import { ParsedQuery } from '../shared/parse-query';
+
+interface Props {
+  filters: ParsedQuery;
+  onRemoveFilter: (key: keyof ParsedQuery) => void;
+}
+
+const DOC_TYPE_PILLS: Record<string, { icon: string; label: string }> = {
+  bank_statement: { icon: '🏦', label: 'Bank Statement' },
+  invoice_out: { icon: '📤', label: 'Invoice Out' },
+  invoice_in: { icon: '📥', label: 'Invoice In' },
+};
+
+function formatAmount(n: number): string {
+  if (n >= 1_000_000 && n % 1_000_000 === 0) {
+    return `${n / 1_000_000}tr`;
+  }
+  return new Intl.NumberFormat('vi-VN').format(n);
+}
+
+interface PillDef {
+  key: keyof ParsedQuery;
+  icon: string;
+  label: string;
+}
+
+function getPills(filters: ParsedQuery): PillDef[] {
+  const pills: PillDef[] = [];
+
+  if (filters.docType) {
+    const meta = DOC_TYPE_PILLS[filters.docType];
+    if (meta) {
+      pills.push({ key: 'docType', icon: meta.icon, label: meta.label });
+    }
+  }
+
+  if (filters.status) {
+    const statusIcons: Record<string, string> = { conflict: '⚠️', review: '🔍' };
+    const icon = statusIcons[filters.status] || '🔖';
+    const label = filters.status.charAt(0).toUpperCase() + filters.status.slice(1);
+    pills.push({ key: 'status', icon, label });
+  }
+
+  if (filters.amountMin != null && filters.amountMax != null) {
+    pills.push({
+      key: 'amountMin',
+      icon: '💰',
+      label: `${formatAmount(filters.amountMin)}–${formatAmount(filters.amountMax)}`,
+    });
+  } else if (filters.amountMin != null) {
+    pills.push({ key: 'amountMin', icon: '💰', label: `>${formatAmount(filters.amountMin)}` });
+  } else if (filters.amountMax != null) {
+    pills.push({ key: 'amountMax', icon: '💰', label: `<${formatAmount(filters.amountMax)}` });
+  }
+
+  if (filters.dateFilter) {
+    pills.push({ key: 'dateFilter', icon: '📅', label: filters.dateFilter });
+  }
+
+  return pills;
+}
+
+export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter }) => {
+  const pills = getPills(filters);
+  if (pills.length === 0) return null;
+
+  return (
+    <div className="filter-pills">
+      {pills.map((pill) => (
+        <span key={pill.key} className="filter-pill">
+          <span className="filter-pill-icon">{pill.icon}</span>
+          <span className="filter-pill-label">{pill.label}</span>
+          <button
+            className="filter-pill-close"
+            onClick={() => onRemoveFilter(pill.key)}
+            aria-label={`Remove ${pill.label} filter`}
+          >
+            &times;
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+};
+
+// Export for testing
+export { getPills, formatAmount };
