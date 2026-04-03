@@ -43,6 +43,7 @@ export enum OverlayState {
   NoVault = 'no-vault',
   Home = 'home',
   Search = 'search',
+  PathSearch = 'path-search',
   Settings = 'settings',
 }
 
@@ -365,8 +366,13 @@ export interface InvoiceVaultAPI {
   showItemInFolder: (absolutePath: string) => Promise<void>;
   checkClaudeCli: () => Promise<{ available: boolean; version?: string }>;
   reprocessAll: () => Promise<{ count: number }>;
+  reprocessFile: (relativePath: string) => Promise<{ count: number }>;
+  reprocessFolder: (folderPrefix: string) => Promise<{ count: number }>;
+  countFolderFiles: (folderPrefix: string) => Promise<{ count: number }>;
   hideOverlay: () => Promise<void>;
   quitApp: () => Promise<void>;
+  onStatusUpdate: (callback: (status: 'idle' | 'processing' | 'review' | 'error') => void) => () => void;
+  listVaultPaths: (query: string, scope?: string) => Promise<Array<{ name: string; relativePath: string; isDir: boolean }>>;
 }
 
 // === Event Types ===

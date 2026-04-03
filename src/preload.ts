@@ -29,8 +29,18 @@ const api: InvoiceVaultAPI = {
   showItemInFolder: (absolutePath: string) => ipcRenderer.invoke('show-item-in-folder', absolutePath),
   checkClaudeCli: () => ipcRenderer.invoke('check-claude-cli'),
   reprocessAll: () => ipcRenderer.invoke('reprocess-all'),
+  reprocessFile: (relativePath: string) => ipcRenderer.invoke('reprocess-file', relativePath),
+  reprocessFolder: (folderPrefix: string) => ipcRenderer.invoke('reprocess-folder', folderPrefix),
+  countFolderFiles: (folderPrefix: string) => ipcRenderer.invoke('count-folder-files', folderPrefix),
   hideOverlay: () => ipcRenderer.invoke('hide-overlay'),
   quitApp: () => ipcRenderer.invoke('quit-app'),
+  listVaultPaths: (query: string, scope?: string) => ipcRenderer.invoke('list-vault-paths', query, scope),
+  onStatusUpdate: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: 'idle' | 'processing' | 'review' | 'error') => callback(status);
+    ipcRenderer.on('overlay-status-update', listener);
+    // Return an unsubscribe function
+    return () => ipcRenderer.removeListener('overlay-status-update', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

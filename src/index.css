@@ -535,6 +535,38 @@ body {
   background: var(--bg-hover);
 }
 
+/* === Status Dot === */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 2px;
+  transition: background-color 0.3s;
+}
+
+.status-dot--idle {
+  background: var(--confidence-high); /* green */
+}
+
+.status-dot--processing {
+  background: var(--accent); /* blue */
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.status-dot--review {
+  background: var(--confidence-medium); /* orange */
+}
+
+.status-dot--error {
+  background: var(--confidence-low); /* red */
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* === No Vault Screen === */
 .no-vault-screen {
   display: flex;
@@ -708,6 +740,22 @@ body {
   background: var(--bg-secondary);
 }
 
+.folder-reload-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.folder-reload-btn:hover {
+  color: var(--accent);
+  background: var(--bg-secondary);
+}
+
 /* Filter pills */
 .filter-pills {
   display: flex;
@@ -837,6 +885,85 @@ body {
 .result-file-link:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+
+/* Folder segment group (segment + optional reload button) */
+.result-file-segment-group {
+  display: inline;
+}
+
+/* Reload/reprocess button on result rows */
+.result-reload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  vertical-align: middle;
+}
+
+.result-file:hover .result-reload-btn,
+.result-row.selected .result-reload-btn {
+  opacity: 0.6;
+}
+
+.result-reload-btn:hover {
+  opacity: 1 !important;
+  background: var(--accent);
+  color: white;
+}
+
+/* Confirmation bar for folder reprocess */
+.result-confirm-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--bg-secondary, #2a2a2a);
+  border-top: 1px solid var(--border, #444);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.result-confirm-bar strong {
+  color: var(--text-primary);
+}
+
+.result-confirm-yes,
+.result-confirm-no {
+  padding: 2px 10px;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.result-confirm-yes {
+  background: var(--accent);
+  color: white;
+}
+
+.result-confirm-no {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.result-confirm-yes:hover {
+  filter: brightness(1.1);
+}
+
+.result-confirm-no:hover {
+  color: var(--text-primary);
 }
 
 /* Clickable doc type icon */
@@ -1141,4 +1268,88 @@ body {
 
 .sticky-footer-toast-open:hover {
   background: var(--bg-hover);
+}
+
+/* === Path Results List (Phase 6: PathSearch mode) === */
+
+.path-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  max-height: 340px;
+}
+
+.path-results-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+
+.path-results-item.selected,
+.path-results-item:hover {
+  background: var(--bg-hover);
+}
+
+.path-results-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.path-results-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.path-results-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.path-reload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.path-results-item:hover .path-reload-btn,
+.path-results-item.selected .path-reload-btn {
+  opacity: 0.6;
+}
+
+.path-reload-btn:hover {
+  opacity: 1 !important;
+  background: var(--accent);
+  color: white;
+}
+
+.path-results-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
 }

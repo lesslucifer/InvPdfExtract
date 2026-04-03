@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { SearchResult, DocType } from '../shared/types';
 
 interface Props {
@@ -9,6 +9,8 @@ interface Props {
   onFolderClick?: (folder: string) => void;
   onDocTypeClick?: (docType: string) => void;
   onOpenFile?: (relativePath: string) => void;
+  onReprocessFile?: (relativePath: string) => void;
+  onReprocessFolder?: (folderPrefix: string) => void;
 }
 
 const DOC_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -44,7 +46,8 @@ function splitPath(relativePath: string): { segments: PathSegment[]; filename: s
   return { segments, filename };
 }
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick, onOpenFile }) => {
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick, onOpenFile, onReprocessFile, onReprocessFolder }) => {
+  const [confirmFolder, setConfirmFolder] = useState<string | null>(null);
   const meta = DOC_TYPE_LABELS[result.doc_type] || DOC_TYPE_LABELS[DocType.Unknown];
   const isBank = result.doc_type === DocType.BankStatement;
 
@@ -56,6 +59,39 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
   const counterparty = result.ten_doi_tac;
 
   const { segments, filename } = splitPath(result.relative_path);
+
+  const handleReprocessFile = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onReprocessFile?.(result.relative_path);
+  }, [onReprocessFile, result.relative_path]);
+
+  const handleReprocessFolder = useCallback(async (e: React.MouseEvent, folder: string) => {
+    e.stopPropagation();
+    if (!onReprocessFolder) return;
+    try {
+      const { count } = await window.api.countFolderFiles(folder);
+      if (count > 10) {
+        setConfirmFolder(folder);
+      } else {
+        onReprocessFolder(folder);
+      }
+    } catch {
+      onReprocessFolder(folder);
+    }
+  }, [onReprocessFolder]);
+
+  const handleConfirmReprocess = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirmFolder && onReprocessFolder) {
+      onReprocessFolder(confirmFolder);
+    }
+    setConfirmFolder(null);
+  }, [confirmFolder, onReprocessFolder]);
+
+  const handleCancelReprocess = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmFolder(null);
+  }, []);
 
   return (
     <div
@@ -91,12 +127,20 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
       </div>
       <div className="result-file" title={result.relative_path}>
         {segments.map((seg) => (
-          <span
-            key={seg.folder}
-            className={onFolderClick ? 'result-file-segment' : undefined}
-            onClick={onFolderClick ? (e) => { e.stopPropagation(); onFolderClick(seg.folder); } : undefined}
-          >
-            {seg.label}/
+          <span key={seg.folder} className="result-file-segment-group">
+            <span
+              className={onFolderClick ? 'result-file-segment' : undefined}
+              onClick={onFolderClick ? (e) => { e.stopPropagation(); onFolderClick(seg.folder); } : undefined}
+            >
+              {seg.label}/
+            </span>
+            {onReprocessFolder && (
+              <button
+                className="result-reload-btn"
+                title={`Reprocess all files in ${seg.folder}`}
+                onClick={(e) => handleReprocessFolder(e, seg.folder)}
+              >↻</button>
+            )}
           </span>
         ))}
         {onOpenFile ? (
@@ -109,7 +153,21 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         ) : (
           <span>{filename}</span>
         )}
+        {onReprocessFile && (
+          <button
+            className="result-reload-btn"
+            title="Reprocess this file"
+            onClick={handleReprocessFile}
+          >↻</button>
+        )}
       </div>
+      {confirmFolder && (
+        <div className="result-confirm-bar" onClick={(e) => e.stopPropagation()}>
+          <span>Reprocess all files in <strong>{confirmFolder}</strong>?</span>
+          <button className="result-confirm-yes" onClick={handleConfirmReprocess}>Yes</button>
+          <button className="result-confirm-no" onClick={handleCancelReprocess}>Cancel</button>
+        </div>
+      )}
     </div>
   );
 };

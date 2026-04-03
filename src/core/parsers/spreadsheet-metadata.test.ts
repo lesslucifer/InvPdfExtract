@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -121,7 +121,7 @@ describe('SpreadsheetMetadataExtractor', () => {
 
     it('sets fileName from file path', () => {
       const meta = extractMetadata(XLSX_FILES.hoadonSold);
-      expect(meta.fileName).toBe('hoadon_sold_2026-03-22__.xlsx');
+      expect(meta.fileName).toBe('hoadon_sold_2026-03-22.xlsx');
     });
   });
 

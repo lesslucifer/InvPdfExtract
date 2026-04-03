@@ -1,6 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import { OverlayState, AppConfig } from '../shared/types';
 
+// PathSearch trigger: first char is '/'
+function isPathSearchTrigger(value: string): boolean {
+  return value.startsWith('/') || value.startsWith('\\');
+}
+
+// PathSearch mode query: text after the leading '/'
+function getPathQuery(value: string): string {
+  return value.slice(1);
+}
+
+// PathSearch escape: always goes to Home
+function handlePathSearchEscape(): OverlayState {
+  return OverlayState.Home;
+}
+
+// PathSearch backspace to empty: return to previous state
+function handlePathSearchBackspace(previousState: OverlayState): OverlayState {
+  return previousState === OverlayState.PathSearch ? OverlayState.Home : previousState;
+}
+
+// PathSearch folder select: goes to Search with folderScope set
+function handlePathSearchFolderSelect(relativePath: string): { newState: OverlayState; folderScope: string } {
+  return { newState: OverlayState.Search, folderScope: relativePath };
+}
+
 /**
  * Tests for the overlay state machine logic.
  *
@@ -14,7 +39,8 @@ import { OverlayState, AppConfig } from '../shared/types';
 
 function buildSearchQuery(text: string, folder: string | null): string {
   const parts: string[] = [];
-  if (folder) parts.push(`in:${folder}`);
+  // folder scope is set separately — not embedded in the query string anymore
+  if (folder) parts.push(folder);
   if (text.trim()) parts.push(text.trim());
   return parts.join(' ');
 }
@@ -290,8 +316,8 @@ describe('Overlay State Machine', () => {
   // === Phase 2: Folder Scope Tests ===
 
   describe('buildSearchQuery', () => {
-    it('returns folder-only query when no text', () => {
-      expect(buildSearchQuery('', '2024/Q1')).toBe('in:2024/Q1');
+    it('returns folder path when no text', () => {
+      expect(buildSearchQuery('', '2024/Q1')).toBe('2024/Q1');
     });
 
     it('returns text-only query when no folder', () => {
@@ -299,7 +325,7 @@ describe('Overlay State Machine', () => {
     });
 
     it('combines folder and text', () => {
-      expect(buildSearchQuery('invoice', '2024/Q1')).toBe('in:2024/Q1 invoice');
+      expect(buildSearchQuery('invoice', '2024/Q1')).toBe('2024/Q1 invoice');
     });
 
     it('returns empty string when both are empty', () => {
@@ -413,6 +439,85 @@ describe('Overlay State Machine', () => {
       );
       expect(result.clearFilters).toBe(true);
       expect(result.hideOverlay).toBeUndefined();
+    });
+  });
+
+  // === Phase 6: PathSearch State Machine ===
+
+  describe('isPathSearchTrigger', () => {
+    it('triggers on leading /', () => {
+      expect(isPathSearchTrigger('/')).toBe(true);
+      expect(isPathSearchTrigger('/invoices')).toBe(true);
+    });
+
+    it('triggers on leading \\', () => {
+      expect(isPathSearchTrigger('\\')).toBe(true);
+      expect(isPathSearchTrigger('\\invoices')).toBe(true);
+    });
+
+    it('does not trigger on normal text', () => {
+      expect(isPathSearchTrigger('invoices')).toBe(false);
+      expect(isPathSearchTrigger('')).toBe(false);
+      expect(isPathSearchTrigger('abc/def')).toBe(false);
+    });
+  });
+
+  describe('getPathQuery', () => {
+    it('strips leading slash', () => {
+      expect(getPathQuery('/inv2024')).toBe('inv2024');
+      expect(getPathQuery('/')).toBe('');
+    });
+  });
+
+  describe('handlePathSearchEscape', () => {
+    it('always returns Home', () => {
+      expect(handlePathSearchEscape()).toBe(OverlayState.Home);
+    });
+  });
+
+  describe('handlePathSearchBackspace', () => {
+    it('returns to Home when previous was Home', () => {
+      expect(handlePathSearchBackspace(OverlayState.Home)).toBe(OverlayState.Home);
+    });
+
+    it('returns to Search when previous was Search', () => {
+      expect(handlePathSearchBackspace(OverlayState.Search)).toBe(OverlayState.Search);
+    });
+
+    it('returns Home when previous was PathSearch (safety)', () => {
+      expect(handlePathSearchBackspace(OverlayState.PathSearch)).toBe(OverlayState.Home);
+    });
+  });
+
+  describe('handlePathSearchFolderSelect', () => {
+    it('transitions to Search and sets folderScope', () => {
+      const result = handlePathSearchFolderSelect('2024/Q1');
+      expect(result.newState).toBe(OverlayState.Search);
+      expect(result.folderScope).toBe('2024/Q1');
+    });
+  });
+
+  // === Reprocess Confirmation Logic ===
+
+  describe('shouldConfirmReprocess', () => {
+    function shouldConfirmReprocess(fileCount: number): boolean {
+      return fileCount > 10;
+    }
+
+    it('returns false for 1 file', () => {
+      expect(shouldConfirmReprocess(1)).toBe(false);
+    });
+
+    it('returns false for 10 files (boundary)', () => {
+      expect(shouldConfirmReprocess(10)).toBe(false);
+    });
+
+    it('returns true for 11 files', () => {
+      expect(shouldConfirmReprocess(11)).toBe(true);
+    });
+
+    it('returns true for 100 files', () => {
+      expect(shouldConfirmReprocess(100)).toBe(true);
     });
   });
 });

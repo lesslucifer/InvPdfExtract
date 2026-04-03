@@ -375,6 +375,10 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
 
   if (parsed.text.trim()) {
     const q = parsed.text.trim();
+    // Escape the query for FTS5: wrap in double-quotes to treat as a phrase,
+    // escaping any embedded double-quotes. This prevents syntax errors from
+    // special FTS5 characters like /, (, ), *, ^, etc.
+    const ftsQuery = '"' + q.replace(/"/g, '""') + '"*';
     conditions.push(`(
       r.id IN (SELECT rowid FROM records_fts WHERE records_fts MATCH ?)
       OR id2.so_hoa_don LIKE ?
@@ -383,7 +387,7 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
       OR bsd.ten_doi_tac LIKE ?
       OR bsd.stk LIKE ?
     )`);
-    params.push(q + '*', `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+    params.push(ftsQuery, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
   }
 
   if (parsed.docType) {

@@ -11,7 +11,9 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "postinstall": "node scripts/download-prebuilts.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "keywords": [],
   "author": {
@@ -46,6 +48,7 @@
     "@electron-forge/plugin-webpack": "^7.11.1",
     "@electron/fuses": "^1.0.0",
     "@electron/rebuild": "^4.0.3",
+    "@playwright/test": "^1.59.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
@@ -57,6 +60,7 @@
     "fast-xml-parser": "^5.5.9",
     "fork-ts-checker-webpack-plugin": "^9.0.2",
     "node-loader": "^2.1.0",
+    "playwright": "^1.59.1",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.1",
     "typescript": "^5.7.3",

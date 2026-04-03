@@ -44,7 +44,12 @@ export class FileWatcher {
 
     this.watcher = watch(this.vaultRoot, {
       ignored: [
-        (filePath: string) => {
+        (filePath: string, stats?: fs.Stats) => {
+          // Pre-filter files by extension before allocating OS watch descriptors
+          if (stats?.isFile()) {
+            const ext = path.extname(filePath).toLowerCase();
+            if (!WATCHED_EXTENSIONS.has(ext)) return true;
+          }
           const rel = path.relative(this.vaultRoot, filePath);
           // Always allow root
           if (rel === '' || rel === '.') return false;
@@ -62,7 +67,8 @@ export class FileWatcher {
           });
         },
       ],
-      ignoreInitial: false,
+      ignoreInitial: true,
+      depth: 10,
       persistent: true,
       awaitWriteFinish: {
         stabilityThreshold: WATCHER_DEBOUNCE_MS,

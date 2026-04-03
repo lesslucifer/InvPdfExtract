@@ -12,12 +12,19 @@ import { getDatabase } from '../core/db/database';
 import { FieldOverrideInput, LineItemFieldInput, SearchFilters } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault } from '../core/vault';
+import { eventBus } from '../core/event-bus';
+import { VaultPathCache } from '../core/vault-path-cache';
+
+export type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
 export interface OverlayCallbacks {
   onInitVault: (folderPath: string) => Promise<void>;
   onSwitchVault: (vaultPath: string) => Promise<void>;
   onStopVault: () => Promise<void>;
   onReprocessAll: () => number;
+  onReprocessFile: (relativePath: string) => number;
+  onReprocessFolder: (folderPrefix: string) => number;
+  onCountFolderFiles: (folderPrefix: string) => number;
   onQuit: () => Promise<void>;
 }
 
@@ -29,9 +36,14 @@ export class OverlayWindow {
   private vaultPath: string | null = null;
   private callbacks: OverlayCallbacks | null = null;
   private isHiding = false;
+  private pathCache: VaultPathCache | null = null;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
     this.callbacks = callbacks;
+  }
+
+  setPathCache(cache: VaultPathCache): void {
+    this.pathCache = cache;
   }
 
   registerShortcut(): void {
@@ -129,6 +141,16 @@ export class OverlayWindow {
     const x = Math.round((width - OVERLAY_WIDTH) / 2);
     const y = Math.round(height * 0.2); // 20% from top
     this.window.setPosition(x, y);
+  }
+
+  subscribeToStatusEvents(): void {
+    const send = (status: StatusIndicator) => {
+      this.window?.webContents.send('overlay-status-update', status);
+    };
+    eventBus.on('extraction:started', () => send('processing'));
+    eventBus.on('extraction:completed', () => send('idle'));
+    eventBus.on('extraction:error', () => send('error'));
+    eventBus.on('review:needed', () => send('review'));
   }
 
   registerIpcHandlers(): void {
@@ -363,6 +385,24 @@ export class OverlayWindow {
       return { count };
     });
 
+    ipcMain.handle('reprocess-file', async (_event, relativePath: string) => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onReprocessFile(relativePath);
+      return { count };
+    });
+
+    ipcMain.handle('reprocess-folder', async (_event, folderPrefix: string) => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onReprocessFolder(folderPrefix);
+      return { count };
+    });
+
+    ipcMain.handle('count-folder-files', async (_event, folderPrefix: string) => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onCountFolderFiles(folderPrefix);
+      return { count };
+    });
+
     ipcMain.handle('quit-app', async () => {
       if (this.callbacks) {
         await this.callbacks.onQuit();
@@ -398,6 +438,11 @@ export class OverlayWindow {
         console.error('[Overlay] get-aggregates failed:', err);
         return { totalRecords: 0, totalAmount: 0 };
       }
+    });
+
+    ipcMain.handle('list-vault-paths', async (_event, query: string, scope?: string) => {
+      if (typeof query === 'string' && query.includes('..')) return [];
+      return this.pathCache?.query(query ?? '', scope ?? undefined) ?? [];
     });
 
     ipcMain.handle('export-filtered', async (_event, filters: SearchFilters) => {

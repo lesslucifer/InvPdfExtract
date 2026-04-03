@@ -1,6 +1,4 @@
-import { app, dialog } from 'electron';
-import * as path from 'path';
-import { TrayManager } from './main/tray';
+import { app } from 'electron';
 import { NotificationManager } from './main/notifications';
 import { OverlayWindow } from './main/overlay-window';
 import { initVault, openVault, closeVault, isVault } from './core/vault';
@@ -9,6 +7,7 @@ import { FileWatcher } from './core/watcher';
 import { SyncEngine } from './core/sync-engine';
 import { ExtractionQueue } from './core/extraction-queue';
 import { ClaudeCodeRunner } from './core/claude-cli';
+import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
 import { VaultHandle } from './shared/types';
 
@@ -17,23 +16,23 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-let trayManager: TrayManager | null = null;
 let notificationManager: NotificationManager | null = null;
 let overlayWindow: OverlayWindow | null = null;
 let fileWatcher: FileWatcher | null = null;
 let syncEngine: SyncEngine | null = null;
 let extractionQueue: ExtractionQueue | null = null;
 let currentVault: VaultHandle | null = null;
+let vaultPathCache: VaultPathCache | null = null;
 
-// Prevent default window creation — this is a tray-only app
+// Prevent default window creation — overlay-only app
 app.on('window-all-closed', () => {
-  // Don't quit on macOS when all windows close — we're a tray app
+  // Don't quit when all windows close — activated by hotkey
 });
 
 app.on('ready', async () => {
   console.log('[InvoiceVault] App ready');
 
-  // Hide dock icon on macOS — this is a tray-only app
+  // Hide dock icon on macOS — overlay-only app
   if (process.platform === 'darwin' && app.dock) {
     app.dock.hide();
   }
@@ -42,21 +41,6 @@ app.on('ready', async () => {
   if (!ClaudeCodeRunner.isAvailable()) {
     console.warn('[InvoiceVault] Claude CLI not found. Extraction will fail until installed.');
   }
-
-  // Apply auto-start setting
-  const initialConfig = loadAppConfig();
-  // app.setLoginItemSettings({ openAtLogin: initialConfig.autoStart });
-
-  // Initialize tray
-  trayManager = new TrayManager({
-    onInitVault: handleInitVault,
-    onProcessNow: handleProcessNow,
-    onReprocessAll: handleReprocessAll,
-    onSwitchVault: handleSwitchVault,
-    onSearchOverlay: () => overlayWindow?.showOverlay(),
-    onQuit: handleQuit,
-  });
-  trayManager.init();
 
   // Initialize notifications
   notificationManager = new NotificationManager();
@@ -99,14 +83,98 @@ app.on('ready', async () => {
       extractionQueue?.trigger();
       return count;
     },
+    onReprocessFile: (relativePath: string) => {
+      if (!currentVault) return 0;
+      const { getFileByPath, updateFileStatus } = require('./core/db/files');
+      const file = getFileByPath(relativePath);
+      if (file) {
+        updateFileStatus(file.id, 'pending');
+        extractionQueue?.trigger();
+        return 1;
+      }
+      // File not in DB — run through sync engine to insert + process
+      if (syncEngine) {
+        const fullPath = require('path').join(currentVault.rootPath, relativePath);
+        syncEngine.handleEvent('file:added', relativePath, fullPath);
+        scheduleExtraction();
+        return 1;
+      }
+      return 0;
+    },
+    onReprocessFolder: (folderPrefix: string) => {
+      if (!currentVault) return 0;
+      const { getFilesByFolder, updateFileStatus } = require('./core/db/files');
+      const files = getFilesByFolder(folderPrefix);
+      for (const file of files) {
+        updateFileStatus(file.id, 'pending');
+      }
+      // Also scan filesystem for untracked files in this folder
+      const fs = require('fs');
+      const pathMod = require('path');
+      const { WATCHED_EXTENSIONS } = require('./shared/constants');
+      const trackedPaths = new Set(files.map((f: any) => f.relative_path));
+      let newCount = 0;
+      const scanDir = (dir: string) => {
+        try {
+          const entries = fs.readdirSync(pathMod.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          for (const entry of entries) {
+            const rel = dir ? `${dir}/${entry.name}` : entry.name;
+            if (entry.isDirectory() && !entry.name.startsWith('.')) {
+              scanDir(rel);
+            } else if (entry.isFile()) {
+              const ext = pathMod.extname(entry.name).toLowerCase();
+              if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
+                const fullPath = pathMod.join(currentVault!.rootPath, rel);
+                syncEngine?.handleEvent('file:added', rel, fullPath);
+                newCount++;
+              }
+            }
+          }
+        } catch { /* skip unreadable dirs */ }
+      };
+      scanDir(folderPrefix);
+      if (files.length > 0 || newCount > 0) {
+        scheduleExtraction();
+      }
+      return files.length + newCount;
+    },
+    onCountFolderFiles: (folderPrefix: string) => {
+      if (!currentVault) return 0;
+      // Count both tracked DB files and untracked filesystem files
+      const { getFilesByFolder } = require('./core/db/files');
+      const fs = require('fs');
+      const pathMod = require('path');
+      const { WATCHED_EXTENSIONS } = require('./shared/constants');
+      const dbFiles = getFilesByFolder(folderPrefix);
+      const trackedPaths = new Set(dbFiles.map((f: any) => f.relative_path));
+      let total = dbFiles.length;
+      const scanDir = (dir: string) => {
+        try {
+          const entries = fs.readdirSync(pathMod.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          for (const entry of entries) {
+            const rel = dir ? `${dir}/${entry.name}` : entry.name;
+            if (entry.isDirectory() && !entry.name.startsWith('.')) {
+              scanDir(rel);
+            } else if (entry.isFile()) {
+              const ext = pathMod.extname(entry.name).toLowerCase();
+              if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
+                total++;
+              }
+            }
+          }
+        } catch { /* skip unreadable dirs */ }
+      };
+      scanDir(folderPrefix);
+      return total;
+    },
     onQuit: handleQuit,
   });
   overlayWindow.registerIpcHandlers();
+  overlayWindow.subscribeToStatusEvents();
   overlayWindow.registerShortcut();
 
   // Wire extraction queue trigger on file events
   eventBus.on('file:added', () => {
-    // Debounce extraction trigger
     scheduleExtraction();
   });
   eventBus.on('file:changed', () => {
@@ -122,7 +190,9 @@ app.on('ready', async () => {
       console.error('[InvoiceVault] Failed to open last vault:', err);
     }
   } else {
-    console.log('[InvoiceVault] No vault configured. Use tray menu to initialize one.');
+    // No vault configured — show overlay immediately so user can set one up
+    console.log('[InvoiceVault] No vault configured. Showing overlay for first-time setup.');
+    overlayWindow.showOverlay();
   }
 });
 
@@ -148,15 +218,21 @@ async function startVault(vaultPath: string): Promise<void> {
   // Start file watcher
   fileWatcher = new FileWatcher(currentVault.rootPath, (event, relativePath, fullPath) => {
     syncEngine!.handleEvent(event, relativePath, fullPath);
+    // Keep path cache in sync
+    if (event === 'file:added') vaultPathCache?.onFileAdded(relativePath);
+    else if (event === 'file:deleted') vaultPathCache?.onFileDeleted(relativePath);
   });
   fileWatcher.start();
+
+  // Build path cache in background — non-blocking
+  vaultPathCache = new VaultPathCache(currentVault.rootPath);
+  vaultPathCache.build().catch(err => console.error('[VaultPathCache] Build failed:', err));
+  overlayWindow?.setPathCache(vaultPathCache);
 
   // Start extraction queue
   const appConfig = loadAppConfig();
   extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined);
 
-  // Update tray and overlay
-  trayManager?.setVaultPath(vaultPath);
   overlayWindow?.setVaultPath(vaultPath);
 
   eventBus.emit('vault:opened', { path: vaultPath });
@@ -170,87 +246,14 @@ async function stopVault(): Promise<void> {
   }
   syncEngine = null;
   extractionQueue = null;
+  vaultPathCache = null;
 
   if (currentVault) {
     closeVault();
     currentVault = null;
   }
 
-  trayManager?.setVaultPath(null);
   overlayWindow?.setVaultPath(null);
-}
-
-async function handleInitVault(): Promise<void> {
-  const result = await dialog.showOpenDialog({
-    title: 'Select folder to initialize as InvoiceVault',
-    properties: ['openDirectory', 'createDirectory'],
-  });
-
-  if (result.canceled || result.filePaths.length === 0) return;
-
-  const folderPath = result.filePaths[0];
-
-  try {
-    if (isVault(folderPath)) {
-      // Already a vault — just open it
-      await startVault(folderPath);
-    } else {
-      initVault(folderPath);
-      await startVault(folderPath);
-    }
-
-    // Multi-vault: add to vaultPaths list
-    const config = loadAppConfig();
-    const vaultPaths = config.vaultPaths || [];
-    if (!vaultPaths.includes(folderPath)) {
-      vaultPaths.push(folderPath);
-    }
-    saveAppConfig({ lastVaultPath: folderPath, vaultPaths });
-    eventBus.emit('vault:initialized', { path: folderPath });
-  } catch (err) {
-    console.error('[InvoiceVault] Failed to initialize vault:', err);
-    dialog.showErrorBox('Vault Initialization Failed', (err as Error).message);
-  }
-}
-
-function handleProcessNow(): void {
-  if (!extractionQueue) {
-    console.log('[InvoiceVault] No vault open, cannot process');
-    return;
-  }
-  extractionQueue.trigger();
-}
-
-function handleReprocessAll(): void {
-  if (!currentVault) {
-    console.log('[InvoiceVault] No vault open, cannot reprocess');
-    return;
-  }
-
-  // Reset all done/error files to pending
-  const { getFilesByStatus, updateFileStatus } = require('./core/db/files');
-  const doneFiles = getFilesByStatus('done');
-  const errorFiles = getFilesByStatus('error');
-  const reviewFiles = getFilesByStatus('review');
-
-  for (const file of [...doneFiles, ...errorFiles, ...reviewFiles]) {
-    updateFileStatus(file.id, 'pending');
-  }
-
-  console.log(`[InvoiceVault] Reset ${doneFiles.length + errorFiles.length + reviewFiles.length} files to pending`);
-  extractionQueue?.trigger();
-}
-
-async function handleSwitchVault(vaultPath: string): Promise<void> {
-  if (vaultPath === currentVault?.rootPath) return;
-
-  try {
-    await startVault(vaultPath);
-    saveAppConfig({ lastVaultPath: vaultPath });
-  } catch (err) {
-    console.error('[InvoiceVault] Failed to switch vault:', err);
-    dialog.showErrorBox('Vault Switch Failed', (err as Error).message);
-  }
 }
 
 async function handleQuit(): Promise<void> {
@@ -258,6 +261,5 @@ async function handleQuit(): Promise<void> {
   await stopVault();
   eventBus.removeAllListeners();
   overlayWindow?.destroy();
-  trayManager?.destroy();
   app.quit();
 }
