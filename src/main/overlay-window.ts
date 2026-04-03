@@ -2,7 +2,7 @@ import { BrowserWindow, globalShortcut, screen, ipcMain, shell, dialog } from 'e
 import * as path from 'path';
 import { execSync } from 'child_process';
 import {
-  searchRecords, getLineItemsByRecord, getFieldOverrides,
+  searchRecords, getLineItemsByRecord, getFieldOverrides, getFieldOverridesByLineItemId,
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
   resolveAllConflictsForRecord, updateFtsIndex,
   listRecentFolders, listTopFolders,
@@ -251,8 +251,8 @@ export class OverlayWindow {
         db.prepare(`UPDATE invoice_line_items SET ${input.fieldName} = ? WHERE id = ?`)
           .run(value, input.lineItemId);
 
-        // Create/update the field override (use lineItemId as record_id)
-        upsertFieldOverride(input.lineItemId, 'invoice_line_items', input.fieldName, input.userValue, currentAiValue);
+        // Create/update the field override (use the line item's record_id for FK, and lineItemId to identify which line item)
+        upsertFieldOverride(row.record_id, 'invoice_line_items', input.fieldName, input.userValue, currentAiValue, input.lineItemId);
       } catch (err) {
         console.error('[Override] Save line item field failed:', err);
         throw err;
@@ -263,7 +263,7 @@ export class OverlayWindow {
       try {
         const result: Record<string, any[]> = {};
         for (const id of lineItemIds) {
-          const overrides = getFieldOverrides(id);
+          const overrides = getFieldOverridesByLineItemId(id);
           if (overrides.length > 0) {
             result[id] = overrides.map((o: any) => ({
               field_name: o.field_name,

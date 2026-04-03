@@ -192,19 +192,31 @@ export function getFieldOverrides(recordId: string): any[] {
   ).all(recordId) as any[];
 }
 
-export function getFieldOverrideByField(recordId: string, tableName: string, fieldName: string): any | undefined {
+export function getFieldOverridesByLineItemId(lineItemId: string): any[] {
   const db = getDatabase();
   return db.prepare(
-    'SELECT * FROM field_overrides WHERE record_id = ? AND table_name = ? AND field_name = ? AND resolved_at IS NULL'
+    'SELECT * FROM field_overrides WHERE line_item_id = ? AND resolved_at IS NULL'
+  ).all(lineItemId) as any[];
+}
+
+export function getFieldOverrideByField(recordId: string, tableName: string, fieldName: string, lineItemId?: string): any | undefined {
+  const db = getDatabase();
+  if (lineItemId) {
+    return db.prepare(
+      'SELECT * FROM field_overrides WHERE record_id = ? AND table_name = ? AND field_name = ? AND line_item_id = ? AND resolved_at IS NULL'
+    ).get(recordId, tableName, fieldName, lineItemId) as any | undefined;
+  }
+  return db.prepare(
+    'SELECT * FROM field_overrides WHERE record_id = ? AND table_name = ? AND field_name = ? AND line_item_id IS NULL AND resolved_at IS NULL'
   ).get(recordId, tableName, fieldName) as any | undefined;
 }
 
 export function upsertFieldOverride(
   recordId: string, tableName: string, fieldName: string,
-  userValue: string, aiValueAtLock: string
+  userValue: string, aiValueAtLock: string, lineItemId?: string
 ): void {
   const db = getDatabase();
-  const existing = getFieldOverrideByField(recordId, tableName, fieldName);
+  const existing = getFieldOverrideByField(recordId, tableName, fieldName, lineItemId);
 
   if (existing) {
     db.prepare(`
@@ -215,9 +227,9 @@ export function upsertFieldOverride(
   } else {
     const id = uuid();
     db.prepare(`
-      INSERT INTO field_overrides (id, record_id, table_name, field_name, user_value, ai_value_at_lock, status, locked_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'locked', datetime('now'))
-    `).run(id, recordId, tableName, fieldName, userValue, aiValueAtLock);
+      INSERT INTO field_overrides (id, record_id, table_name, field_name, user_value, ai_value_at_lock, status, locked_at, line_item_id)
+      VALUES (?, ?, ?, ?, ?, ?, 'locked', datetime('now'), ?)
+    `).run(id, recordId, tableName, fieldName, userValue, aiValueAtLock, lineItemId ?? null);
   }
 }
 

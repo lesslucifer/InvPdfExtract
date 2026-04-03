@@ -151,4 +151,10 @@ export const MIGRATIONS: string[] = [
     tokenize='unicode61'
   );
   `,
+
+  // Migration 004: Add line_item_id to field_overrides for line-item-level overrides
+  `
+  ALTER TABLE field_overrides ADD COLUMN line_item_id TEXT REFERENCES invoice_line_items(id);
+  CREATE INDEX IF NOT EXISTS idx_field_overrides_line_item_id ON field_overrides(line_item_id);
+  `,
 ];
