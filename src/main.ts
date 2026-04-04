@@ -257,6 +257,39 @@ async function startVault(vaultPath: string): Promise<void> {
     }
   }
 
+  // Initial scan: pick up existing files not yet tracked in the DB
+  {
+    const fs = require('fs');
+    const pathMod = require('path');
+    const { WATCHED_EXTENSIONS: exts, INVOICEVAULT_DIR: ivDir } = require('./shared/constants');
+    const { getFileByPath } = require('./core/db/files');
+    let scanned = 0;
+    const scan = (dir: string) => {
+      try {
+        const entries = fs.readdirSync(pathMod.join(vaultPath, dir), { withFileTypes: true });
+        for (const entry of entries) {
+          const rel = dir ? `${dir}/${entry.name}` : entry.name;
+          if (entry.isDirectory()) {
+            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === ivDir) continue;
+            scan(rel);
+          } else if (entry.isFile()) {
+            const ext = pathMod.extname(entry.name).toLowerCase();
+            if (exts.has(ext) && !getFileByPath(rel)) {
+              const fullPath = pathMod.join(vaultPath, rel);
+              syncEngine?.handleEvent('file:added', rel, fullPath);
+              scanned++;
+            }
+          }
+        }
+      } catch { /* skip unreadable dirs */ }
+    };
+    scan('');
+    if (scanned > 0) {
+      console.log(`[InvoiceVault] Initial scan found ${scanned} untracked file(s), scheduling extraction`);
+      scheduleExtraction();
+    }
+  }
+
   overlayWindow?.setVaultPath(vaultPath);
 
   eventBus.emit('vault:opened', { path: vaultPath });

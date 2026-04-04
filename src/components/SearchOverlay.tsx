@@ -397,6 +397,26 @@ export const SearchOverlay: React.FC = () => {
     goTo(OverlayState.Home);
   }, [goTo]);
 
+  const handleVaultChanged = useCallback(() => {
+    setQuery('');
+    setFilters({ text: '' });
+    setFolderScope(null);
+    setFileScope(null);
+    setResults([]);
+    setSelectedIndex(0);
+    setExpandedId(null);
+    setHasSearched(false);
+    setPageOffset(0);
+    setHasMore(true);
+    setAggregates({ totalRecords: 0, totalAmount: 0 });
+    initialLoadDone.current = false;
+    window.api.getAppConfig().then(config => {
+      if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
+        setOverlayState(OverlayState.NoVault);
+      }
+    });
+  }, []);
+
   const handleSettingsBack = useCallback(() => {
     goTo(previousState === OverlayState.Settings ? OverlayState.Home : previousState);
   }, [goTo, previousState]);
@@ -517,7 +537,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className="search-overlay">
         {pinButton}
-        <SettingsPanel onBack={handleSettingsBack} />
+        <SettingsPanel onBack={handleSettingsBack} onVaultChanged={handleVaultChanged} />
       </div>
     );
   }

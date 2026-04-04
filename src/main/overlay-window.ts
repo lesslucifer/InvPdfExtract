@@ -13,7 +13,7 @@ import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
 import { FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
-import { isVault } from '../core/vault';
+import { isVault, clearVaultData } from '../core/vault';
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 
@@ -374,6 +374,31 @@ export class OverlayWindow {
       });
 
       // If there's another vault, switch to it
+      if (isActive && vaultPaths.length > 0 && this.callbacks) {
+        await this.callbacks.onSwitchVault(vaultPaths[0]);
+      }
+    });
+
+    ipcMain.handle('clear-vault-data', async (_event, vaultPath: string) => {
+      const config = loadAppConfig();
+      const isActive = config.lastVaultPath === vaultPath;
+
+      // Stop the vault if it's active
+      if (isActive && this.callbacks) {
+        await this.callbacks.onStopVault();
+      }
+
+      // Delete the .invoicevault directory
+      clearVaultData(vaultPath);
+
+      // Remove from config
+      const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
+      saveAppConfig({
+        vaultPaths,
+        lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
+      });
+
+      // Switch to next vault if available
       if (isActive && vaultPaths.length > 0 && this.callbacks) {
         await this.callbacks.onSwitchVault(vaultPaths[0]);
       }

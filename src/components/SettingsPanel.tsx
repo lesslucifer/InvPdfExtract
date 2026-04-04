@@ -3,13 +3,17 @@ import { AppConfig } from '../shared/types';
 
 interface Props {
   onBack: () => void;
+  onVaultChanged?: () => void;
 }
 
-export const SettingsPanel: React.FC<Props> = ({ onBack }) => {
+export const SettingsPanel: React.FC<Props> = ({ onBack, onVaultChanged }) => {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [cliStatus, setCliStatus] = useState<{ available: boolean; version?: string } | null>(null);
   const [confirmReprocess, setConfirmReprocess] = useState(false);
   const [reprocessResult, setReprocessResult] = useState<string | null>(null);
+  const [switchConfirm, setSwitchConfirm] = useState<string | null>(null);
+  const [switchNotification, setSwitchNotification] = useState<string | null>(null);
+  const [clearConfirmVault, setClearConfirmVault] = useState<string | null>(null);
 
   useEffect(() => {
     window.api.getAppConfig().then(setConfig);
@@ -27,20 +31,42 @@ export const SettingsPanel: React.FC<Props> = ({ onBack }) => {
     const result = await window.api.initVault(folderPath);
     if (result.success) {
       await refreshConfig();
+      onVaultChanged?.();
     }
-  }, [refreshConfig]);
+  }, [refreshConfig, onVaultChanged]);
 
   const handleSwitchVault = useCallback(async (vaultPath: string) => {
+    if (switchConfirm !== vaultPath) {
+      setSwitchConfirm(vaultPath);
+      return;
+    }
+    setSwitchConfirm(null);
     const result = await window.api.switchVault(vaultPath);
     if (result.success) {
       await refreshConfig();
+      onVaultChanged?.();
+      setSwitchNotification(vaultPath);
+      setTimeout(() => setSwitchNotification(null), 4000);
     }
-  }, [refreshConfig]);
+  }, [switchConfirm, refreshConfig, onVaultChanged]);
 
-  const handleRemoveVault = useCallback(async (vaultPath: string) => {
-    await window.api.removeVault(vaultPath);
+  const handleDisconnectVault = useCallback(async (vaultPath: string, e: React.MouseEvent) => {
+    const isClear = e.metaKey || e.ctrlKey;
+    if (isClear) {
+      // Ctrl/Cmd+click: clear vault data (with one confirmation)
+      if (clearConfirmVault !== vaultPath) {
+        setClearConfirmVault(vaultPath);
+        return;
+      }
+      setClearConfirmVault(null);
+      await window.api.clearVaultData(vaultPath);
+    } else {
+      // Normal click: just disconnect
+      await window.api.removeVault(vaultPath);
+    }
     await refreshConfig();
-  }, [refreshConfig]);
+    onVaultChanged?.();
+  }, [clearConfirmVault, refreshConfig, onVaultChanged]);
 
   const handleOpenVault = useCallback((vaultPath: string) => {
     // Open the vault root (pass empty string since open-folder joins with vaultPath)
@@ -78,19 +104,29 @@ export const SettingsPanel: React.FC<Props> = ({ onBack }) => {
         <span className="settings-title">Settings</span>
       </div>
 
+      {switchNotification && (
+        <div className="settings-notification settings-notification-success">
+          Switched to <strong>{switchNotification}</strong>
+        </div>
+      )}
+
       {config.lastVaultPath && (
         <div className="settings-section">
           <div className="settings-section-label">Current Vault</div>
           <div className="settings-vault-row">
-            <span className="settings-vault-path" title={config.lastVaultPath}>
+            <span className="settings-vault-path settings-vault-path-active" title={config.lastVaultPath}>
               {config.lastVaultPath}
             </span>
             <div className="settings-vault-actions">
               <button className="settings-icon-btn" onClick={() => handleOpenVault(config.lastVaultPath!)} title="Open in file manager">
                 Open
               </button>
-              <button className="settings-icon-btn settings-danger" onClick={() => handleRemoveVault(config.lastVaultPath!)} title="Disconnect vault">
-                Disconnect
+              <button
+                className={`settings-icon-btn settings-danger`}
+                onClick={(e) => handleDisconnectVault(config.lastVaultPath!, e)}
+                title={clearConfirmVault === config.lastVaultPath ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
+              >
+                {clearConfirmVault === config.lastVaultPath ? 'Confirm Clear?' : '\u2715'}
               </button>
             </div>
           </div>
@@ -104,7 +140,20 @@ export const SettingsPanel: React.FC<Props> = ({ onBack }) => {
             <div key={vp} className="settings-vault-row">
               <span className="settings-vault-path" title={vp}>{vp}</span>
               <div className="settings-vault-actions">
-                <button className="settings-action-btn" onClick={() => handleSwitchVault(vp)}>Switch</button>
+                <button
+                  className={`settings-icon-btn ${switchConfirm === vp ? 'settings-confirm' : ''}`}
+                  onClick={() => handleSwitchVault(vp)}
+                  title={switchConfirm === vp ? 'Click again to confirm switch' : 'Switch to this vault'}
+                >
+                  {switchConfirm === vp ? 'Confirm?' : '\u21C4'}
+                </button>
+                <button
+                  className={`settings-icon-btn settings-danger`}
+                  onClick={(e) => handleDisconnectVault(vp, e)}
+                  title={clearConfirmVault === vp ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
+                >
+                  {clearConfirmVault === vp ? 'Confirm Clear?' : '\u2715'}
+                </button>
               </div>
             </div>
           ))}
