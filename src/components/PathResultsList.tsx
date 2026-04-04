@@ -30,6 +30,15 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   const [itemStatuses, setItemStatuses] = useState<Record<string, FileStatus>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const refreshStatuses = useCallback(async (currentItems: PathItem[]) => {
+    const filePaths = currentItems.filter(r => !r.isDir).map(r => r.relativePath);
+    const [fileStatuses, folderStatuses] = await Promise.all([
+      filePaths.length > 0 ? window.api.getFileStatusesByPaths(filePaths) : Promise.resolve({}),
+      window.api.getFolderStatuses(),
+    ]);
+    setItemStatuses({ ...folderStatuses, ...fileStatuses });
+  }, []);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
@@ -37,14 +46,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
         const results = await window.api.listVaultPaths(query, scope ?? undefined);
         setItems(results);
         setSelectedIndex(0);
-
-        // Fetch statuses for files and folders
-        const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
-        const [fileStatuses, folderStatuses] = await Promise.all([
-          filePaths.length > 0 ? window.api.getFileStatusesByPaths(filePaths) : Promise.resolve({}),
-          window.api.getFolderStatuses(),
-        ]);
-        setItemStatuses({ ...folderStatuses, ...fileStatuses });
+        await refreshStatuses(results);
       } catch {
         setItems([]);
       }
@@ -53,7 +55,15 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, scope]);
+  }, [query, scope, refreshStatuses]);
+
+  // Re-fetch statuses when file processing status changes
+  useEffect(() => {
+    const unsubscribe = window.api.onFileStatusChanged(() => {
+      refreshStatuses(items);
+    });
+    return unsubscribe;
+  }, [items, refreshStatuses]);
 
   const handleSelect = useCallback((item: PathItem) => {
     if (item.isDir) {
@@ -62,6 +72,11 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
       onSelectFile(item.relativePath);
     }
   }, [onSelectFolder, onSelectFile]);
+
+  const setOptimisticStatus = useCallback((item: PathItem) => {
+    const key = item.isDir ? item.name : item.relativePath;
+    setItemStatuses(prev => ({ ...prev, [key]: FileStatus.Pending }));
+  }, []);
 
   const handleReprocess = useCallback(async (e: React.MouseEvent, item: PathItem) => {
     e.stopPropagation();
@@ -72,21 +87,30 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
         if (count > CONFIRM_THRESHOLD) {
           setConfirmPath(item.relativePath);
         } else {
+          setOptimisticStatus(item);
           onReprocessFolder(item.relativePath);
         }
       } catch {
+        setOptimisticStatus(item);
         onReprocessFolder(item.relativePath);
       }
     } else {
+      setOptimisticStatus(item);
       onReprocessFile?.(item.relativePath);
     }
-  }, [onReprocessFile, onReprocessFolder]);
+  }, [onReprocessFile, onReprocessFolder, setOptimisticStatus]);
 
   const handleConfirm = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirmPath) onReprocessFolder?.(confirmPath);
+    if (confirmPath) {
+      const matchedItem = items.find(i => i.relativePath === confirmPath);
+      if (matchedItem) {
+        setItemStatuses(prev => ({ ...prev, [matchedItem.name]: FileStatus.Pending }));
+      }
+      onReprocessFolder?.(confirmPath);
+    }
     setConfirmPath(null);
-  }, [confirmPath, onReprocessFolder]);
+  }, [confirmPath, onReprocessFolder, items]);
 
   const handleCancel = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
