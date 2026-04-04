@@ -103,7 +103,20 @@ export function cancelQueueItem(fileId: string): boolean {
   const file = db.prepare('SELECT * FROM files WHERE id = ? AND status = ? AND deleted_at IS NULL')
     .get(fileId, FileStatus.Pending) as VaultFile | undefined;
   if (!file) return false;
-  softDeleteFile(fileId);
+
+  const { cnt } = db.prepare(
+    'SELECT COUNT(*) as cnt FROM records WHERE file_id = ? AND deleted_at IS NULL'
+  ).get(fileId) as { cnt: number };
+
+  if (cnt > 0) {
+    // Previously processed — revert to Done, preserving all records
+    db.prepare("UPDATE files SET status = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(FileStatus.Done, fileId);
+  } else {
+    // Brand new file, no records — safe to soft-delete the file only
+    db.prepare("UPDATE files SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
+      .run(fileId);
+  }
   return true;
 }
 
@@ -112,7 +125,7 @@ export function clearPendingQueue(): number {
   const pending = db.prepare('SELECT id FROM files WHERE status = ? AND deleted_at IS NULL')
     .all(FileStatus.Pending) as { id: string }[];
   for (const row of pending) {
-    softDeleteFile(row.id);
+    cancelQueueItem(row.id);
   }
   return pending.length;
 }
