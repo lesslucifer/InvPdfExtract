@@ -4,9 +4,22 @@ import { VaultFile, FileStatus } from '../../shared/types';
 
 export function insertFile(relativePath: string, fileHash: string, fileType: string, fileSize: number): VaultFile {
   const db = getDatabase();
-  const id = uuid();
   const now = new Date().toISOString();
 
+  // Check for soft-deleted file with same path — resurrect instead of re-insert
+  const deleted = db.prepare(
+    'SELECT id FROM files WHERE relative_path = ? AND deleted_at IS NOT NULL'
+  ).get(relativePath) as { id: string } | undefined;
+
+  if (deleted) {
+    db.prepare(`
+      UPDATE files SET file_hash = ?, file_type = ?, file_size = ?, status = ?, deleted_at = NULL, updated_at = ?
+      WHERE id = ?
+    `).run(fileHash, fileType, fileSize, FileStatus.Pending, now, deleted.id);
+    return getFileById(deleted.id)!;
+  }
+
+  const id = uuid();
   db.prepare(`
     INSERT INTO files (id, relative_path, file_hash, file_type, file_size, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
