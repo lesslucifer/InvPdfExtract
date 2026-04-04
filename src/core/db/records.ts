@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
 import {
-  ExtractionBatch, Record, BankStatementData, InvoiceData,
+  ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
   FolderInfo,
 } from '../../shared/types';
@@ -24,7 +24,7 @@ export function createBatch(fileId: string, status: BatchStatus, recordCount: nu
 export function insertRecord(
   batchId: string, fileId: string, docType: DocType, fingerprint: string,
   confidence: number, ngay: string | null, fieldConfidence: object, rawExtraction: object
-): Record {
+): DbRecord {
   const db = getDatabase();
   const id = uuid();
   const now = new Date().toISOString();
@@ -34,7 +34,7 @@ export function insertRecord(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, batchId, fileId, docType, fingerprint, confidence, ngay, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), now, now);
 
-  return db.prepare('SELECT * FROM records WHERE id = ?').get(id) as Record;
+  return db.prepare('SELECT * FROM records WHERE id = ?').get(id) as DbRecord;
 }
 
 export function updateRecord(
@@ -48,14 +48,14 @@ export function updateRecord(
   `).run(batchId, confidence, ngay, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), recordId);
 }
 
-export function getRecordsByFileId(fileId: string): Record[] {
+export function getRecordsByFileId(fileId: string): DbRecord[] {
   const db = getDatabase();
-  return db.prepare('SELECT * FROM records WHERE file_id = ? AND deleted_at IS NULL').all(fileId) as Record[];
+  return db.prepare('SELECT * FROM records WHERE file_id = ? AND deleted_at IS NULL').all(fileId) as DbRecord[];
 }
 
-export function getRecordByFingerprint(fileId: string, fingerprint: string): Record | undefined {
+export function getRecordByFingerprint(fileId: string, fingerprint: string): DbRecord | undefined {
   const db = getDatabase();
-  return db.prepare('SELECT * FROM records WHERE file_id = ? AND fingerprint = ? AND deleted_at IS NULL').get(fileId, fingerprint) as Record | undefined;
+  return db.prepare('SELECT * FROM records WHERE file_id = ? AND fingerprint = ? AND deleted_at IS NULL').get(fileId, fingerprint) as DbRecord | undefined;
 }
 
 export function softDeleteRecord(recordId: string): void {

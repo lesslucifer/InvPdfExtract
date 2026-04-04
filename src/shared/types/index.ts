@@ -97,7 +97,7 @@ export interface ExtractionBatch {
   processed_at: string;
 }
 
-export interface Record {
+export interface DbRecord {
   id: string;
   batch_id: string;
   file_id: string;

@@ -19,6 +19,7 @@ export interface ParsedQuery {
   text: string;
   docType?: string;
   status?: string;
+  folder?: string;
   amountMin?: number;
   amountMax?: number;
   dateFilter?: string;
