@@ -328,6 +328,8 @@ export interface SearchResult {
   so_hoa_don: string;
   tong_tien: number;
   mst: string;
+  // Computed: sum of line item thanh_tien (null if no line items)
+  line_item_sum: number | null;
   // Shared
   ten_doi_tac: string;
   mo_ta: string;

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FieldOverrideInfo, OverrideStatus } from '../shared/types';
+import { QuickFixButton } from './QuickFixButton';
 
 interface Props {
   value: string;
@@ -7,12 +8,13 @@ interface Props {
   lineItemId: string;
   override?: FieldOverrideInfo;
   inputType?: 'text' | 'number';
+  quickFix?: { suggestedValue: number; label: string; onApply: (value: string) => void } | null;
   onSave: (lineItemId: string, fieldName: string, value: string) => void;
   onResolve?: (lineItemId: string, fieldName: string, action: 'keep' | 'accept') => void;
 }
 
 export const EditableCell: React.FC<Props> = ({
-  value, fieldName, lineItemId, override, inputType = 'text', onSave, onResolve,
+  value, fieldName, lineItemId, override, inputType = 'text', quickFix, onSave, onResolve,
 }) => {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -61,6 +63,7 @@ export const EditableCell: React.FC<Props> = ({
         <span className="cell-display" onClick={() => { setEditValue(value); setEditing(true); }}>
           {statusIcon && <span className="cell-status-icon" title={isConflict ? 'Conflict' : 'Locked'}>{statusIcon}</span>}
           {value || '-'}
+          {quickFix && <QuickFixButton suggestedValue={quickFix.suggestedValue} label={quickFix.label} onApply={quickFix.onApply} />}
         </span>
       )}
       {isConflict && !editing && onResolve && (
