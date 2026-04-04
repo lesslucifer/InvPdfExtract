@@ -243,6 +243,20 @@ async function startVault(vaultPath: string): Promise<void> {
   const appConfig = loadAppConfig();
   extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
 
+  // Startup recovery: reset stale processing files and trigger queue
+  {
+    const { resetStaleProcessingFiles, getFilesByStatus: getByStatus } = require('./core/db/files');
+    const recoveredCount = resetStaleProcessingFiles();
+    if (recoveredCount > 0) {
+      console.log(`[InvoiceVault] Recovered ${recoveredCount} stale processing file(s) → pending`);
+    }
+    const pendingCount = getByStatus('pending').length;
+    if (pendingCount > 0) {
+      console.log(`[InvoiceVault] ${pendingCount} pending file(s) found on startup, scheduling extraction`);
+      scheduleExtraction();
+    }
+  }
+
   overlayWindow?.setVaultPath(vaultPath);
 
   eventBus.emit('vault:opened', { path: vaultPath });

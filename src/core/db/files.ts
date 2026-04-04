@@ -117,6 +117,14 @@ export function clearPendingQueue(): number {
   return pending.length;
 }
 
+export function resetStaleProcessingFiles(): number {
+  const db = getDatabase();
+  const result = db.prepare(
+    "UPDATE files SET status = ?, updated_at = datetime('now') WHERE status = ? AND deleted_at IS NULL"
+  ).run(FileStatus.Pending, FileStatus.Processing);
+  return result.changes;
+}
+
 export function getFilesByStatuses(statuses: FileStatus[]): VaultFile[] {
   const db = getDatabase();
   const placeholders = statuses.map(() => '?').join(',');
