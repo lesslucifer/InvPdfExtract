@@ -7,6 +7,7 @@ interface Props {
   onOpenFolder: () => void;
   onClear: () => void;
   onClearFile?: () => void;
+  onReload?: () => void;
 }
 
 interface Segment {
@@ -27,7 +28,7 @@ function extractFileName(filePath: string): string {
   return parts[parts.length - 1] || filePath;
 }
 
-export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpenFolder, onClear, onClearFile }) => {
+export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpenFolder, onClear, onClearFile, onReload }) => {
   const segments = folder ? splitSegments(folder) : [];
   const fileName = file ? extractFileName(file) : null;
 
@@ -65,6 +66,16 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
         </>
       )}
       <div className="breadcrumb-actions">
+        {onReload && (
+          <button
+            className="breadcrumb-action-btn"
+            onClick={onReload}
+            title={file ? 'Reprocess this file' : 'Reprocess folder'}
+            aria-label={file ? 'Reprocess file' : 'Reprocess folder'}
+          >
+            ↻
+          </button>
+        )}
         {folder && (
           <button
             className="breadcrumb-action-btn"

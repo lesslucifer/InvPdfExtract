@@ -672,6 +672,62 @@ describe('Overlay State Machine', () => {
     });
   });
 
+  // === Modifier-Click Dispatch Logic ===
+
+  describe('modifier-click dispatch', () => {
+    type ClickAction = 'scope' | 'open' | 'reprocess';
+
+    function resolveClickAction(metaOrCtrl: boolean, alt: boolean): ClickAction {
+      if (metaOrCtrl) return 'open';
+      if (alt) return 'reprocess';
+      return 'scope';
+    }
+
+    it('normal click → scope (set active filter)', () => {
+      expect(resolveClickAction(false, false)).toBe('scope');
+    });
+
+    it('Cmd/Ctrl+click → open in Finder', () => {
+      expect(resolveClickAction(true, false)).toBe('open');
+    });
+
+    it('Alt/Option+click → reprocess', () => {
+      expect(resolveClickAction(false, true)).toBe('reprocess');
+    });
+
+    it('Cmd+Alt+click → open takes priority', () => {
+      expect(resolveClickAction(true, true)).toBe('open');
+    });
+  });
+
+  describe('breadcrumb reload', () => {
+    function breadcrumbReloadTarget(fileScope: string | null, folderScope: string | null): { type: 'file' | 'folder'; path: string } | null {
+      if (fileScope) return { type: 'file', path: fileScope };
+      if (folderScope) return { type: 'folder', path: folderScope };
+      return null;
+    }
+
+    it('reloads file when fileScope is active', () => {
+      const result = breadcrumbReloadTarget('2024/Q1/invoice.pdf', '2024/Q1');
+      expect(result).toEqual({ type: 'file', path: '2024/Q1/invoice.pdf' });
+    });
+
+    it('reloads folder when only folderScope is active', () => {
+      const result = breadcrumbReloadTarget(null, '2024/Q1');
+      expect(result).toEqual({ type: 'folder', path: '2024/Q1' });
+    });
+
+    it('returns null when no scope is active', () => {
+      const result = breadcrumbReloadTarget(null, null);
+      expect(result).toBeNull();
+    });
+
+    it('prefers file over folder when both active', () => {
+      const result = breadcrumbReloadTarget('2024/Q1/file.pdf', '2024/Q1');
+      expect(result!.type).toBe('file');
+    });
+  });
+
   // === Reprocess Confirmation Logic ===
 
   describe('shouldConfirmReprocess', () => {

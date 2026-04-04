@@ -333,6 +333,14 @@ export const SearchOverlay: React.FC = () => {
     await window.api.reprocessFolder(folderPrefix);
   }, []);
 
+  const handleBreadcrumbReload = useCallback(() => {
+    if (fileScope) {
+      window.api.reprocessFile(fileScope);
+    } else if (folderScope) {
+      window.api.reprocessFolder(folderScope);
+    }
+  }, [fileScope, folderScope]);
+
   const handleFieldUpdated = useCallback(() => {
     if (query.trim() || folderScope || fileScope || filters.docType || filters.status ||
         filters.amountMin != null || filters.amountMax != null || filters.dateFilter) {
@@ -469,6 +477,8 @@ export const SearchOverlay: React.FC = () => {
           onSelectFile={handlePathSearchSelectFile}
           onReprocessFile={handleReprocessFile}
           onReprocessFolder={handleReprocessFolder}
+          onOpenFile={handleOpenFile}
+          onOpenFolder={handleOpenFolder}
         />
       </div>
     );
@@ -489,6 +499,7 @@ export const SearchOverlay: React.FC = () => {
           onOpenFolder={() => folderScope && handleOpenFolder(folderScope)}
           onClear={handleClearFolderScope}
           onClearFile={handleClearFileScope}
+          onReload={handleBreadcrumbReload}
         />
       )}
       {hasSearched && (
@@ -503,6 +514,9 @@ export const SearchOverlay: React.FC = () => {
           onFolderClick={handleFolderBrowse}
           onFileClick={handleFileBrowse}
           onDocTypeClick={handleDocTypeClick}
+          onOpenFolder={handleOpenFolder}
+          onReprocessFile={handleReprocessFile}
+          onReprocessFolder={handleReprocessFolder}
           onLoadMore={loadMore}
           hasMore={hasMore}
           isLoadingMore={isLoadingMore}
