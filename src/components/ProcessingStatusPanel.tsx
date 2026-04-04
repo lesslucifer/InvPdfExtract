@@ -51,13 +51,20 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
     return () => { cancelled = true; };
   }, [activeTab]);
 
-  // Subscribe to real-time updates to refresh queue tab
+  // Subscribe to real-time updates to refresh the active tab
   useEffect(() => {
-    if (activeTab !== 'queue') return;
     const unsubscribe = window.api.onFileStatusChanged(async () => {
       try {
-        const files = await window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]);
-        setQueueFiles(files);
+        if (activeTab === 'queue') {
+          const files = await window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]);
+          setQueueFiles(files);
+        } else if (activeTab === 'processed') {
+          const files = await window.api.getProcessedFilesWithStats();
+          setProcessedFiles(files);
+        } else {
+          const logs = await window.api.getErrorLogsWithPath();
+          setErrorLogs(logs);
+        }
       } catch { /* ignore */ }
     });
     return unsubscribe;

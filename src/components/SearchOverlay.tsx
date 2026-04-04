@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { SearchResult, OverlayState, AggregateStats, SearchFilters } from '../shared/types';
+import { SearchResult, OverlayState, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
 import { parseSearchQuery, buildQueryString, ParsedQuery } from '../shared/parse-query';
 import { SearchInput } from './SearchInput';
 import { FilterPills } from './FilterPills';
@@ -54,6 +54,23 @@ export const SearchOverlay: React.FC = () => {
   // Subscribe to processing status updates from main process
   useEffect(() => {
     const unsubscribe = window.api.onStatusUpdate(setStatus);
+    return unsubscribe;
+  }, []);
+
+  // Subscribe to file status changes to update StatusDots in search results
+  const resultsRef = useRef(results);
+  resultsRef.current = results;
+  useEffect(() => {
+    const unsubscribe = window.api.onFileStatusChanged(async () => {
+      const currentResults = resultsRef.current;
+      if (currentResults.length === 0) return;
+      const paths = [...new Set(currentResults.map(r => r.relative_path))];
+      const updatedStatuses = await window.api.getFileStatusesByPaths(paths);
+      setResults(prev => prev.map(r => {
+        const newStatus = updatedStatuses[r.relative_path];
+        return newStatus !== undefined ? { ...r, file_status: newStatus } : r;
+      }));
+    });
     return unsubscribe;
   }, []);
 
@@ -334,17 +351,29 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   const handleReprocessFile = useCallback(async (relativePath: string) => {
+    setResults(prev => prev.map(r =>
+      r.relative_path === relativePath ? { ...r, file_status: FileStatus.Pending } : r
+    ));
     await window.api.reprocessFile(relativePath);
   }, []);
 
   const handleReprocessFolder = useCallback(async (folderPrefix: string) => {
+    setResults(prev => prev.map(r =>
+      r.relative_path.startsWith(folderPrefix + '/') ? { ...r, file_status: FileStatus.Pending } : r
+    ));
     await window.api.reprocessFolder(folderPrefix);
   }, []);
 
   const handleBreadcrumbReload = useCallback(() => {
     if (fileScope) {
+      setResults(prev => prev.map(r =>
+        r.relative_path === fileScope ? { ...r, file_status: FileStatus.Pending } : r
+      ));
       window.api.reprocessFile(fileScope);
     } else if (folderScope) {
+      setResults(prev => prev.map(r =>
+        r.relative_path.startsWith(folderScope + '/') ? { ...r, file_status: FileStatus.Pending } : r
+      ));
       window.api.reprocessFolder(folderScope);
     }
   }, [fileScope, folderScope]);

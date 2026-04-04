@@ -24,6 +24,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [folderStatuses, setFolderStatuses] = useState<Record<string, FileStatus>>({});
   const [loading, setLoading] = useState(true);
 
+  const refreshFolderStatuses = useCallback(async () => {
+    try {
+      const statuses = await window.api.getFolderStatuses();
+      setFolderStatuses(statuses);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -46,6 +53,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       }
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  // Re-fetch folder statuses when file processing status changes
+  useEffect(() => {
+    const unsubscribe = window.api.onFileStatusChanged(() => {
+      refreshFolderStatuses();
+    });
+    return unsubscribe;
+  }, [refreshFolderStatuses]);
+
+  const handleOptimisticFolderUpdate = useCallback((folderPath: string) => {
+    setFolderStatuses(prev => ({ ...prev, [folderPath]: FileStatus.Pending }));
   }, []);
 
   if (loading) {
@@ -91,6 +110,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
               onReprocess={onReprocessFolder}
+              onOptimisticUpdate={handleOptimisticFolderUpdate}
             />
           ))}
           {supplementFolders.map(folder => (
@@ -101,6 +121,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
               onReprocess={onReprocessFolder}
+              onOptimisticUpdate={handleOptimisticFolderUpdate}
             />
           ))}
         </div>
@@ -127,6 +148,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onBrowse={onFolderBrowse}
               onOpen={onOpenFolder}
               onReprocess={onReprocessFolder}
+              onOptimisticUpdate={handleOptimisticFolderUpdate}
             />
           ))}
         </div>
@@ -143,9 +165,10 @@ interface FolderRowProps {
   onBrowse: (folder: string) => void;
   onOpen: (relativePath: string) => void;
   onReprocess?: (folderPrefix: string) => void;
+  onOptimisticUpdate?: (folderPath: string) => void;
 }
 
-const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, onOpen, onReprocess }) => {
+const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, onOpen, onReprocess, onOptimisticUpdate }) => {
   const [confirmPending, setConfirmPending] = useState(false);
 
   const handleReprocess = useCallback(async (e: React.MouseEvent) => {
@@ -156,18 +179,21 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
       if (count > 10) {
         setConfirmPending(true);
       } else {
+        onOptimisticUpdate?.(folder.path);
         onReprocess(folder.path);
       }
     } catch {
+      onOptimisticUpdate?.(folder.path);
       onReprocess(folder.path);
     }
-  }, [onReprocess, folder.path]);
+  }, [onReprocess, onOptimisticUpdate, folder.path]);
 
   const handleConfirm = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    onOptimisticUpdate?.(folder.path);
     onReprocess?.(folder.path);
     setConfirmPending(false);
-  }, [onReprocess, folder.path]);
+  }, [onReprocess, onOptimisticUpdate, folder.path]);
 
   const handleCancel = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
