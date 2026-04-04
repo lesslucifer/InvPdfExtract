@@ -27,6 +27,8 @@ export interface OverlayCallbacks {
   onReprocessFile: (relativePath: string) => number;
   onReprocessFolder: (folderPrefix: string) => number;
   onCountFolderFiles: (folderPrefix: string) => number;
+  onCancelQueueItem: (fileId: string) => boolean;
+  onClearPendingQueue: () => number;
   onQuit: () => Promise<void>;
 }
 
@@ -417,6 +419,18 @@ export class OverlayWindow {
     ipcMain.handle('count-folder-files', async (_event, folderPrefix: string) => {
       if (!this.callbacks) return { count: 0 };
       const count = this.callbacks.onCountFolderFiles(folderPrefix);
+      return { count };
+    });
+
+    ipcMain.handle('cancel-queue-item', async (_event, fileId: string) => {
+      if (!this.callbacks) return { success: false };
+      const success = this.callbacks.onCancelQueueItem(fileId);
+      return { success };
+    });
+
+    ipcMain.handle('clear-pending-queue', async () => {
+      if (!this.callbacks) return { count: 0 };
+      const count = this.callbacks.onClearPendingQueue();
       return { count };
     });
 
