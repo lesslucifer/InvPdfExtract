@@ -40,8 +40,10 @@ export class OverlayWindow {
   private vaultPath: string | null = null;
   private callbacks: OverlayCallbacks | null = null;
   private isHiding = false;
-  private isPinned = false;
   private pathCache: VaultPathCache | null = null;
+  private spawnedWindows: Set<BrowserWindow> = new Set();
+  private initialStateMap: Map<number, string> = new Map();
+  private blurTimeout: ReturnType<typeof setTimeout> | null = null;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
     this.callbacks = callbacks;
@@ -105,8 +107,21 @@ export class OverlayWindow {
     }
   }
 
+  closeAllSpawnedWindows(): void {
+    for (const win of this.spawnedWindows) {
+      if (!win.isDestroyed()) win.close();
+    }
+    this.spawnedWindows.clear();
+    this.initialStateMap.clear();
+  }
+
   destroy(): void {
     this.unregisterShortcut();
+    for (const win of this.spawnedWindows) {
+      if (!win.isDestroyed()) win.destroy();
+    }
+    this.spawnedWindows.clear();
+    this.initialStateMap.clear();
     if (this.window) {
       this.window.destroy();
       this.window = null;
@@ -134,8 +149,23 @@ export class OverlayWindow {
     this.window.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
     this.window.on('blur', () => {
-      if (!this.isHiding && !this.isPinned) {
-        this.hide();
+      if (!this.isHiding) {
+        // Debounce blur to avoid hiding during internal click sequences
+        // (e.g. Alt+click on macOS can cause momentary focus loss)
+        if (this.blurTimeout) clearTimeout(this.blurTimeout);
+        this.blurTimeout = setTimeout(() => {
+          if (this.window && !this.window.isFocused()) {
+            this.hide();
+          }
+        }, 150);
+      }
+    });
+
+    this.window.on('focus', () => {
+      // Cancel pending blur-hide if focus returns quickly
+      if (this.blurTimeout) {
+        clearTimeout(this.blurTimeout);
+        this.blurTimeout = null;
       }
     });
   }
@@ -148,12 +178,58 @@ export class OverlayWindow {
     this.window.setPosition(x, y);
   }
 
+  private broadcastToAll(channel: string, ...args: unknown[]): void {
+    this.window?.webContents.send(channel, ...args);
+    for (const win of this.spawnedWindows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(channel, ...args);
+      }
+    }
+  }
+
+  private spawnWindowlized(serializedState?: string): void {
+    const win = new BrowserWindow({
+      width: 800,
+      height: 600,
+      minWidth: 500,
+      minHeight: 400,
+      frame: false,
+      transparent: false,
+      alwaysOnTop: false,
+      skipTaskbar: false,
+      resizable: true,
+      show: false,
+      backgroundColor: '#1c1c1e',
+      webPreferences: {
+        preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    const url = MAIN_WINDOW_WEBPACK_ENTRY + '?windowlized=true';
+    win.loadURL(url);
+
+    if (serializedState) {
+      this.initialStateMap.set(win.webContents.id, serializedState);
+    }
+
+    const wcId = win.webContents.id;
+    win.once('ready-to-show', () => win.show());
+    win.on('closed', () => {
+      this.spawnedWindows.delete(win);
+      this.initialStateMap.delete(wcId);
+    });
+
+    this.spawnedWindows.add(win);
+  }
+
   subscribeToStatusEvents(): void {
     const send = (status: StatusIndicator) => {
-      this.window?.webContents.send('overlay-status-update', status);
+      this.broadcastToAll('overlay-status-update', status);
     };
     const sendFileStatus = (fileIds: string[], status: FileStatus) => {
-      this.window?.webContents.send('file-status-changed', { fileIds, status });
+      this.broadcastToAll('file-status-changed', { fileIds, status });
     };
     eventBus.on('extraction:started', (data) => {
       send('processing');
@@ -351,6 +427,7 @@ export class OverlayWindow {
     ipcMain.handle('switch-vault', async (_event, vaultPath: string) => {
       try {
         if (!this.callbacks) throw new Error('Overlay callbacks not set');
+        this.closeAllSpawnedWindows();
         await this.callbacks.onSwitchVault(vaultPath);
         return { success: true };
       } catch (err) {
@@ -364,8 +441,9 @@ export class OverlayWindow {
       const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
       const isActive = config.lastVaultPath === vaultPath;
 
-      if (isActive && this.callbacks) {
-        await this.callbacks.onStopVault();
+      if (isActive) {
+        this.closeAllSpawnedWindows();
+        if (this.callbacks) await this.callbacks.onStopVault();
       }
 
       saveAppConfig({
@@ -384,8 +462,9 @@ export class OverlayWindow {
       const isActive = config.lastVaultPath === vaultPath;
 
       // Stop the vault if it's active
-      if (isActive && this.callbacks) {
-        await this.callbacks.onStopVault();
+      if (isActive) {
+        this.closeAllSpawnedWindows();
+        if (this.callbacks) await this.callbacks.onStopVault();
       }
 
       // Delete the .invoicevault directory
@@ -487,12 +566,28 @@ export class OverlayWindow {
       this.hide();
     });
 
-    ipcMain.handle('set-pinned', async (_event, pinned: boolean) => {
-      this.isPinned = pinned;
+    ipcMain.handle('windowlize', async (_event, serializedState?: string) => {
+      this.spawnWindowlized(serializedState);
+      this.hide();
     });
 
-    ipcMain.handle('get-pinned', async () => {
-      return this.isPinned;
+    ipcMain.handle('get-initial-state', async (event) => {
+      if (!event.sender) return null;
+      const state = this.initialStateMap.get(event.sender.id);
+      if (state) {
+        this.initialStateMap.delete(event.sender.id);
+      }
+      return state ?? null;
+    });
+
+    ipcMain.handle('close-window', async (event) => {
+      if (!event.sender) return;
+      const senderWin = BrowserWindow.fromWebContents(event.sender);
+      if (senderWin && this.spawnedWindows.has(senderWin)) {
+        senderWin.close();
+      } else {
+        this.hide();
+      }
     });
 
     ipcMain.handle('get-aggregates', async (_event, filters: SearchFilters) => {

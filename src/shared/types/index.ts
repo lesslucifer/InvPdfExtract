@@ -422,8 +422,9 @@ export interface InvoiceVaultAPI {
   reprocessFolder: (folderPrefix: string) => Promise<{ count: number }>;
   countFolderFiles: (folderPrefix: string) => Promise<{ count: number }>;
   hideOverlay: () => Promise<void>;
-  setPinned: (pinned: boolean) => Promise<void>;
-  getPinned: () => Promise<boolean>;
+  windowlize: (serializedState?: string) => Promise<void>;
+  getInitialState: () => Promise<string | null>;
+  closeWindow: () => Promise<void>;
   quitApp: () => Promise<void>;
   onStatusUpdate: (callback: (status: 'idle' | 'processing' | 'review' | 'error') => void) => () => void;
   listVaultPaths: (query: string, scope?: string) => Promise<Array<{ name: string; relativePath: string; isDir: boolean }>>;
