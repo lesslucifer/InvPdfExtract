@@ -32,9 +32,9 @@ function toggle(state: OverlayVisibility): OverlayVisibility {
   return state.visible ? hide(state) : show(state);
 }
 
-function onBlur(state: OverlayVisibility, isHiding: boolean): OverlayVisibility {
-  // blur handler should not fire during programmatic hide or show
-  if (isHiding) return state;
+function onBlur(state: OverlayVisibility, isHiding: boolean, isPinned = false): OverlayVisibility {
+  // blur handler should not fire during programmatic hide, show, or when pinned
+  if (isHiding || isPinned) return state;
   return hide(state);
 }
 
@@ -95,6 +95,18 @@ describe('Overlay visibility state machine', () => {
       const state = show(createOverlay());
       // Normal blur — user clicked outside
       const afterBlur = onBlur(state, false);
+      expect(afterBlur.visible).toBe(false);
+    });
+
+    it('blur while pinned does NOT hide the overlay', () => {
+      const state = show(createOverlay());
+      const afterBlur = onBlur(state, false, true); // isPinned=true
+      expect(afterBlur.visible).toBe(true);
+    });
+
+    it('blur while unpinned still hides the overlay', () => {
+      const state = show(createOverlay());
+      const afterBlur = onBlur(state, false, false); // isPinned=false
       expect(afterBlur.visible).toBe(false);
     });
 

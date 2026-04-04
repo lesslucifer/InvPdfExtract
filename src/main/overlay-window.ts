@@ -38,6 +38,7 @@ export class OverlayWindow {
   private vaultPath: string | null = null;
   private callbacks: OverlayCallbacks | null = null;
   private isHiding = false;
+  private isPinned = false;
   private pathCache: VaultPathCache | null = null;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
@@ -131,7 +132,7 @@ export class OverlayWindow {
     this.window.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
     this.window.on('blur', () => {
-      if (!this.isHiding) {
+      if (!this.isHiding && !this.isPinned) {
         this.hide();
       }
     });
@@ -445,6 +446,14 @@ export class OverlayWindow {
 
     ipcMain.handle('hide-overlay', async () => {
       this.hide();
+    });
+
+    ipcMain.handle('set-pinned', async (_event, pinned: boolean) => {
+      this.isPinned = pinned;
+    });
+
+    ipcMain.handle('get-pinned', async () => {
+      return this.isPinned;
     });
 
     ipcMain.handle('get-aggregates', async (_event, filters: SearchFilters) => {

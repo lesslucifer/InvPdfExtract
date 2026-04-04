@@ -33,6 +33,8 @@ export const SearchOverlay: React.FC = () => {
   const [pageOffset, setPageOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Pin state — prevents auto-close on blur
+  const [isPinned, setIsPinned] = useState(false);
   // PathSearch state — the text after the leading '/'
   const [pathQuery, setPathQuery] = useState('');
   // Track the state before PathSearch was entered so Backspace-to-empty can restore it
@@ -58,6 +60,12 @@ export const SearchOverlay: React.FC = () => {
     setPreviousState(overlayState);
     setOverlayState(state);
   }, [overlayState]);
+
+  const handlePinToggle = useCallback(() => {
+    const next = !isPinned;
+    setIsPinned(next);
+    window.api.setPinned(next);
+  }, [isPinned]);
 
   // Build the full query string from free text + structured filters
   const buildFullQuery = useCallback((text: string, currentFilters: ParsedQuery): string => {
@@ -382,6 +390,9 @@ export const SearchOverlay: React.FC = () => {
             }
           } else if (folderScope) {
             handleClearFolderScope();
+          } else if (isPinned) {
+            setIsPinned(false);
+            window.api.setPinned(false);
           } else {
             window.api.hideOverlay();
           }
@@ -392,16 +403,30 @@ export const SearchOverlay: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
-      folderScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, doSearch]);
+      folderScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, doSearch, isPinned]);
 
   // Check if there are active filter pills
   const hasFilterPills = filters.docType || filters.status ||
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
 
+  const pinButton = (
+    <button
+      className={`pin-btn${isPinned ? ' pin-btn--active' : ''}`}
+      onClick={handlePinToggle}
+      aria-label={isPinned ? 'Unpin overlay' : 'Pin overlay'}
+      title={isPinned ? 'Unpin (allow auto-close)' : 'Pin (keep open)'}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1-.707.708l-.797-.797-3.536 3.535L10.8 12.8a.5.5 0 0 1-.854.354L7.172 10.38 3.525 14.03a.5.5 0 1 1-.707-.708l3.652-3.652L3.7 6.9a.5.5 0 0 1 .354-.854l3.536-.708 3.535-3.536-.797-.797a.5.5 0 0 1 .5-.283z" />
+      </svg>
+    </button>
+  );
+
   // Render based on state
   if (overlayState === OverlayState.NoVault) {
     return (
       <div className="search-overlay">
+        {pinButton}
         <NoVaultScreen onVaultCreated={handleVaultCreated} />
       </div>
     );
@@ -410,6 +435,7 @@ export const SearchOverlay: React.FC = () => {
   if (overlayState === OverlayState.Settings) {
     return (
       <div className="search-overlay">
+        {pinButton}
         <SettingsPanel onBack={handleSettingsBack} />
       </div>
     );
@@ -418,6 +444,7 @@ export const SearchOverlay: React.FC = () => {
   if (overlayState === OverlayState.ProcessingStatus) {
     return (
       <div className="search-overlay">
+        {pinButton}
         <ProcessingStatusPanel onBack={handleProcessingStatusBack} />
       </div>
     );
@@ -427,6 +454,7 @@ export const SearchOverlay: React.FC = () => {
   if (overlayState === OverlayState.PathSearch) {
     return (
       <div className="search-overlay">
+        {pinButton}
         <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
         <PathResultsList
           query={pathQuery}
@@ -443,6 +471,7 @@ export const SearchOverlay: React.FC = () => {
   // Home and Search states share the same layout
   return (
     <div className="search-overlay">
+      {pinButton}
       <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
       {hasFilterPills && (
         <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} />

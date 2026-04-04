@@ -32,6 +32,7 @@ body {
 
 /* Overlay container */
 .search-overlay {
+  position: relative;
   background: var(--bg);
   border-radius: var(--radius);
   box-shadow: 0 8px 40px var(--shadow), 0 0 0 1px var(--border);
@@ -540,6 +541,35 @@ body {
 .gear-icon:hover {
   color: var(--text);
   background: var(--bg-hover);
+}
+
+/* === Pin Button === */
+.pin-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 10;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  line-height: 0;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+}
+
+.pin-btn:hover {
+  opacity: 0.7;
+}
+
+.pin-btn--active {
+  opacity: 0.9;
+}
+
+.pin-btn--active:hover {
+  opacity: 1;
 }
 
 /* === Status Dot === */
