@@ -90,7 +90,7 @@ export const SearchOverlay: React.FC = () => {
     }
 
     const [res, agg] = await Promise.all([
-      window.api.search(searchQuery || '', currentOffset),
+      window.api.search(searchQuery || '', currentOffset, folder),
       append ? Promise.resolve(aggregates) : window.api.getAggregates(sf),
     ]);
 

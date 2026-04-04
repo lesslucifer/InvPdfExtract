@@ -479,9 +479,10 @@ const BASE_JOINS = `
   LEFT JOIN invoice_data id2 ON r.id = id2.record_id
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 
-export function searchRecords(query: string, limit: number = 50, offset: number = 0): any[] {
+export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null): any[] {
   const db = getDatabase();
   const parsed = parseSearchQuery(query);
+  if (folder) parsed.folder = folder;
   const { conditions, params } = buildFilterClauses(parsed);
 
   params.push(limit, offset);
