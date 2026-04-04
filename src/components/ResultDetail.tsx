@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo } from '../shared/types';
 import { EditableField } from './EditableField';
 import { EditableCell } from './EditableCell';
-import { computeTotalMismatch, computeLineItemMismatch, getMismatchedLineItems, computeTaxRateMismatch, getItemsWithBadTaxRate } from './quickfix-logic';
+import { computeTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, hasAnyIssues, computeFixAllPlan, deriveFieldValue } from './quickfix-logic';
 
 interface Props {
   result: SearchResult;
@@ -92,14 +92,14 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     [result.tong_tien, lineItems],
   );
 
-  const mismatchedItems = useMemo(
-    () => getMismatchedLineItems(lineItems),
-    [lineItems],
+  const hasIssues = useMemo(
+    () => hasAnyIssues(lineItems) || totalMismatch.hasMismatch,
+    [lineItems, totalMismatch],
   );
 
-  const badTaxItems = useMemo(
-    () => getItemsWithBadTaxRate(lineItems),
-    [lineItems],
+  const fixPlan = useMemo(
+    () => hasIssues ? computeFixAllPlan(lineItems, result.tong_tien, result.tong_tien_truoc_thue) : null,
+    [lineItems, result.tong_tien, result.tong_tien_truoc_thue, hasIssues],
   );
 
   const reloadLineItems = useCallback(() => {
@@ -109,28 +109,23 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     });
   }, [result.id, loadLineItemOverrides]);
 
-  const handleRecalcAll = async () => {
-    for (const { item, expected } of mismatchedItems) {
-      await handleLineItemSave(item.id, 'thanh_tien_truoc_thue', String(expected));
+  const handleFixAll = async () => {
+    if (!fixPlan) return;
+    for (const { lineItemId, fieldName, value } of fixPlan.updates) {
+      await handleLineItemSave(lineItemId, fieldName, String(value));
     }
-    reloadLineItems();
-  };
-
-  const handleFixAllTaxRates = async () => {
-    for (const { item, expected } of badTaxItems) {
-      await handleLineItemSave(item.id, 'thue_suat', String(expected));
+    // Reload items to get updated values, then fix totals
+    const freshItems = await window.api.getLineItems(result.id);
+    const newTotal = freshItems.reduce((acc, li) => acc + (li.thanh_tien ?? 0), 0);
+    const newTotalBeforeTax = freshItems.reduce((acc, li) => acc + (li.thanh_tien_truoc_thue ?? 0), 0);
+    if (newTotal > 0 && Math.abs(result.tong_tien - newTotal) > 1) {
+      await handleSave('invoice_data', 'tong_tien', String(newTotal));
     }
-    reloadLineItems();
-  };
-
-  const handleRecalcAllAndFixTotal = async () => {
-    for (const { item, expected } of mismatchedItems) {
-      await handleLineItemSave(item.id, 'thanh_tien_truoc_thue', String(expected));
+    if (newTotalBeforeTax > 0 && Math.abs(result.tong_tien_truoc_thue - newTotalBeforeTax) > 1) {
+      await handleSave('invoice_data', 'tong_tien_truoc_thue', String(newTotalBeforeTax));
     }
-    // Recompute after-tax sum from line items
-    const newSum = lineItems.reduce((acc, li) => acc + (li.thanh_tien ?? 0), 0);
-    await handleSave('invoice_data', 'tong_tien', String(newSum));
-    reloadLineItems();
+    setLineItems(freshItems);
+    loadLineItemOverrides(freshItems);
   };
 
   return (
@@ -163,7 +158,7 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
               <EditableField label="Invoice #" value={result.so_hoa_don || ''} fieldName="so_hoa_don" tableName="invoice_data" recordId={result.id} override={getOverride('so_hoa_don')} onSave={(v) => handleSave('invoice_data', 'so_hoa_don', v)} onResolve={(a) => handleResolve('so_hoa_don', a)} />
               <EditableField label="MST" value={result.mst || ''} fieldName="mst" tableName="invoice_data" recordId={result.id} override={getOverride('mst')} onSave={(v) => handleSave('invoice_data', 'mst', v)} onResolve={(a) => handleResolve('mst', a)} />
               <EditableField label="Before-tax Total" value={String(result.tong_tien_truoc_thue || '')} fieldName="tong_tien_truoc_thue" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien_truoc_thue')} inputType="number" onSave={(v) => handleSave('invoice_data', 'tong_tien_truoc_thue', v)} onResolve={(a) => handleResolve('tong_tien_truoc_thue', a)} />
-              <EditableField label="Total (incl. tax)" value={String(result.tong_tien || '')} fieldName="tong_tien" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien')} inputType="number" quickFix={totalMismatch.hasMismatch ? { suggestedValue: totalMismatch.sum, label: 'Sum of items', onApply: (v) => handleSave('invoice_data', 'tong_tien', v) } : null} onSave={(v) => handleSave('invoice_data', 'tong_tien', v)} onResolve={(a) => handleResolve('tong_tien', a)} />
+              <EditableField label="Total (incl. tax)" value={String(result.tong_tien || '')} fieldName="tong_tien" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien')} inputType="number" onSave={(v) => handleSave('invoice_data', 'tong_tien', v)} onResolve={(a) => handleResolve('tong_tien', a)} />
               <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('invoice_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
               <EditableField label="Address" value={result.dia_chi_doi_tac || ''} fieldName="dia_chi_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('dia_chi_doi_tac')} onSave={(v) => handleSave('invoice_data', 'dia_chi_doi_tac', v)} onResolve={(a) => handleResolve('dia_chi_doi_tac', a)} />
               <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
@@ -173,19 +168,16 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
           {lineItems.length > 0 && (
             <div className="line-items">
               <div className="line-items-header">Line Items</div>
-              {mismatchedItems.length > 0 && (
+              {fixPlan && (
                 <div className="batch-quickfix-actions">
-                  <span className="batch-quickfix-label">{mismatchedItems.length} item{mismatchedItems.length > 1 ? 's' : ''} need recalculation</span>
-                  <button className="quickfix-btn quickfix-apply" onClick={handleRecalcAll}>Recalculate all</button>
-                  {totalMismatch.hasMismatch && (
-                    <button className="quickfix-btn quickfix-apply" onClick={handleRecalcAllAndFixTotal}>Recalc all + fix total</button>
-                  )}
-                </div>
-              )}
-              {badTaxItems.length > 0 && (
-                <div className="batch-quickfix-actions">
-                  <span className="batch-quickfix-label">{badTaxItems.length} item{badTaxItems.length > 1 ? 's' : ''} have decimal tax rates</span>
-                  <button className="quickfix-btn quickfix-apply" onClick={handleFixAllTaxRates}>Fix all tax rates</button>
+                  <div className="quickfix-plan">
+                    {fixPlan.steps.map((step, i) => (
+                      <span key={i} className="quickfix-step">{step}</span>
+                    ))}
+                    <span className="quickfix-preview">total = {formatAmount(fixPlan.previewTotal)}</span>
+                  </div>
+                  <button className="quickfix-btn quickfix-apply" onClick={handleFixAll}>Fix all</button>
+                  <span className="quickfix-hint">{'\u2318'}+click cell to fix individually</span>
                 </div>
               )}
               <table className="line-items-table">
@@ -204,15 +196,17 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
                   {lineItems.map((item) => {
                     const itemMismatch = computeLineItemMismatch(item);
                     const taxMismatch = computeTaxRateMismatch(item);
+                    const afterTaxMismatch = computeAfterTaxMismatch(item);
+                    const hasRowIssue = itemMismatch.hasMismatch || taxMismatch.hasMismatch || afterTaxMismatch.hasMismatch;
                     return (
-                    <tr key={item.id} className={itemMismatch.hasMismatch || taxMismatch.hasMismatch ? 'line-item-mismatch' : ''}>
+                    <tr key={item.id} className={hasRowIssue ? 'line-item-mismatch' : ''}>
                       <td>{item.line_number}</td>
                       <EditableCell value={item.mo_ta || ''} fieldName="mo_ta" lineItemId={item.id} override={getLineItemOverride(item.id, 'mo_ta')} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.so_luong ?? '')} fieldName="so_luong" lineItemId={item.id} override={getLineItemOverride(item.id, 'so_luong')} inputType="number" onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.don_gia ?? '')} fieldName="don_gia" lineItemId={item.id} override={getLineItemOverride(item.id, 'don_gia')} inputType="number" onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={item.thue_suat != null ? String(item.thue_suat) : ''} fieldName="thue_suat" lineItemId={item.id} override={getLineItemOverride(item.id, 'thue_suat')} inputType="number" quickFix={taxMismatch.hasMismatch && taxMismatch.expected != null ? { suggestedValue: taxMismatch.expected, label: 'x100', onApply: (v) => handleLineItemSave(item.id, 'thue_suat', v) } : null} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.thanh_tien_truoc_thue ?? '')} fieldName="thanh_tien_truoc_thue" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien_truoc_thue')} inputType="number" quickFix={itemMismatch.hasMismatch && itemMismatch.expected != null ? { suggestedValue: itemMismatch.expected, label: 'Qty x Price', onApply: (v) => handleLineItemSave(item.id, 'thanh_tien_truoc_thue', v) } : null} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.thanh_tien ?? '')} fieldName="thanh_tien" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien')} inputType="number" onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={String(item.so_luong ?? '')} fieldName="so_luong" lineItemId={item.id} override={getLineItemOverride(item.id, 'so_luong')} inputType="number" derivedValue={deriveFieldValue('so_luong', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={String(item.don_gia ?? '')} fieldName="don_gia" lineItemId={item.id} override={getLineItemOverride(item.id, 'don_gia')} inputType="number" derivedValue={deriveFieldValue('don_gia', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={item.thue_suat != null ? String(item.thue_suat) : ''} fieldName="thue_suat" lineItemId={item.id} override={getLineItemOverride(item.id, 'thue_suat')} inputType="number" derivedValue={deriveFieldValue('thue_suat', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={String(item.thanh_tien_truoc_thue ?? '')} fieldName="thanh_tien_truoc_thue" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien_truoc_thue')} inputType="number" derivedValue={deriveFieldValue('thanh_tien_truoc_thue', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <EditableCell value={String(item.thanh_tien ?? '')} fieldName="thanh_tien" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien')} inputType="number" derivedValue={deriveFieldValue('thanh_tien', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                     </tr>
                     );
                   })}

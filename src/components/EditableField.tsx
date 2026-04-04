@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FieldOverrideInfo, OverrideStatus } from '../shared/types';
-import { QuickFixButton } from './QuickFixButton';
 
 interface Props {
   label: string;
@@ -10,13 +9,12 @@ interface Props {
   recordId: string;
   override?: FieldOverrideInfo;
   inputType?: 'text' | 'number' | 'date';
-  quickFix?: { suggestedValue: number; label: string; onApply: (value: string) => void } | null;
   onSave: (value: string) => void;
   onResolve?: (action: 'keep' | 'accept') => void;
 }
 
 export const EditableField: React.FC<Props> = ({
-  label, value, fieldName, tableName, recordId, override, inputType = 'text', quickFix, onSave, onResolve,
+  label, value, fieldName, tableName, recordId, override, inputType = 'text', onSave, onResolve,
 }) => {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -69,12 +67,9 @@ export const EditableField: React.FC<Props> = ({
             />
           </span>
         ) : (
-          <>
-            <span className="field-display" onClick={() => { setEditValue(value); setEditing(true); }}>
-              {value || '-'}
-            </span>
-            {quickFix && <QuickFixButton suggestedValue={quickFix.suggestedValue} label={quickFix.label} onApply={quickFix.onApply} />}
-          </>
+          <span className="field-display" onClick={() => { setEditValue(value); setEditing(true); }}>
+            {value || '-'}
+          </span>
         )}
 
         {isConflict && !editing && onResolve && (

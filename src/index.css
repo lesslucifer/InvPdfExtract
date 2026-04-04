@@ -1700,60 +1700,25 @@ body {
 /* === Mismatch & Quick-Fix === */
 
 .mismatch-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--confidence-low);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  margin-left: 4px;
-  flex-shrink: 0;
-  cursor: default;
-}
-
-.quickfix-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1.5px solid var(--confidence-low);
-  background: transparent;
   color: var(--confidence-low);
   font-size: 11px;
   font-weight: 700;
-  margin-left: 6px;
+  margin-left: 3px;
+}
+
+.cell-mismatch-icon {
+  color: var(--confidence-low);
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+td.cell-mismatch .cell-display {
   cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
-}
-
-.quickfix-trigger:hover {
-  background: var(--confidence-low);
-  color: #fff;
-}
-
-.quickfix-confirm {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 6px;
-  font-size: 11px;
-}
-
-.quickfix-label {
-  color: var(--confidence-medium);
-  white-space: nowrap;
 }
 
 .quickfix-btn {
-  padding: 1px 6px;
+  padding: 2px 8px;
   border: 1px solid var(--border);
   border-radius: 3px;
   font-size: 11px;
@@ -1761,6 +1726,7 @@ body {
   background: transparent;
   color: var(--text);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .quickfix-apply {
@@ -1773,23 +1739,46 @@ body {
   opacity: 0.85;
 }
 
-.quickfix-cancel:hover {
-  background: var(--border);
-}
-
 .batch-quickfix-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 0;
+  padding: 6px 0;
   margin-bottom: 4px;
   border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
 
-.batch-quickfix-label {
+.quickfix-plan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.quickfix-step {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.quickfix-step::before {
+  content: '→ ';
+  color: var(--confidence-low);
+}
+
+.quickfix-preview {
   color: var(--confidence-low);
   font-weight: 600;
+  font-size: 11px;
+}
+
+.quickfix-hint {
+  color: var(--text-muted);
+  font-size: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 tr.line-item-mismatch {
