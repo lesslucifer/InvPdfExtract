@@ -21,9 +21,11 @@ interface Props {
   onSelectFile: (relativePath: string) => void;
   onReprocessFile?: (relativePath: string) => void;
   onReprocessFolder?: (folderPrefix: string) => void;
+  onOpenFile?: (relativePath: string) => void;
+  onOpenFolder?: (relativePath: string) => void;
 }
 
-export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder, onSelectFile, onReprocessFile, onReprocessFolder }) => {
+export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder, onSelectFile, onReprocessFile, onReprocessFolder, onOpenFile, onOpenFolder }) => {
   const [items, setItems] = useState<PathItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [confirmPath, setConfirmPath] = useState<string | null>(null);
@@ -65,13 +67,33 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     return unsubscribe;
   }, [items, refreshStatuses]);
 
-  const handleSelect = useCallback((item: PathItem) => {
-    if (item.isDir) {
-      onSelectFolder(item.relativePath);
+  const handleSelect = useCallback((item: PathItem, e?: React.MouseEvent | KeyboardEvent) => {
+    const metaOrCtrl = e && ('metaKey' in e) && (e.metaKey || e.ctrlKey);
+    const alt = e && ('altKey' in e) && e.altKey;
+
+    if (metaOrCtrl) {
+      // Cmd/Ctrl+click → open in Finder
+      if (item.isDir) {
+        onOpenFolder?.(item.relativePath);
+      } else {
+        onOpenFile?.(item.relativePath);
+      }
+    } else if (alt) {
+      // Alt/Option+click → reprocess
+      if (item.isDir) {
+        onReprocessFolder?.(item.relativePath);
+      } else {
+        onReprocessFile?.(item.relativePath);
+      }
     } else {
-      onSelectFile(item.relativePath);
+      // Normal click → set scope
+      if (item.isDir) {
+        onSelectFolder(item.relativePath);
+      } else {
+        onSelectFile(item.relativePath);
+      }
     }
-  }, [onSelectFolder, onSelectFile]);
+  }, [onSelectFolder, onSelectFile, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder]);
 
   const setOptimisticStatus = useCallback((item: PathItem) => {
     const key = item.isDir ? item.name : item.relativePath;
@@ -129,7 +151,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (items[selectedIndex]) {
-          handleSelect(items[selectedIndex]);
+          handleSelect(items[selectedIndex], e);
         }
       }
     };
@@ -157,7 +179,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
             className={`path-results-item${idx === selectedIndex ? ' selected' : ''}`}
             role="option"
             aria-selected={idx === selectedIndex}
-            onClick={() => handleSelect(item)}
+            onClick={(e) => handleSelect(item, e)}
             onMouseEnter={() => setSelectedIndex(idx)}
           >
             <span className="path-results-icon">{item.isDir ? '📁' : '📄'}</span>

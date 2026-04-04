@@ -1,10 +1,13 @@
 import React from 'react';
 
 interface Props {
-  folder: string;
+  folder: string | null;
+  file?: string | null;
   onNavigate: (folder: string) => void;
   onOpenFolder: () => void;
   onClear: () => void;
+  onClearFile?: () => void;
+  onReload?: () => void;
 }
 
 interface Segment {
@@ -20,8 +23,14 @@ function splitSegments(folder: string): Segment[] {
   }));
 }
 
-export const BreadcrumbBar: React.FC<Props> = ({ folder, onNavigate, onOpenFolder, onClear }) => {
-  const segments = splitSegments(folder);
+function extractFileName(filePath: string): string {
+  const parts = filePath.split('/');
+  return parts[parts.length - 1] || filePath;
+}
+
+export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpenFolder, onClear, onClearFile, onReload }) => {
+  const segments = folder ? splitSegments(folder) : [];
+  const fileName = file ? extractFileName(file) : null;
 
   return (
     <div className="breadcrumb-bar">
@@ -38,20 +47,50 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, onNavigate, onOpenFolde
           </button>
         </React.Fragment>
       ))}
+      {fileName && (
+        <>
+          {segments.length > 0 && <span className="breadcrumb-separator">&gt;</span>}
+          <span className="breadcrumb-file" title={file!}>
+            📄 {fileName}
+          </span>
+          {onClearFile && (
+            <button
+              className="breadcrumb-file-clear"
+              onClick={onClearFile}
+              title="Clear file scope (show all records in folder)"
+              aria-label="Clear file scope"
+            >
+              &times;
+            </button>
+          )}
+        </>
+      )}
       <div className="breadcrumb-actions">
-        <button
-          className="breadcrumb-action-btn"
-          onClick={onOpenFolder}
-          title="Open in Finder"
-          aria-label="Open folder in file manager"
-        >
-          📂
-        </button>
+        {onReload && (
+          <button
+            className="breadcrumb-action-btn"
+            onClick={onReload}
+            title={file ? 'Reprocess this file' : 'Reprocess folder'}
+            aria-label={file ? 'Reprocess file' : 'Reprocess folder'}
+          >
+            ↻
+          </button>
+        )}
+        {folder && (
+          <button
+            className="breadcrumb-action-btn"
+            onClick={onOpenFolder}
+            title="Open in Finder"
+            aria-label="Open folder in file manager"
+          >
+            📂
+          </button>
+        )}
         <button
           className="breadcrumb-action-btn"
           onClick={onClear}
-          title="Clear folder scope"
-          aria-label="Clear folder scope"
+          title="Clear all scope"
+          aria-label="Clear all scope"
         >
           &times;
         </button>

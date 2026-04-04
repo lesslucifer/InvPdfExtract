@@ -19,7 +19,6 @@ function makeScript(overrides: Partial<ExtractionScript> & { matcher_path: strin
     name: 'test-script',
     doc_type: DocType.InvoiceIn,
     script_path: 'parser.js',
-    matcher_path: overrides.matcher_path,
     matcher_description: null,
     times_used: 0,
     created_at: new Date().toISOString(),

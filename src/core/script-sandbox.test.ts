@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { executeScript } from './script-sandbox';
+import type { ExtractionInvoiceData } from '../shared/types';
 
 function createTempScript(code: string): string {
   const tmpFile = path.join(
@@ -49,7 +50,7 @@ describe('Script Sandbox', () => {
       expect(result.relative_path).toBe('test.xml');
       expect(result.doc_type).toBe('invoice_in');
       expect(result.records).toHaveLength(1);
-      expect(result.records[0].data.so_hoa_don).toBe('123');
+      expect((result.records[0].data as ExtractionInvoiceData).so_hoa_don).toBe('123');
     });
 
     it('passes the filePath argument to the script', async () => {

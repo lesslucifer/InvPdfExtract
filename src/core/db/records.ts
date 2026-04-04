@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
 import {
-  ExtractionBatch, Record, BankStatementData, InvoiceData,
+  ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
   FolderInfo,
 } from '../../shared/types';
@@ -24,7 +24,7 @@ export function createBatch(fileId: string, status: BatchStatus, recordCount: nu
 export function insertRecord(
   batchId: string, fileId: string, docType: DocType, fingerprint: string,
   confidence: number, ngay: string | null, fieldConfidence: object, rawExtraction: object
-): Record {
+): DbRecord {
   const db = getDatabase();
   const id = uuid();
   const now = new Date().toISOString();
@@ -34,7 +34,7 @@ export function insertRecord(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, batchId, fileId, docType, fingerprint, confidence, ngay, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), now, now);
 
-  return db.prepare('SELECT * FROM records WHERE id = ?').get(id) as Record;
+  return db.prepare('SELECT * FROM records WHERE id = ?').get(id) as DbRecord;
 }
 
 export function updateRecord(
@@ -48,14 +48,14 @@ export function updateRecord(
   `).run(batchId, confidence, ngay, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), recordId);
 }
 
-export function getRecordsByFileId(fileId: string): Record[] {
+export function getRecordsByFileId(fileId: string): DbRecord[] {
   const db = getDatabase();
-  return db.prepare('SELECT * FROM records WHERE file_id = ? AND deleted_at IS NULL').all(fileId) as Record[];
+  return db.prepare('SELECT * FROM records WHERE file_id = ? AND deleted_at IS NULL').all(fileId) as DbRecord[];
 }
 
-export function getRecordByFingerprint(fileId: string, fingerprint: string): Record | undefined {
+export function getRecordByFingerprint(fileId: string, fingerprint: string): DbRecord | undefined {
   const db = getDatabase();
-  return db.prepare('SELECT * FROM records WHERE file_id = ? AND fingerprint = ? AND deleted_at IS NULL').get(fileId, fingerprint) as Record | undefined;
+  return db.prepare('SELECT * FROM records WHERE file_id = ? AND fingerprint = ? AND deleted_at IS NULL').get(fileId, fingerprint) as DbRecord | undefined;
 }
 
 export function softDeleteRecord(recordId: string): void {
@@ -434,7 +434,10 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     conditions.push("f.status = 'review'");
   }
 
-  if (parsed.folder) {
+  if (parsed.filePath) {
+    conditions.push('f.relative_path = ?');
+    params.push(parsed.filePath);
+  } else if (parsed.folder) {
     conditions.push('f.relative_path LIKE ?');
     params.push(`${parsed.folder}%`);
   }
@@ -467,6 +470,7 @@ function filtersToParsed(filters: SearchFilters): ParsedQuery {
     docType: filters.docType,
     status: filters.status,
     folder: filters.folder,
+    filePath: filters.filePath,
     amountMin: filters.amountMin,
     amountMax: filters.amountMax,
     dateFilter: filters.dateFilter,
@@ -479,9 +483,11 @@ const BASE_JOINS = `
   LEFT JOIN invoice_data id2 ON r.id = id2.record_id
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 
-export function searchRecords(query: string, limit: number = 50, offset: number = 0): any[] {
+export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null): any[] {
   const db = getDatabase();
   const parsed = parseSearchQuery(query);
+  if (filePath) parsed.filePath = filePath;
+  else if (folder) parsed.folder = folder;
   const { conditions, params } = buildFilterClauses(parsed);
 
   params.push(limit, offset);
