@@ -5,17 +5,31 @@ type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 interface Props {
   value: string;
   onChange: (value: string) => void;
+  onCursorChange?: (pos: number) => void;
   onGearClick?: () => void;
   onStatusDotClick?: () => void;
   status?: StatusIndicator;
 }
 
-export const SearchInput: React.FC<Props> = ({ value, onChange, onGearClick, onStatusDotClick, status = 'idle' }) => {
+export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onGearClick, onStatusDotClick, status = 'idle' }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e.target.value);
+    if (onCursorChange) {
+      onCursorChange(e.target.selectionStart ?? e.target.value.length);
+    }
+  };
+
+  const handleSelect = () => {
+    if (onCursorChange && inputRef.current) {
+      onCursorChange(inputRef.current.selectionStart ?? value.length);
+    }
+  };
 
   return (
     <div className="search-input-container">
@@ -26,7 +40,8 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onGearClick, onS
         type="text"
         placeholder="Search invoices, bank statements, MST..."
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
+        onSelect={handleSelect}
         autoFocus
       />
       {value && (

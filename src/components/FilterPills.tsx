@@ -4,6 +4,7 @@ import { ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 interface Props {
   filters: ParsedQuery;
   onRemoveFilter: (key: keyof ParsedQuery) => void;
+  onToggleSortDirection?: () => void;
 }
 
 const DOC_TYPE_PILLS: Record<string, { icon: string; label: string }> = {
@@ -84,7 +85,7 @@ function getPills(filters: ParsedQuery): PillDef[] {
   return pills;
 }
 
-export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter }) => {
+export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter, onToggleSortDirection }) => {
   const pills = getPills(filters);
   if (pills.length === 0) return null;
 
@@ -92,7 +93,18 @@ export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter }) => {
     <div className="filter-pills">
       {pills.map((pill) => (
         <span key={pill.key} className="filter-pill">
-          <span className="filter-pill-icon">{pill.icon}</span>
+          {pill.key === 'sortField' && onToggleSortDirection ? (
+            <button
+              className="filter-pill-direction"
+              onClick={onToggleSortDirection}
+              aria-label="Toggle sort direction"
+              title="Toggle sort direction"
+            >
+              {pill.icon}
+            </button>
+          ) : (
+            <span className="filter-pill-icon">{pill.icon}</span>
+          )}
           <span className="filter-pill-label">{pill.label}</span>
           <button
             className="filter-pill-close"

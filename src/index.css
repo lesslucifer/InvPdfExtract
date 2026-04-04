@@ -885,6 +885,23 @@ body {
   background: var(--bg-hover);
 }
 
+.filter-pill-direction {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.filter-pill-direction:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
 /* Breadcrumb bar */
 .breadcrumb-bar {
   display: flex;
@@ -1609,3 +1626,60 @@ body {
   font-size: 13px;
   color: var(--text-muted);
 }
+
+/* ── Suggestion chips (autocomplete) ─────────────────────────────── */
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  animation: suggestion-in 0.1s ease-out;
+  flex-shrink: 0;
+}
+
+@keyframes suggestion-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.suggestion-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.suggestion-chip--selected {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.suggestion-chip-icon {
+  font-size: 11px;
+}
+
+.suggestion-chip-label {
+  white-space: nowrap;
+}
+
+.suggestion-chip-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 2px;
+}
+

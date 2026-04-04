@@ -1,8 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SearchResult, OverlayState, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
-import { parseSearchQuery, buildQueryString, ParsedQuery } from '../shared/parse-query';
+import { parseSearchQuery, buildQueryString, ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
+import { getSuggestions, getActiveToken } from '../shared/suggestion-engine';
+import { SuggestionItem, EMPTY_HINT_ITEMS } from '../shared/suggestion-data';
 import { SearchInput } from './SearchInput';
 import { FilterPills } from './FilterPills';
+import { SuggestionList } from './SuggestionList';
 import { BreadcrumbBar } from './BreadcrumbBar';
 import { ResultList } from './ResultList';
 import { NoVaultScreen } from './NoVaultScreen';
@@ -42,6 +45,14 @@ export const SearchOverlay: React.FC = () => {
   const prePathStateRef = useRef<OverlayState>(OverlayState.Home);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Autocomplete suggestion state
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const cursorPosRef = useRef(0);
+  // Empty-input hint bar: shows after 300ms of empty focused input
+  const [showHintBar, setShowHintBar] = useState(false);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // On mount: check if vault exists
   useEffect(() => {
     window.api.getAppConfig().then(config => {
@@ -72,6 +83,13 @@ export const SearchOverlay: React.FC = () => {
       }));
     });
     return unsubscribe;
+  }, []);
+
+  // Cleanup hint timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    };
   }, []);
 
   const goTo = useCallback((state: OverlayState) => {
@@ -164,7 +182,34 @@ export const SearchOverlay: React.FC = () => {
     return { extracted: parsed, remaining: parsed.text };
   }, []);
 
-  const handleQueryChange = useCallback((value: string) => {
+  const handleCursorChange = useCallback((pos: number) => {
+    cursorPosRef.current = pos;
+    // Recompute suggestions with new cursor position
+    if (overlayState !== OverlayState.PathSearch) {
+      const newSuggestions = getSuggestions(query, pos, filters);
+      setSuggestions(newSuggestions);
+      setSuggestionIndex(0);
+    }
+  }, [query, filters, overlayState]);
+
+  const queryChangeRef = useRef<(value: string) => void>(() => {});
+
+  const handleSuggestionAccept = useCallback((item: SuggestionItem) => {
+    const { text: activeToken, startIndex } = getActiveToken(query, cursorPosRef.current);
+    // Replace the active token with the suggestion's insertText
+    const before = query.slice(0, startIndex);
+    const after = query.slice(startIndex + activeToken.length);
+    const newValue = before + item.insertText + after;
+
+    setSuggestions([]);
+    setSuggestionIndex(0);
+
+    // Feed the new value through the normal query change handler
+    // which will handle filter extraction if the insertText ends with a space
+    queryChangeRef.current(newValue);
+  }, [query]);
+
+  const handleQueryChangeInner = useCallback((value: string) => {
     // PathSearch: first char is '/' or '\'
     if ((value.startsWith('/') || value.startsWith('\\')) &&
         overlayState !== OverlayState.PathSearch) {
@@ -172,6 +217,7 @@ export const SearchOverlay: React.FC = () => {
       setOverlayState(OverlayState.PathSearch);
       setPathQuery(value.slice(1));
       setQuery(value);
+      setSuggestions([]);
       return;
     }
 
@@ -199,6 +245,21 @@ export const SearchOverlay: React.FC = () => {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
+    // Compute suggestions for the new value
+    const cursorPos = value.length; // onChange always puts cursor at end
+    cursorPosRef.current = cursorPos;
+    const newSuggestions = getSuggestions(value, cursorPos, filters);
+    setSuggestions(newSuggestions);
+    setSuggestionIndex(0);
+
+    // Manage hint bar visibility
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    if (!value.trim()) {
+      hintTimerRef.current = setTimeout(() => setShowHintBar(true), 300);
+    } else {
+      setShowHintBar(false);
+    }
+
     // Try to extract completed filter tokens (only when user presses space after a token)
     const extraction = extractCompletedFilters(value);
     if (extraction) {
@@ -213,6 +274,7 @@ export const SearchOverlay: React.FC = () => {
       if (extracted.sortDirection) newFilters.sortDirection = extracted.sortDirection;
       setFilters(newFilters);
       setQuery(extraction.remaining);
+      setSuggestions([]); // clear suggestions after filter extraction
 
       if (overlayState === OverlayState.Home) setOverlayState(OverlayState.Search);
       debounceRef.current = setTimeout(() => doSearch(extraction.remaining, newFilters, folderScope, false, fileScope), DEBOUNCE_MS);
@@ -234,6 +296,10 @@ export const SearchOverlay: React.FC = () => {
     // For search, merge the raw text with existing filter pills
     debounceRef.current = setTimeout(() => doSearch(value, filters, folderScope, false, fileScope), DEBOUNCE_MS);
   }, [doSearch, overlayState, folderScope, fileScope, filters, extractCompletedFilters]);
+
+  // Keep ref in sync so handleSuggestionAccept (defined before handleQueryChangeInner) can call it
+  queryChangeRef.current = handleQueryChangeInner;
+  const handleQueryChange = handleQueryChangeInner;
 
   const handleRemoveFilter = useCallback((key: keyof ParsedQuery) => {
     const newFilters = { ...filters };
@@ -262,6 +328,15 @@ export const SearchOverlay: React.FC = () => {
     } else {
       doSearch(query, newFilters, folderScope, false, fileScope);
     }
+  }, [filters, query, folderScope, fileScope, doSearch]);
+
+  const handleToggleSortDirection = useCallback(() => {
+    if (!filters.sortField) return;
+    const currentDir = filters.sortDirection || SORT_DEFAULT_DIRECTIONS[filters.sortField];
+    const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+    const newFilters = { ...filters, sortDirection: newDir as ParsedQuery['sortDirection'] };
+    setFilters(newFilters);
+    doSearch(query, newFilters, folderScope, false, fileScope);
   }, [filters, query, folderScope, fileScope, doSearch]);
 
   const handlePathSearchSelectFolder = useCallback((relativePath: string) => {
@@ -416,6 +491,32 @@ export const SearchOverlay: React.FC = () => {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // When suggestions are visible, they capture navigation keys
+      if (suggestions.length > 0) {
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault();
+            setSuggestionIndex(prev => Math.min(prev + 1, suggestions.length - 1));
+            return;
+          case 'ArrowUp':
+            e.preventDefault();
+            setSuggestionIndex(prev => Math.max(prev - 1, 0));
+            return;
+          case 'Tab':
+          case 'Enter':
+            e.preventDefault();
+            if (suggestions[suggestionIndex]) {
+              handleSuggestionAccept(suggestions[suggestionIndex]);
+            }
+            return;
+          case 'Escape':
+            e.preventDefault();
+            setSuggestions([]);
+            setSuggestionIndex(0);
+            return;
+        }
+      }
+
       switch (e.key) {
         case 'ArrowDown':
           // PathResultsList manages its own keyboard nav via its own event listener
@@ -482,7 +583,8 @@ export const SearchOverlay: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
-      folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isPinned]);
+      folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isPinned,
+      suggestions, suggestionIndex, handleSuggestionAccept]);
 
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&
@@ -536,7 +638,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className="search-overlay">
         {pinButton}
-        <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -551,13 +653,27 @@ export const SearchOverlay: React.FC = () => {
     );
   }
 
+  // Compute which suggestion chips to show: active suggestions or empty-input hints
+  const visibleSuggestions = suggestions.length > 0
+    ? suggestions
+    : showHintBar && !query
+      ? EMPTY_HINT_ITEMS
+      : [];
+
   // Home and Search states share the same layout
   return (
     <div className="search-overlay">
       {pinButton}
-      <SearchInput value={query} onChange={handleQueryChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
+      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
+      <SuggestionList
+        items={visibleSuggestions}
+        selectedIndex={suggestionIndex}
+        onAccept={handleSuggestionAccept}
+        onHover={setSuggestionIndex}
+        visible={visibleSuggestions.length > 0}
+      />
       {hasFilterPills && (
-        <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} />
+        <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} onToggleSortDirection={handleToggleSortDirection} />
       )}
       {(folderScope || fileScope) && (
         <BreadcrumbBar

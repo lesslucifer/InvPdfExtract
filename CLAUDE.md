@@ -74,7 +74,7 @@ Phases 2+3 can run in parallel. MVP = Phases 0-4.
 
 - Test framework: **Vitest** (node environment, globals enabled)
 - Test pattern: `src/**/*.test.ts`
-- Run tests: `npx vitest run`
+- Run tests: `pnpm test`
 - **Always write tests for UX changes.** When implementing UI/overlay features (state transitions, IPC handlers, component logic), include corresponding tests. Extract testable logic into pure functions when React components can't be rendered in the node test environment.
 
 ## SQLite Schema
