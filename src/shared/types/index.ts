@@ -399,6 +399,7 @@ export interface InvoiceVaultAPI {
   initVault: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
   switchVault: (vaultPath: string) => Promise<{ success: boolean }>;
   removeVault: (vaultPath: string) => Promise<void>;
+  clearVaultData: (vaultPath: string) => Promise<void>;
   pickFolder: () => Promise<string | null>;
   openFolder: (relativePath: string) => Promise<void>;
   listRecentFolders: (limit?: number) => Promise<FolderInfo[]>;

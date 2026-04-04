@@ -70,6 +70,14 @@ export function closeVault(): void {
   console.log('[Vault] Closed');
 }
 
+export function clearVaultData(folderPath: string): void {
+  const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
+  if (fs.existsSync(dotPath)) {
+    fs.rmSync(dotPath, { recursive: true, force: true });
+    console.log(`[Vault] Cleared data at ${folderPath}`);
+  }
+}
+
 export function getVaultConfig(dotPath: string): VaultConfig {
   const raw = fs.readFileSync(path.join(dotPath, CONFIG_FILE), 'utf-8');
   return JSON.parse(raw);

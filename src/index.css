@@ -1144,6 +1144,10 @@ body {
   flex: 1;
 }
 
+.settings-vault-path-active {
+  color: var(--confidence-high);
+}
+
 .settings-vault-actions {
   display: flex;
   gap: 6px;
@@ -1184,6 +1188,32 @@ body {
 
 .settings-confirm:hover {
   opacity: 0.85;
+}
+
+.settings-notification {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 0 16px 8px;
+  animation: settings-notification-fade 4s ease-in-out;
+}
+
+.settings-notification-success {
+  background: rgba(52, 199, 89, 0.15);
+  color: var(--confidence-high);
+  border: 1px solid rgba(52, 199, 89, 0.3);
+}
+
+.settings-notification strong {
+  font-weight: 600;
+  word-break: break-all;
+}
+
+@keyframes settings-notification-fade {
+  0% { opacity: 0; transform: translateY(-4px); }
+  10% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .settings-divider {
