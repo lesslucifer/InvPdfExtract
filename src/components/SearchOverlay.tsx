@@ -157,7 +157,8 @@ export const SearchOverlay: React.FC = () => {
 
     const parsed = parseSearchQuery(value);
     const hasInlineFilters = parsed.docType || parsed.status ||
-      parsed.amountMin != null || parsed.amountMax != null || parsed.dateFilter;
+      parsed.amountMin != null || parsed.amountMax != null || parsed.dateFilter ||
+      parsed.sortField;
 
     if (!hasInlineFilters) return null;
     return { extracted: parsed, remaining: parsed.text };
@@ -208,6 +209,8 @@ export const SearchOverlay: React.FC = () => {
       if (extracted.amountMin != null) newFilters.amountMin = extracted.amountMin;
       if (extracted.amountMax != null) newFilters.amountMax = extracted.amountMax;
       if (extracted.dateFilter) newFilters.dateFilter = extracted.dateFilter;
+      if (extracted.sortField) newFilters.sortField = extracted.sortField;
+      if (extracted.sortDirection) newFilters.sortDirection = extracted.sortDirection;
       setFilters(newFilters);
       setQuery(extraction.remaining);
 
@@ -240,13 +243,18 @@ export const SearchOverlay: React.FC = () => {
       delete newFilters.amountMin;
       delete newFilters.amountMax;
     }
+    // Sort field/direction are paired
+    if (key === 'sortField' || key === 'sortDirection') {
+      delete newFilters.sortField;
+      delete newFilters.sortDirection;
+    }
     newFilters.text = '';
     setFilters(newFilters);
 
     // Check if anything is left to search
     const hasRemaining = query.trim() || folderScope || fileScope || newFilters.docType ||
       newFilters.status || newFilters.amountMin != null || newFilters.amountMax != null ||
-      newFilters.dateFilter;
+      newFilters.dateFilter || newFilters.sortField;
 
     if (!hasRemaining) {
       setOverlayState(OverlayState.Home);
@@ -477,8 +485,10 @@ export const SearchOverlay: React.FC = () => {
       folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isPinned]);
 
   // Check if there are active filter pills
+  const hasSortPill = filters.sortField &&
+    !(filters.sortField === 'time' && (!filters.sortDirection || filters.sortDirection === 'desc'));
   const hasFilterPills = filters.docType || filters.status ||
-    filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
+    filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
   const pinButton = (
     <button

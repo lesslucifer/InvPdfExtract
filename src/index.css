@@ -1186,43 +1186,23 @@ body {
   color: var(--text-secondary);
 }
 
-/* Cheatsheet */
-.cheatsheet {
+/* Cheatsheet (compact) */
+.cheatsheet-compact {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.cheatsheet-row {
+.cheatsheet-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 10px;
-  font-size: 12px;
-}
-
-.cheatsheet-code {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
-  font-size: 11px;
-  background: var(--bg-hover);
-  padding: 1px 6px;
-  border-radius: 4px;
-  color: var(--accent);
-  white-space: nowrap;
-  min-width: 110px;
-}
-
-.cheatsheet-desc {
-  color: var(--text-secondary);
+  gap: 4px 6px;
   font-size: 11px;
 }
 
-.cheatsheet-desc code {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
-  font-size: 10px;
-  background: var(--bg-hover);
-  padding: 0 4px;
-  border-radius: 3px;
-  color: var(--text-muted);
+.cheatsheet-group .cheatsheet-group-label {
+  margin: 0;
 }
 
 .cheatsheet-group-label {
@@ -1231,28 +1211,27 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-top: 8px;
-  margin-bottom: 2px;
+  min-width: 48px;
 }
 
-.cheatsheet-group-label:first-child {
-  margin-top: 0;
-}
-
-.cheatsheet-suffixes {
-  font-size: 10px;
-  color: var(--text-muted);
-  padding-left: 2px;
-  margin-top: 2px;
-}
-
-.cheatsheet-suffixes code {
+.cheatsheet-compact code,
+.cheatsheet-note code {
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 10px;
   background: var(--bg-hover);
-  padding: 0 4px;
+  padding: 1px 5px;
   border-radius: 3px;
   color: var(--accent);
+  white-space: nowrap;
+}
+
+.cheatsheet-note {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.cheatsheet-note code {
+  color: var(--text-muted);
 }
 
 .cheatsheet-hint {
