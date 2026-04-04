@@ -8,6 +8,7 @@ interface Props {
   isExpanded: boolean;
   onClick: () => void;
   onFolderClick?: (folder: string) => void;
+  onFileClick?: (relativePath: string) => void;
   onDocTypeClick?: (docType: string) => void;
   onOpenFile?: (relativePath: string) => void;
 }
@@ -59,7 +60,7 @@ function splitPath(relativePath: string): { folder: string; folderFull: string; 
 const FOLDER_MAX_LEN = 30;
 const FILENAME_MAX_LEN = 35;
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onDocTypeClick, onOpenFile }) => {
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onFileClick, onDocTypeClick, onOpenFile }) => {
   const meta = DOC_TYPE_LABELS[result.doc_type] || DOC_TYPE_LABELS[DocType.Unknown];
   const isBank = result.doc_type === DocType.BankStatement;
 
@@ -115,10 +116,11 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           </span>
         )}
         {result.file_status && <StatusDot status={result.file_status} />}
-        {onOpenFile ? (
+        {onFileClick ? (
           <span
             className="result-file-name result-file-clickable"
-            onClick={(e) => { e.stopPropagation(); onOpenFile(result.relative_path); }}
+            title={`Scope to ${filename}`}
+            onClick={(e) => { e.stopPropagation(); onFileClick(result.relative_path); }}
           >
             {middleEllipsis(filename, FILENAME_MAX_LEN)}
           </span>

@@ -19,6 +19,11 @@ function splitSegments(folder: string): Segment[] {
   }));
 }
 
+function extractFileName(filePath: string): string {
+  const parts = filePath.split('/');
+  return parts[parts.length - 1] || filePath;
+}
+
 // === Tests ===
 
 describe('BreadcrumbBar logic', () => {
@@ -57,6 +62,20 @@ describe('BreadcrumbBar logic', () => {
 
     it('handles empty string', () => {
       expect(splitSegments('')).toEqual([]);
+    });
+  });
+
+  describe('extractFileName', () => {
+    it('extracts filename from path', () => {
+      expect(extractFileName('2024/Q1/invoice.pdf')).toBe('invoice.pdf');
+    });
+
+    it('handles file in root', () => {
+      expect(extractFileName('invoice.pdf')).toBe('invoice.pdf');
+    });
+
+    it('handles deeply nested path', () => {
+      expect(extractFileName('a/b/c/d/report.xlsx')).toBe('report.xlsx');
     });
   });
 });

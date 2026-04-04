@@ -12,6 +12,7 @@ interface Props {
   onOpenFile: (relativePath: string) => void;
   onFieldUpdated: () => void;
   onFolderClick?: (folder: string) => void;
+  onFileClick?: (relativePath: string) => void;
   onDocTypeClick?: (docType: string) => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
@@ -20,7 +21,7 @@ interface Props {
 
 export const ResultList: React.FC<Props> = ({
   results, selectedIndex, expandedId, onSelect, onToggleExpand, onOpenFile, onFieldUpdated,
-  onFolderClick, onDocTypeClick,
+  onFolderClick, onFileClick, onDocTypeClick,
   onLoadMore, hasMore, isLoadingMore,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
@@ -67,6 +68,7 @@ export const ResultList: React.FC<Props> = ({
               onToggleExpand(result.id);
             }}
             onFolderClick={onFolderClick}
+            onFileClick={onFileClick}
             onDocTypeClick={onDocTypeClick}
             onOpenFile={onOpenFile}
           />
