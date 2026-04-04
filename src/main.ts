@@ -30,6 +30,11 @@ app.on('window-all-closed', () => {
   // Don't quit when all windows close — activated by hotkey
 });
 
+// Gracefully close all spawned windows before quitting
+app.on('before-quit', () => {
+  overlayWindow?.closeAllSpawnedWindows();
+});
+
 app.on('ready', async () => {
   console.log('[InvoiceVault] App ready');
 

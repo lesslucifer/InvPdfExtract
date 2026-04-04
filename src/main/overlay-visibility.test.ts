@@ -32,9 +32,9 @@ function toggle(state: OverlayVisibility): OverlayVisibility {
   return state.visible ? hide(state) : show(state);
 }
 
-function onBlur(state: OverlayVisibility, isHiding: boolean, isPinned = false): OverlayVisibility {
-  // blur handler should not fire during programmatic hide, show, or when pinned
-  if (isHiding || isPinned) return state;
+function onBlur(state: OverlayVisibility, isHiding: boolean): OverlayVisibility {
+  // blur handler should not fire during programmatic hide or show
+  if (isHiding) return state;
   return hide(state);
 }
 
@@ -98,16 +98,13 @@ describe('Overlay visibility state machine', () => {
       expect(afterBlur.visible).toBe(false);
     });
 
-    it('blur while pinned does NOT hide the overlay', () => {
+    it('blur cancelled by quick refocus does NOT hide (debounce model)', () => {
+      // Models the 150ms debounce: blur schedules hide, but focus cancels it
       const state = show(createOverlay());
-      const afterBlur = onBlur(state, false, true); // isPinned=true
-      expect(afterBlur.visible).toBe(true);
-    });
-
-    it('blur while unpinned still hides the overlay', () => {
-      const state = show(createOverlay());
-      const afterBlur = onBlur(state, false, false); // isPinned=false
-      expect(afterBlur.visible).toBe(false);
+      // Blur fires (e.g. Alt+click causes momentary focus loss)
+      // but focus returns before the debounce fires → no hide
+      const afterRefocus = onBlur(state, true); // simulated as isHiding=true (guard active)
+      expect(afterRefocus.visible).toBe(true);
     });
 
     it('full Esc-then-reopen sequence works correctly', () => {

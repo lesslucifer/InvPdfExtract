@@ -37,8 +37,11 @@ export const SearchOverlay: React.FC = () => {
   const [pageOffset, setPageOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // Pin state — prevents auto-close on blur
-  const [isPinned, setIsPinned] = useState(false);
+  // Windowlized state — detected from URL param (synchronous, no flash)
+  const [isWindowlized] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('windowlized') === 'true';
+  });
   // PathSearch state — the text after the leading '/'
   const [pathQuery, setPathQuery] = useState('');
   // Track the state before PathSearch was entered so Backspace-to-empty can restore it
@@ -96,12 +99,6 @@ export const SearchOverlay: React.FC = () => {
     setPreviousState(overlayState);
     setOverlayState(state);
   }, [overlayState]);
-
-  const handlePinToggle = useCallback(() => {
-    const next = !isPinned;
-    setIsPinned(next);
-    window.api.setPinned(next);
-  }, [isPinned]);
 
   // Build the full query string from free text + structured filters
   const buildFullQuery = useCallback((text: string, currentFilters: ParsedQuery): string => {
@@ -162,6 +159,43 @@ export const SearchOverlay: React.FC = () => {
     initialLoadDone.current = true;
     doSearch('', filters, folderScope, false, fileScope);
   }, [overlayState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore carried-over state when opened as a windowlized instance
+  useEffect(() => {
+    if (!isWindowlized) return;
+    window.api.getInitialState().then(raw => {
+      if (!raw) return;
+      try {
+        const state = JSON.parse(raw);
+        if (state.query) setQuery(state.query);
+        if (state.filters) setFilters(state.filters);
+        if (state.folderScope) setFolderScope(state.folderScope);
+        if (state.fileScope) setFileScope(state.fileScope);
+        if (state.overlayState && state.overlayState !== OverlayState.NoVault) {
+          setOverlayState(state.overlayState);
+        }
+        // Trigger search with restored state
+        doSearch(
+          state.query || '',
+          state.filters || { text: '' },
+          state.folderScope || null,
+          false,
+          state.fileScope || null,
+        );
+      } catch { /* ignore parse errors */ }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleWindowlize = useCallback(() => {
+    const serializedState = JSON.stringify({
+      query,
+      filters,
+      folderScope,
+      fileScope,
+      overlayState,
+    });
+    window.api.windowlize(serializedState);
+  }, [query, filters, folderScope, fileScope, overlayState]);
 
   const loadMore = useCallback(() => {
     doSearch(query, filters, folderScope, true, fileScope);
@@ -590,10 +624,7 @@ export const SearchOverlay: React.FC = () => {
             handleClearFileScope();
           } else if (folderScope) {
             handleClearFolderScope();
-          } else if (isPinned) {
-            setIsPinned(false);
-            window.api.setPinned(false);
-          } else {
+          } else if (!isWindowlized) {
             window.api.hideOverlay();
           }
           break;
@@ -603,7 +634,7 @@ export const SearchOverlay: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
-      folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isPinned,
+      folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isWindowlized,
       suggestions, suggestionIndex, handleSuggestionAccept]);
 
   // Check if there are active filter pills
@@ -612,24 +643,29 @@ export const SearchOverlay: React.FC = () => {
   const hasFilterPills = filters.docType || filters.status ||
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
-  const pinButton = (
-    <button
-      className={`pin-btn${isPinned ? ' pin-btn--active' : ''}`}
-      onClick={handlePinToggle}
-      aria-label={isPinned ? 'Unpin overlay' : 'Pin overlay'}
-      title={isPinned ? 'Unpin (allow auto-close)' : 'Pin (keep open)'}
-    >
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1-.707.708l-.797-.797-3.536 3.535L10.8 12.8a.5.5 0 0 1-.854.354L7.172 10.38 3.525 14.03a.5.5 0 1 1-.707-.708l3.652-3.652L3.7 6.9a.5.5 0 0 1 .354-.854l3.536-.708 3.535-3.536-.797-.797a.5.5 0 0 1 .5-.283z" />
-      </svg>
-    </button>
-  );
+  const titleBar = isWindowlized ? (
+    <div className="title-bar">
+      <span className="title-bar__text">InvoiceVault</span>
+      <button
+        className="title-bar__close"
+        onClick={() => window.api.closeWindow()}
+        aria-label="Close window"
+        title="Close window"
+      >
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
+        </svg>
+      </button>
+    </div>
+  ) : null;
 
   // Render based on state
+  const overlayClassName = `search-overlay${isWindowlized ? ' search-overlay--windowlized' : ''}`;
+
   if (overlayState === OverlayState.NoVault) {
     return (
-      <div className="search-overlay">
-        {pinButton}
+      <div className={overlayClassName}>
+        {titleBar}
         <NoVaultScreen onVaultCreated={handleVaultCreated} />
       </div>
     );
@@ -637,8 +673,8 @@ export const SearchOverlay: React.FC = () => {
 
   if (overlayState === OverlayState.Settings) {
     return (
-      <div className="search-overlay">
-        {pinButton}
+      <div className={overlayClassName}>
+        {titleBar}
         <SettingsPanel onBack={handleSettingsBack} onVaultChanged={handleVaultChanged} />
       </div>
     );
@@ -646,8 +682,8 @@ export const SearchOverlay: React.FC = () => {
 
   if (overlayState === OverlayState.ProcessingStatus) {
     return (
-      <div className="search-overlay">
-        {pinButton}
+      <div className={overlayClassName}>
+        {titleBar}
         <ProcessingStatusPanel onBack={handleProcessingStatusBack} />
       </div>
     );
@@ -656,9 +692,9 @@ export const SearchOverlay: React.FC = () => {
   // PathSearch mode
   if (overlayState === OverlayState.PathSearch) {
     return (
-      <div className="search-overlay">
-        {pinButton}
-        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
+      <div className={overlayClassName}>
+        {titleBar}
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -682,9 +718,9 @@ export const SearchOverlay: React.FC = () => {
 
   // Home and Search states share the same layout
   return (
-    <div className="search-overlay">
-      {pinButton}
-      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={handleGearClick} onStatusDotClick={handleStatusDotClick} status={status} />
+    <div className={overlayClassName}>
+      {titleBar}
+      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
       <SuggestionList
         items={visibleSuggestions}
         selectedIndex={suggestionIndex}
@@ -730,6 +766,7 @@ export const SearchOverlay: React.FC = () => {
         <StickyFooter
           stats={aggregates}
           filters={buildSearchFilters(query, filters, folderScope, fileScope)}
+          onWindowlize={!isWindowlized ? handleWindowlize : undefined}
         />
       )}
     </div>

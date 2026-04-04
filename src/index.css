@@ -543,33 +543,67 @@ body {
   background: var(--bg-hover);
 }
 
-/* === Pin Button === */
-.pin-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 10;
+/* === Windowlize Button (in StickyFooter) === */
+.windowlize-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.windowlize-btn:hover {
+  opacity: 1;
+  background: var(--bg-hover, rgba(255, 255, 255, 0.1));
+}
+
+/* === Title Bar (windowlized mode) === */
+.title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 0 8px 0 12px;
+  background: rgba(44, 44, 46, 0.95);
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.title-bar__text {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.title-bar__close {
+  -webkit-app-region: no-drag;
   background: none;
   border: none;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
   line-height: 0;
-  opacity: 0.3;
-  transition: opacity 0.15s;
 }
 
-.pin-btn:hover {
-  opacity: 0.7;
+.title-bar__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ff5f57;
 }
 
-.pin-btn--active {
-  opacity: 0.9;
-}
-
-.pin-btn--active:hover {
-  opacity: 1;
+/* === Windowlized Mode Overrides === */
+.search-overlay--windowlized {
+  max-height: 100vh;
+  height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
 }
 
 /* === Status Dot === */
@@ -1504,6 +1538,12 @@ body {
   height: 36px;
   box-sizing: border-box;
   flex-shrink: 0;
+}
+
+.sticky-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sticky-footer-stats {
