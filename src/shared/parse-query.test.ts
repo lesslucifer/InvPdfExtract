@@ -127,6 +127,53 @@ describe('parseSearchQuery', () => {
     });
   });
 
+  describe('sort filters', () => {
+    it('parses sort:date', () => {
+      const result = parseSearchQuery('sort:date');
+      expect(result.sortField).toBe('date');
+      expect(result.sortDirection).toBeUndefined();
+    });
+
+    it('parses sort:amount-desc', () => {
+      const result = parseSearchQuery('sort:amount-desc');
+      expect(result.sortField).toBe('amount');
+      expect(result.sortDirection).toBe('desc');
+    });
+
+    it('parses sort:amount-asc', () => {
+      const result = parseSearchQuery('sort:amount-asc');
+      expect(result.sortField).toBe('amount');
+      expect(result.sortDirection).toBe('asc');
+    });
+
+    it('parses sort:processed as sort:time', () => {
+      const result = parseSearchQuery('sort:processed');
+      expect(result.sortField).toBe('time');
+    });
+
+    it('parses sort:confidence', () => {
+      const result = parseSearchQuery('sort:confidence');
+      expect(result.sortField).toBe('confidence');
+    });
+
+    it('parses sort:path-desc', () => {
+      const result = parseSearchQuery('sort:path-desc');
+      expect(result.sortField).toBe('path');
+      expect(result.sortDirection).toBe('desc');
+    });
+
+    it('treats sort:invalid as plain text', () => {
+      const result = parseSearchQuery('sort:invalid');
+      expect(result.sortField).toBeUndefined();
+      expect(result.text).toBe('sort:invalid');
+    });
+
+    it('last sort: token wins when multiple present', () => {
+      const result = parseSearchQuery('sort:date sort:amount');
+      expect(result.sortField).toBe('amount');
+    });
+  });
+
   describe('combined queries', () => {
     it('parses complex query with all filters', () => {
       const result = parseSearchQuery('type:bank >5000000 2024-03 some text');
@@ -134,6 +181,14 @@ describe('parseSearchQuery', () => {
       expect(result.amountMin).toBe(5_000_000);
       expect(result.dateFilter).toBe('2024-03');
       expect(result.text).toBe('some text');
+    });
+
+    it('parses combined query with sort', () => {
+      const result = parseSearchQuery('type:in sort:amount >5tr company');
+      expect(result.docType).toBe('invoice_in');
+      expect(result.sortField).toBe('amount');
+      expect(result.amountMin).toBe(5_000_000);
+      expect(result.text).toBe('company');
     });
 
     it('treats in: token as plain text (no longer parsed)', () => {
@@ -203,6 +258,18 @@ describe('buildQueryString', () => {
     expect(buildQueryString({ text: '' })).toBe('');
   });
 
+  it('builds sort with default direction (omits suffix)', () => {
+    expect(buildQueryString({ text: '', sortField: 'amount' })).toBe('sort:amount');
+  });
+
+  it('builds sort with non-default direction (includes suffix)', () => {
+    expect(buildQueryString({ text: '', sortField: 'date', sortDirection: 'asc' })).toBe('sort:date-asc');
+  });
+
+  it('builds sort with explicit default direction (omits suffix)', () => {
+    expect(buildQueryString({ text: '', sortField: 'path', sortDirection: 'asc' })).toBe('sort:path');
+  });
+
   describe('round-trip: parse → build → parse', () => {
     it('preserves text-only query', () => {
       const original = 'abc company';
@@ -221,6 +288,24 @@ describe('buildQueryString', () => {
       expect(reparsed.amountMin).toBe(5_000_000);
       expect(reparsed.dateFilter).toBe('2024-03');
       expect(reparsed.text).toBe('some text');
+    });
+
+    it('round-trips sort:amount', () => {
+      const original = 'sort:amount some text';
+      const parsed = parseSearchQuery(original);
+      const rebuilt = buildQueryString(parsed);
+      const reparsed = parseSearchQuery(rebuilt);
+      expect(reparsed.sortField).toBe('amount');
+      expect(reparsed.text).toBe('some text');
+    });
+
+    it('round-trips sort:date-asc', () => {
+      const original = 'sort:date-asc';
+      const parsed = parseSearchQuery(original);
+      const rebuilt = buildQueryString(parsed);
+      const reparsed = parseSearchQuery(rebuilt);
+      expect(reparsed.sortField).toBe('date');
+      expect(reparsed.sortDirection).toBe('asc');
     });
 
     it('round-trips filter removal correctly', () => {

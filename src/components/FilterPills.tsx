@@ -1,5 +1,5 @@
 import React from 'react';
-import { ParsedQuery } from '../shared/parse-query';
+import { ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 
 interface Props {
   filters: ParsedQuery;
@@ -62,6 +62,23 @@ function getPills(filters: ParsedQuery): PillDef[] {
 
   if (filters.dateFilter) {
     pills.push({ key: 'dateFilter', icon: '📅', label: filters.dateFilter });
+  }
+
+  if (filters.sortField) {
+    const isDefault = filters.sortField === 'time' &&
+      (!filters.sortDirection || filters.sortDirection === 'desc');
+    if (!isDefault) {
+      const sortLabels: Record<string, string> = {
+        time: 'Processed', date: 'Date', path: 'Path', amount: 'Amount', confidence: 'Confidence',
+      };
+      const dir = filters.sortDirection || SORT_DEFAULT_DIRECTIONS[filters.sortField];
+      const arrow = dir === 'asc' ? '\u2191' : '\u2193';
+      pills.push({
+        key: 'sortField',
+        icon: arrow,
+        label: `Sort: ${sortLabels[filters.sortField] || filters.sortField}`,
+      });
+    }
   }
 
   return pills;

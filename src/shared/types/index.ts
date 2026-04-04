@@ -1,3 +1,5 @@
+import type { SortField, SortDirection } from '../parse-query';
+
 // === Enums ===
 
 export enum DocType {
@@ -65,6 +67,8 @@ export interface SearchFilters {
   amountMin?: number;
   amountMax?: number;
   dateFilter?: string;
+  sortField?: SortField;
+  sortDirection?: SortDirection;
 }
 
 export interface AggregateStats {

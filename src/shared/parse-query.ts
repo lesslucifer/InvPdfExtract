@@ -15,6 +15,17 @@ function parseAmountWithSuffix(s: string): number | null {
   return num * multiplier;
 }
 
+export type SortField = 'time' | 'date' | 'path' | 'amount' | 'confidence';
+export type SortDirection = 'asc' | 'desc';
+
+export const SORT_DEFAULT_DIRECTIONS: Record<SortField, SortDirection> = {
+  time: 'desc',
+  date: 'desc',
+  path: 'asc',
+  amount: 'desc',
+  confidence: 'asc',
+};
+
 export interface ParsedQuery {
   text: string;
   docType?: string;
@@ -24,6 +35,8 @@ export interface ParsedQuery {
   amountMin?: number;
   amountMax?: number;
   dateFilter?: string;
+  sortField?: SortField;
+  sortDirection?: SortDirection;
 }
 
 export function parseSearchQuery(raw: string): ParsedQuery {
@@ -47,6 +60,18 @@ export function parseSearchQuery(raw: string): ParsedQuery {
     if (lower.startsWith('status:')) {
       result.status = lower.slice(7);
       continue;
+    }
+
+    // sort: filter — sort:field or sort:field-asc / sort:field-desc
+    if (lower.startsWith('sort:')) {
+      const sortVal = lower.slice(5);
+      const match = sortVal.match(/^(time|processed|date|path|amount|confidence)(?:-(asc|desc))?$/);
+      if (match) {
+        const rawField = match[1];
+        result.sortField = (rawField === 'processed' ? 'time' : rawField) as SortField;
+        result.sortDirection = (match[2] as SortDirection) || undefined;
+        continue;
+      }
     }
 
     // Date filter: YYYY-MM or YYYY-MM-DD (must be checked before amount range)
@@ -112,6 +137,15 @@ export function buildQueryString(parsed: ParsedQuery): string {
   }
 
   if (parsed.dateFilter) parts.push(parsed.dateFilter);
+
+  if (parsed.sortField) {
+    const dir = parsed.sortDirection || SORT_DEFAULT_DIRECTIONS[parsed.sortField];
+    if (dir !== SORT_DEFAULT_DIRECTIONS[parsed.sortField]) {
+      parts.push(`sort:${parsed.sortField}-${dir}`);
+    } else {
+      parts.push(`sort:${parsed.sortField}`);
+    }
+  }
 
   if (parsed.text.trim()) parts.push(parsed.text.trim());
 

@@ -398,7 +398,7 @@ export function listTopFolders(): FolderInfo[] {
 
 // === Search ===
 
-import { parseSearchQuery, ParsedQuery } from '../../shared/parse-query';
+import { parseSearchQuery, ParsedQuery, SortField, SORT_DEFAULT_DIRECTIONS } from '../../shared/parse-query';
 import { SearchFilters, AggregateStats } from '../../shared/types';
 
 /** Shared filter-building logic used by search and aggregation queries. */
@@ -474,7 +474,29 @@ function filtersToParsed(filters: SearchFilters): ParsedQuery {
     amountMin: filters.amountMin,
     amountMax: filters.amountMax,
     dateFilter: filters.dateFilter,
+    sortField: filters.sortField,
+    sortDirection: filters.sortDirection,
   };
+}
+
+const SORT_FIELD_SQL: Record<SortField, string> = {
+  time: 'r.updated_at',
+  date: 'r.ngay',
+  path: 'f.relative_path',
+  amount: 'COALESCE(id2.tong_tien, bsd.so_tien, 0)',
+  confidence: 'r.confidence',
+};
+
+function buildOrderByClause(parsed: ParsedQuery): string {
+  if (!parsed.sortField) return 'ORDER BY r.updated_at DESC';
+  const col = SORT_FIELD_SQL[parsed.sortField];
+  if (!col) return 'ORDER BY r.updated_at DESC';
+  const dir = (parsed.sortDirection || SORT_DEFAULT_DIRECTIONS[parsed.sortField]).toUpperCase();
+  // Push NULLs to end for date sort
+  if (parsed.sortField === 'date') {
+    return `ORDER BY (r.ngay IS NULL) ASC, r.ngay ${dir}`;
+  }
+  return `ORDER BY ${col} ${dir}`;
 }
 
 const BASE_JOINS = `
@@ -505,7 +527,7 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
       COALESCE(bsd.mo_ta, '') as mo_ta
     ${BASE_JOINS}
     WHERE ${conditions.join(' AND ')}
-    ORDER BY r.updated_at DESC
+    ${buildOrderByClause(parsed)}
     LIMIT ? OFFSET ?
   `;
 
