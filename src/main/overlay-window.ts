@@ -11,6 +11,7 @@ import {
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
+import { listPresets, savePreset, deletePreset } from '../core/db/presets';
 import { FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault, clearVaultData } from '../core/vault';
@@ -668,6 +669,33 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Overlay] export-filtered failed:', err);
         return { filePath: null };
+      }
+    });
+
+    // Filter presets
+    ipcMain.handle('list-presets', async () => {
+      try {
+        return listPresets();
+      } catch (err) {
+        console.error('[Overlay] list-presets failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('save-preset', async (_event, name: string, filters: string) => {
+      try {
+        return savePreset(name, filters);
+      } catch (err) {
+        console.error('[Overlay] save-preset failed:', err);
+        return null;
+      }
+    });
+
+    ipcMain.handle('delete-preset', async (_event, id: string) => {
+      try {
+        deletePreset(id);
+      } catch (err) {
+        console.error('[Overlay] delete-preset failed:', err);
       }
     });
   }

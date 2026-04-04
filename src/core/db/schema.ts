@@ -163,4 +163,14 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE invoice_data ADD COLUMN tong_tien_truoc_thue REAL;
   ALTER TABLE invoice_line_items ADD COLUMN thanh_tien_truoc_thue REAL;
   `,
+
+  // Migration 006: Filter presets
+  `
+  CREATE TABLE IF NOT EXISTS filter_presets (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    filters TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+  `,
 ];
