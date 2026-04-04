@@ -118,9 +118,8 @@ describe('MatcherEvaluator', () => {
   });
 
   // ── Timeout handling ──
-  // Note: MatcherEvaluator uses sync require(), so it can't kill a running
-  // matcher mid-execution. It checks elapsed time AFTER the matcher returns
-  // and discards the result if it exceeded the timeout.
+  // vm.Script enforces the timeout natively — it throws when exceeded,
+  // so the matcher is treated as failed and skipped.
 
   describe('Timeout handling', () => {
     it('discards result when matcher exceeds timeout', () => {
@@ -140,7 +139,7 @@ describe('MatcherEvaluator', () => {
       const evaluatorWithTimeout = new MatcherEvaluator({ matcherTimeoutMs: 50 });
       const result = evaluatorWithTimeout.findMatchingScript('file.xml', [script], '/');
 
-      // Matcher returned true but took too long, so result is discarded
+      // Matcher timed out and was skipped
       expect(result).toBeNull();
     });
   });

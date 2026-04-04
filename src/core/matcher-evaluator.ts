@@ -1,4 +1,7 @@
+import * as fs from 'fs';
 import * as path from 'path';
+import * as vm from 'vm';
+import { createRequire } from 'module';
 import { ExtractionScript } from '../shared/types';
 
 export interface MatcherEvaluatorOptions {
@@ -8,6 +11,10 @@ export interface MatcherEvaluatorOptions {
 /**
  * Evaluates cached matcher scripts against a file to find a matching parser.
  * Matchers are CommonJS modules that export a function(filePath) => boolean.
+ *
+ * Scripts are executed in a Node vm sandbox to avoid webpack's __webpack_require__
+ * transforming dynamic require() calls. The sandbox provides a real require()
+ * via createRequire so matcher scripts can load dependencies like 'xlsx'.
  */
 export class MatcherEvaluator {
   private matcherTimeoutMs: number;
@@ -39,29 +46,47 @@ export class MatcherEvaluator {
   }
 
   private runMatcher(matcherPath: string, filePath: string): boolean {
-    // Clear require cache so matchers can be updated
-    try {
-      delete require.cache[require.resolve(matcherPath)];
-    } catch {
-      // resolve may throw if not cached yet — that's fine
-    }
+    const code = fs.readFileSync(matcherPath, 'utf-8');
 
-    const startTime = Date.now();
+    // Create a real require() anchored at the matcher's directory
+    // so it can resolve 'xlsx' and other dependencies from node_modules.
+    const matcherRequire = createRequire(matcherPath);
+
+    const moduleExports: { exports: unknown } = { exports: {} };
+
+    const sandbox = {
+      require: matcherRequire,
+      module: moduleExports,
+      exports: moduleExports.exports,
+      __filename: matcherPath,
+      __dirname: path.dirname(matcherPath),
+      console,
+      process,
+      Buffer,
+      setTimeout,
+      clearTimeout,
+      setInterval,
+      clearInterval,
+    };
+
     const timeoutMs = this.matcherTimeoutMs;
 
-    const matcherFn = require(matcherPath);
+    // Wrap the matcher code so that both module evaluation AND the matcher
+    // function call run inside the same vm context with a single timeout.
+    // vm.Script timeout covers all execution within runInNewContext.
+    const wrappedCode = `
+      ${code}
+      ;(function() {
+        var fn = module.exports;
+        if (typeof fn !== 'function') {
+          throw new Error('Matcher at ${matcherPath.replace(/'/g, "\\'")} does not export a function');
+        }
+        return fn(${JSON.stringify(filePath)});
+      })();
+    `;
 
-    if (typeof matcherFn !== 'function') {
-      throw new Error(`Matcher at ${matcherPath} does not export a function`);
-    }
-
-    const result = matcherFn(filePath);
-    const elapsed = Date.now() - startTime;
-
-    if (elapsed > timeoutMs) {
-      console.warn(`[MatcherEvaluator] Matcher took ${elapsed}ms (timeout: ${timeoutMs}ms), skipping result`);
-      return false;
-    }
+    const script = new vm.Script(wrappedCode, { filename: matcherPath });
+    const result = script.runInNewContext(sandbox, { timeout: timeoutMs });
 
     return !!result;
   }
