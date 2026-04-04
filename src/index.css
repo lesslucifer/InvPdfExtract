@@ -1609,3 +1609,102 @@ body {
   font-size: 13px;
   color: var(--text-muted);
 }
+
+/* === Mismatch & Quick-Fix === */
+
+.mismatch-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--confidence-low);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.quickfix-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--confidence-low);
+  background: transparent;
+  color: var(--confidence-low);
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.quickfix-trigger:hover {
+  background: var(--confidence-low);
+  color: #fff;
+}
+
+.quickfix-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.quickfix-label {
+  color: var(--confidence-medium);
+  white-space: nowrap;
+}
+
+.quickfix-btn {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.quickfix-apply {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.quickfix-apply:hover {
+  opacity: 0.85;
+}
+
+.quickfix-cancel:hover {
+  background: var(--border);
+}
+
+.batch-quickfix-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.batch-quickfix-label {
+  color: var(--confidence-low);
+  font-weight: 600;
+}
+
+tr.line-item-mismatch {
+  background: rgba(255, 59, 48, 0.06);
+}

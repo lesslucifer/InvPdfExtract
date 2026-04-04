@@ -430,6 +430,11 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
 
   if (parsed.status === 'conflict') {
     conditions.push("r.id IN (SELECT record_id FROM field_overrides WHERE status = 'conflict' AND resolved_at IS NULL)");
+  } else if (parsed.status === 'mismatch') {
+    conditions.push(`r.doc_type IN ('invoice_in', 'invoice_out')
+      AND ABS(COALESCE(id2.tong_tien, 0) - COALESCE(
+        (SELECT SUM(ROUND(thanh_tien * (1 + COALESCE(thue_suat, 0) / 100.0))) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1
+      AND (SELECT COUNT(*) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) > 0`);
   } else if (parsed.status === 'review') {
     conditions.push("f.status = 'review'");
   }
@@ -524,7 +529,8 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
       COALESCE(bsd.ten_ngan_hang, '') as ten_ngan_hang,
       COALESCE(bsd.stk, '') as stk,
       COALESCE(bsd.so_tien, 0) as so_tien,
-      COALESCE(bsd.mo_ta, '') as mo_ta
+      COALESCE(bsd.mo_ta, '') as mo_ta,
+      (SELECT SUM(ROUND(thanh_tien * (1 + COALESCE(thue_suat, 0) / 100.0))) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum
     ${BASE_JOINS}
     WHERE ${conditions.join(' AND ')}
     ${buildOrderByClause(parsed)}
