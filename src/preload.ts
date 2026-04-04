@@ -47,6 +47,8 @@ const api: InvoiceVaultAPI = {
   getProcessedFilesWithStats: () => ipcRenderer.invoke('get-processed-files-with-stats'),
   getFileStatusesByPaths: (paths: string[]) => ipcRenderer.invoke('get-file-statuses-by-paths', paths),
   getFolderStatuses: () => ipcRenderer.invoke('get-folder-statuses'),
+  cancelQueueItem: (fileId: string) => ipcRenderer.invoke('cancel-queue-item', fileId),
+  clearPendingQueue: () => ipcRenderer.invoke('clear-pending-queue'),
   onFileStatusChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, data: { fileIds: string[]; status: FileStatus }) => callback(data);
     ipcRenderer.on('file-status-changed', listener);

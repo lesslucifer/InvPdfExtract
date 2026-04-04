@@ -1389,6 +1389,53 @@ body {
   white-space: nowrap;
 }
 
+/* === Queue Cancel Actions === */
+
+.processing-queue-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.processing-queue-clear-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.processing-queue-clear-btn:hover {
+  background: var(--confidence-low);
+  color: #fff;
+  border-color: var(--confidence-low);
+}
+
+.processing-queue-cancel-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.processing-status-row:hover .processing-queue-cancel-btn {
+  opacity: 1;
+}
+
+.processing-queue-cancel-btn:hover {
+  color: var(--confidence-low);
+}
+
 /* === Sticky Footer === */
 
 .sticky-footer {
