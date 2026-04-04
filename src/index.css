@@ -947,6 +947,32 @@ body {
   background: var(--bg-hover);
 }
 
+.breadcrumb-file {
+  color: var(--accent);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.breadcrumb-file-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  border-radius: 3px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.breadcrumb-file-clear:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
 /* Folder name in result file path */
 .result-file-folder {
   color: var(--text-muted);

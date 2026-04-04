@@ -25,6 +25,7 @@ export const SearchOverlay: React.FC = () => {
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<ParsedQuery>({ text: '' });
   const [folderScope, setFolderScope] = useState<string | null>(null);
+  const [fileScope, setFileScope] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -77,9 +78,10 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   // Build SearchFilters object for IPC calls (aggregates, export)
-  const buildSearchFilters = useCallback((text: string, currentFilters: ParsedQuery, folder: string | null): SearchFilters => ({
+  const buildSearchFilters = useCallback((text: string, currentFilters: ParsedQuery, folder: string | null, file: string | null = null): SearchFilters => ({
     text: text.trim() || undefined,
     folder: folder || undefined,
+    filePath: file || undefined,
     docType: currentFilters.docType,
     status: currentFilters.status,
     amountMin: currentFilters.amountMin,
@@ -87,9 +89,9 @@ export const SearchOverlay: React.FC = () => {
     dateFilter: currentFilters.dateFilter,
   }), []);
 
-  const doSearch = useCallback(async (text: string, currentFilters: ParsedQuery, folder: string | null, append = false) => {
+  const doSearch = useCallback(async (text: string, currentFilters: ParsedQuery, folder: string | null, append = false, file: string | null = null) => {
     const searchQuery = buildFullQuery(text, currentFilters);
-    const sf = buildSearchFilters(text, currentFilters, folder);
+    const sf = buildSearchFilters(text, currentFilters, folder, file);
     const currentOffset = append ? pageOffset : 0;
 
     if (append) {
@@ -98,7 +100,7 @@ export const SearchOverlay: React.FC = () => {
     }
 
     const [res, agg] = await Promise.all([
-      window.api.search(searchQuery || '', currentOffset),
+      window.api.search(searchQuery || '', currentOffset, file ? null : folder, file),
       append ? Promise.resolve(aggregates) : window.api.getAggregates(sf),
     ]);
 
@@ -123,12 +125,12 @@ export const SearchOverlay: React.FC = () => {
     if (initialLoadDone.current) return;
     if (overlayState === OverlayState.NoVault) return;
     initialLoadDone.current = true;
-    doSearch('', filters, folderScope);
+    doSearch('', filters, folderScope, false, fileScope);
   }, [overlayState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMore = useCallback(() => {
-    doSearch(query, filters, folderScope, true);
-  }, [doSearch, query, filters, folderScope]);
+    doSearch(query, filters, folderScope, true, fileScope);
+  }, [doSearch, query, filters, folderScope, fileScope]);
 
   // Extract filters only from completed tokens (followed by a space).
   // The last token — the one the user is still typing — stays as raw text.
@@ -193,7 +195,7 @@ export const SearchOverlay: React.FC = () => {
       setQuery(extraction.remaining);
 
       if (overlayState === OverlayState.Home) setOverlayState(OverlayState.Search);
-      debounceRef.current = setTimeout(() => doSearch(extraction.remaining, newFilters, folderScope), DEBOUNCE_MS);
+      debounceRef.current = setTimeout(() => doSearch(extraction.remaining, newFilters, folderScope, false, fileScope), DEBOUNCE_MS);
       return;
     }
 
@@ -203,15 +205,15 @@ export const SearchOverlay: React.FC = () => {
     }
     const hasActiveFilters = filters.docType || filters.status ||
       filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
-    if (!value.trim() && overlayState === OverlayState.Search && !folderScope && !hasActiveFilters) {
+    if (!value.trim() && overlayState === OverlayState.Search && !folderScope && !fileScope && !hasActiveFilters) {
       setOverlayState(OverlayState.Home);
       doSearch('', filters, null);
       return;
     }
 
     // For search, merge the raw text with existing filter pills
-    debounceRef.current = setTimeout(() => doSearch(value, filters, folderScope), DEBOUNCE_MS);
-  }, [doSearch, overlayState, folderScope, filters, extractCompletedFilters]);
+    debounceRef.current = setTimeout(() => doSearch(value, filters, folderScope, false, fileScope), DEBOUNCE_MS);
+  }, [doSearch, overlayState, folderScope, fileScope, filters, extractCompletedFilters]);
 
   const handleRemoveFilter = useCallback((key: keyof ParsedQuery) => {
     const newFilters = { ...filters };
@@ -225,7 +227,7 @@ export const SearchOverlay: React.FC = () => {
     setFilters(newFilters);
 
     // Check if anything is left to search
-    const hasRemaining = query.trim() || folderScope || newFilters.docType ||
+    const hasRemaining = query.trim() || folderScope || fileScope || newFilters.docType ||
       newFilters.status || newFilters.amountMin != null || newFilters.amountMax != null ||
       newFilters.dateFilter;
 
@@ -233,12 +235,13 @@ export const SearchOverlay: React.FC = () => {
       setOverlayState(OverlayState.Home);
       doSearch('', { text: '' }, null);
     } else {
-      doSearch(query, newFilters, folderScope);
+      doSearch(query, newFilters, folderScope, false, fileScope);
     }
-  }, [filters, query, folderScope, doSearch]);
+  }, [filters, query, folderScope, fileScope, doSearch]);
 
   const handlePathSearchSelectFolder = useCallback((relativePath: string) => {
     setFolderScope(relativePath);
+    setFileScope(null);
     setQuery('');
     setPathQuery('');
     setOverlayState(OverlayState.Search);
@@ -246,12 +249,21 @@ export const SearchOverlay: React.FC = () => {
   }, [doSearch, filters]);
 
   const handlePathSearchSelectFile = useCallback((relativePath: string) => {
-    window.api.openFile(relativePath);
-    // Stay in PathSearch mode
-  }, []);
+    // Set file scope — derive parent folder as the folder scope
+    const parts = relativePath.split('/');
+    parts.pop();
+    const parentFolder = parts.join('/');
+    setFileScope(relativePath);
+    setFolderScope(parentFolder || null);
+    setQuery('');
+    setPathQuery('');
+    setOverlayState(OverlayState.Search);
+    doSearch('', filters, parentFolder || null, false, relativePath);
+  }, [doSearch, filters]);
 
   const handleFolderBrowse = useCallback((folder: string) => {
     setFolderScope(folder);
+    setFileScope(null);
     setQuery('');
     goTo(OverlayState.Search);
     doSearch('', filters, folder);
@@ -259,11 +271,13 @@ export const SearchOverlay: React.FC = () => {
 
   const handleFolderNavigate = useCallback((folder: string) => {
     setFolderScope(folder);
+    setFileScope(null);
     doSearch(query, filters, folder);
   }, [query, filters, doSearch]);
 
   const handleClearFolderScope = useCallback(() => {
     setFolderScope(null);
+    setFileScope(null);
     const hasActiveFilters = filters.docType || filters.status ||
       filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
     if (!query.trim() && !hasActiveFilters) {
@@ -278,6 +292,23 @@ export const SearchOverlay: React.FC = () => {
     window.api.openFolder(relativePath);
   }, []);
 
+  const handleFileBrowse = useCallback((relativePath: string) => {
+    const parts = relativePath.split('/');
+    parts.pop();
+    const parentFolder = parts.join('/');
+    setFileScope(relativePath);
+    setFolderScope(parentFolder || null);
+    setQuery('');
+    goTo(OverlayState.Search);
+    doSearch('', filters, parentFolder || null, false, relativePath);
+  }, [goTo, doSearch, filters]);
+
+  const handleClearFileScope = useCallback(() => {
+    setFileScope(null);
+    // Keep folderScope — just widen from file to folder
+    doSearch(query, filters, folderScope, false, null);
+  }, [query, filters, folderScope, doSearch]);
+
   const handleDocTypeClick = useCallback((docType: string) => {
     // Toggle: if same type, remove it; otherwise set it
     const newFilters = { ...filters, text: '' };
@@ -291,8 +322,8 @@ export const SearchOverlay: React.FC = () => {
     if (overlayState === OverlayState.Home) {
       setOverlayState(OverlayState.Search);
     }
-    doSearch(query, newFilters, folderScope);
-  }, [filters, query, folderScope, overlayState, doSearch]);
+    doSearch(query, newFilters, folderScope, false, fileScope);
+  }, [filters, query, folderScope, fileScope, overlayState, doSearch]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -310,12 +341,20 @@ export const SearchOverlay: React.FC = () => {
     await window.api.reprocessFolder(folderPrefix);
   }, []);
 
-  const handleFieldUpdated = useCallback(() => {
-    if (query.trim() || folderScope || filters.docType || filters.status ||
-        filters.amountMin != null || filters.amountMax != null || filters.dateFilter) {
-      doSearch(query, filters, folderScope);
+  const handleBreadcrumbReload = useCallback(() => {
+    if (fileScope) {
+      window.api.reprocessFile(fileScope);
+    } else if (folderScope) {
+      window.api.reprocessFolder(folderScope);
     }
-  }, [query, folderScope, filters, doSearch]);
+  }, [fileScope, folderScope]);
+
+  const handleFieldUpdated = useCallback(() => {
+    if (query.trim() || folderScope || fileScope || filters.docType || filters.status ||
+        filters.amountMin != null || filters.amountMax != null || filters.dateFilter) {
+      doSearch(query, filters, folderScope, false, fileScope);
+    }
+  }, [query, folderScope, fileScope, filters, doSearch]);
 
   const handleVaultCreated = useCallback(() => {
     goTo(OverlayState.Home);
@@ -369,6 +408,7 @@ export const SearchOverlay: React.FC = () => {
             setQuery('');
             setPathQuery('');
             setFolderScope(null);
+            setFileScope(null);
             setFilters({ text: '' });
           } else if (overlayState === OverlayState.Settings) {
             handleSettingsBack();
@@ -382,12 +422,14 @@ export const SearchOverlay: React.FC = () => {
                      filters.amountMax != null || filters.dateFilter) {
             // Clear all filter pills
             setFilters({ text: '' });
-            if (!folderScope) {
+            if (!folderScope && !fileScope) {
               setOverlayState(OverlayState.Home);
               doSearch('', { text: '' }, null);
             } else {
-              doSearch('', { text: '' }, folderScope);
+              doSearch('', { text: '' }, folderScope, false, fileScope);
             }
+          } else if (fileScope) {
+            handleClearFileScope();
           } else if (folderScope) {
             handleClearFolderScope();
           } else if (isPinned) {
@@ -403,7 +445,7 @@ export const SearchOverlay: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
-      folderScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, doSearch, isPinned]);
+      folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isPinned]);
 
   // Check if there are active filter pills
   const hasFilterPills = filters.docType || filters.status ||
@@ -463,6 +505,8 @@ export const SearchOverlay: React.FC = () => {
           onSelectFile={handlePathSearchSelectFile}
           onReprocessFile={handleReprocessFile}
           onReprocessFolder={handleReprocessFolder}
+          onOpenFile={handleOpenFile}
+          onOpenFolder={handleOpenFolder}
         />
       </div>
     );
@@ -476,12 +520,15 @@ export const SearchOverlay: React.FC = () => {
       {hasFilterPills && (
         <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} />
       )}
-      {folderScope && (
+      {(folderScope || fileScope) && (
         <BreadcrumbBar
           folder={folderScope}
+          file={fileScope}
           onNavigate={handleFolderNavigate}
-          onOpenFolder={() => handleOpenFolder(folderScope)}
+          onOpenFolder={() => folderScope && handleOpenFolder(folderScope)}
           onClear={handleClearFolderScope}
+          onClearFile={handleClearFileScope}
+          onReload={handleBreadcrumbReload}
         />
       )}
       {hasSearched && (
@@ -494,7 +541,11 @@ export const SearchOverlay: React.FC = () => {
           onOpenFile={handleOpenFile}
           onFieldUpdated={handleFieldUpdated}
           onFolderClick={handleFolderBrowse}
+          onFileClick={handleFileBrowse}
           onDocTypeClick={handleDocTypeClick}
+          onOpenFolder={handleOpenFolder}
+          onReprocessFile={handleReprocessFile}
+          onReprocessFolder={handleReprocessFolder}
           onLoadMore={loadMore}
           hasMore={hasMore}
           isLoadingMore={isLoadingMore}
@@ -503,7 +554,7 @@ export const SearchOverlay: React.FC = () => {
       {hasSearched && aggregates.totalRecords > 0 && (
         <StickyFooter
           stats={aggregates}
-          filters={buildSearchFilters(query, filters, folderScope)}
+          filters={buildSearchFilters(query, filters, folderScope, fileScope)}
         />
       )}
     </div>

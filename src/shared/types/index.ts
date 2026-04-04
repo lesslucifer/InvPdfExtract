@@ -59,6 +59,7 @@ export interface FolderInfo {
 export interface SearchFilters {
   text?: string;
   folder?: string;
+  filePath?: string;
   docType?: string;
   status?: string;
   amountMin?: number;
@@ -201,7 +202,7 @@ export interface VaultHandle {
 
 export type ModelTier = 'fast' | 'medium' | 'heavy';
 
-export const MODEL_TIER_MAP: Record<ModelTier, string> = {
+export const MODEL_TIER_MAP: Dict<string> = {
   fast: 'haiku',
   medium: 'sonnet',
   heavy: 'opus',
@@ -285,7 +286,7 @@ export interface SheetMetadata {
   rowCount: number;
   colCount: number;
   columnTypes: ColumnTypeInfo[];
-  sampleRows: Record<string, unknown>[];
+  sampleRows: Dict<unknown>[];
 }
 
 export interface SpreadsheetMetadata {
@@ -380,7 +381,7 @@ export interface FieldOverrideInfo {
 // === Preload API ===
 
 export interface InvoiceVaultAPI {
-  search: (query: string, offset?: number) => Promise<SearchResult[]>;
+  search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => Promise<SearchResult[]>;
   openFile: (relativePath: string) => Promise<void>;
   getLineItems: (recordId: string) => Promise<InvoiceLineItem[]>;
   saveFieldOverride: (input: FieldOverrideInput) => Promise<void>;

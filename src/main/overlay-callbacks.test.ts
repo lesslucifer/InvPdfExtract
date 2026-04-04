@@ -125,6 +125,7 @@ describe('OverlayCallbacks contract', () => {
     it('returns 0 when no callbacks set', () => {
       // Simulate: if (!this.callbacks) return { count: 0 }
       const noCallbacks: OverlayCallbacks | null = null;
+      //@ts-expect-error
       const count = noCallbacks ? noCallbacks.onReprocessAll() : 0;
 
       expect(count).toBe(0);

@@ -434,7 +434,10 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     conditions.push("f.status = 'review'");
   }
 
-  if (parsed.folder) {
+  if (parsed.filePath) {
+    conditions.push('f.relative_path = ?');
+    params.push(parsed.filePath);
+  } else if (parsed.folder) {
     conditions.push('f.relative_path LIKE ?');
     params.push(`${parsed.folder}%`);
   }
@@ -467,6 +470,7 @@ function filtersToParsed(filters: SearchFilters): ParsedQuery {
     docType: filters.docType,
     status: filters.status,
     folder: filters.folder,
+    filePath: filters.filePath,
     amountMin: filters.amountMin,
     amountMax: filters.amountMax,
     dateFilter: filters.dateFilter,
@@ -479,9 +483,11 @@ const BASE_JOINS = `
   LEFT JOIN invoice_data id2 ON r.id = id2.record_id
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 
-export function searchRecords(query: string, limit: number = 50, offset: number = 0): any[] {
+export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null): any[] {
   const db = getDatabase();
   const parsed = parseSearchQuery(query);
+  if (filePath) parsed.filePath = filePath;
+  else if (folder) parsed.folder = folder;
   const { conditions, params } = buildFilterClauses(parsed);
 
   params.push(limit, offset);

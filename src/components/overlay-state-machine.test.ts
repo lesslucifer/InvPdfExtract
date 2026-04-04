@@ -1,6 +1,78 @@
 import { describe, it, expect } from 'vitest';
 import { OverlayState, AppConfig } from '../shared/types';
 
+// --- File scope logic ---
+
+interface FileScopeTransition {
+  overlayState: OverlayState;
+  folderScope: string | null;
+  fileScope: string | null;
+  query: string;
+}
+
+function handleFileBrowse(relativePath: string): FileScopeTransition {
+  const parts = relativePath.split('/');
+  parts.pop();
+  const parentFolder = parts.join('/');
+  return {
+    overlayState: OverlayState.Search,
+    folderScope: parentFolder || null,
+    fileScope: relativePath,
+    query: '',
+  };
+}
+
+function handleClearFileScope(folderScope: string | null): FileScopeTransition {
+  return {
+    overlayState: OverlayState.Search,
+    folderScope,
+    fileScope: null,
+    query: '',
+  };
+}
+
+function handlePathSearchFileSelect(relativePath: string): FileScopeTransition {
+  const parts = relativePath.split('/');
+  parts.pop();
+  const parentFolder = parts.join('/');
+  return {
+    overlayState: OverlayState.Search,
+    folderScope: parentFolder || null,
+    fileScope: relativePath,
+    query: '',
+  };
+}
+
+function handleEscapeWithFileScope(
+  expandedId: string | null,
+  query: string,
+  hasFilterPills: boolean,
+  fileScope: string | null,
+  folderScope: string | null,
+): { clearExpanded?: boolean; clearQuery?: boolean; clearFilters?: boolean; clearFileScope?: boolean; clearFolderScope?: boolean; hideOverlay?: boolean } {
+  if (expandedId) return { clearExpanded: true };
+  if (query) return { clearQuery: true };
+  if (hasFilterPills) return { clearFilters: true };
+  if (fileScope) return { clearFileScope: true };
+  if (folderScope) return { clearFolderScope: true };
+  return { hideOverlay: true };
+}
+
+function handleQueryChangeWithFileScope(
+  value: string,
+  currentState: OverlayState,
+  folderScope: string | null,
+  fileScope: string | null,
+): { newState: OverlayState; shouldClearResults: boolean } {
+  if (value.trim() && currentState === OverlayState.Home) {
+    return { newState: OverlayState.Search, shouldClearResults: false };
+  }
+  if (!value.trim() && currentState === OverlayState.Search && !folderScope && !fileScope) {
+    return { newState: OverlayState.Home, shouldClearResults: true };
+  }
+  return { newState: currentState, shouldClearResults: false };
+}
+
 // PathSearch trigger: first char is '/'
 function isPathSearchTrigger(value: string): boolean {
   return value.startsWith('/') || value.startsWith('\\');
@@ -497,6 +569,162 @@ describe('Overlay State Machine', () => {
       const result = handlePathSearchFolderSelect('2024/Q1');
       expect(result.newState).toBe(OverlayState.Search);
       expect(result.folderScope).toBe('2024/Q1');
+    });
+  });
+
+  // === File Scope Tests ===
+
+  describe('handleFileBrowse', () => {
+    it('sets fileScope and derives parent folder', () => {
+      const result = handleFileBrowse('2024/Q1/invoice.pdf');
+      expect(result.overlayState).toBe(OverlayState.Search);
+      expect(result.fileScope).toBe('2024/Q1/invoice.pdf');
+      expect(result.folderScope).toBe('2024/Q1');
+      expect(result.query).toBe('');
+    });
+
+    it('handles file in root (no parent folder)', () => {
+      const result = handleFileBrowse('invoice.pdf');
+      expect(result.fileScope).toBe('invoice.pdf');
+      expect(result.folderScope).toBeNull();
+    });
+
+    it('handles deeply nested file', () => {
+      const result = handleFileBrowse('a/b/c/d/file.xlsx');
+      expect(result.fileScope).toBe('a/b/c/d/file.xlsx');
+      expect(result.folderScope).toBe('a/b/c/d');
+    });
+  });
+
+  describe('handleClearFileScope', () => {
+    it('clears fileScope but keeps folderScope', () => {
+      const result = handleClearFileScope('2024/Q1');
+      expect(result.fileScope).toBeNull();
+      expect(result.folderScope).toBe('2024/Q1');
+      expect(result.overlayState).toBe(OverlayState.Search);
+    });
+
+    it('clears fileScope with null folderScope', () => {
+      const result = handleClearFileScope(null);
+      expect(result.fileScope).toBeNull();
+      expect(result.folderScope).toBeNull();
+    });
+  });
+
+  describe('handlePathSearchFileSelect', () => {
+    it('sets fileScope and derives parent folder from path', () => {
+      const result = handlePathSearchFileSelect('invoices/2024/receipt.pdf');
+      expect(result.overlayState).toBe(OverlayState.Search);
+      expect(result.fileScope).toBe('invoices/2024/receipt.pdf');
+      expect(result.folderScope).toBe('invoices/2024');
+      expect(result.query).toBe('');
+    });
+  });
+
+  describe('handleEscapeWithFileScope', () => {
+    it('clears fileScope before folderScope', () => {
+      const result = handleEscapeWithFileScope(null, '', false, '2024/Q1/file.pdf', '2024/Q1');
+      expect(result.clearFileScope).toBe(true);
+      expect(result.clearFolderScope).toBeUndefined();
+    });
+
+    it('clears folderScope after fileScope is already null', () => {
+      const result = handleEscapeWithFileScope(null, '', false, null, '2024/Q1');
+      expect(result.clearFolderScope).toBe(true);
+      expect(result.clearFileScope).toBeUndefined();
+    });
+
+    it('clears query before fileScope', () => {
+      const result = handleEscapeWithFileScope(null, 'test', false, '2024/Q1/file.pdf', '2024/Q1');
+      expect(result.clearQuery).toBe(true);
+      expect(result.clearFileScope).toBeUndefined();
+    });
+
+    it('clears filter pills before fileScope', () => {
+      const result = handleEscapeWithFileScope(null, '', true, '2024/Q1/file.pdf', '2024/Q1');
+      expect(result.clearFilters).toBe(true);
+      expect(result.clearFileScope).toBeUndefined();
+    });
+
+    it('hides overlay when nothing to undo', () => {
+      const result = handleEscapeWithFileScope(null, '', false, null, null);
+      expect(result.hideOverlay).toBe(true);
+    });
+  });
+
+  describe('handleQueryChangeWithFileScope', () => {
+    it('stays in Search when clearing query with active fileScope', () => {
+      const result = handleQueryChangeWithFileScope('', OverlayState.Search, null, 'file.pdf');
+      expect(result.newState).toBe(OverlayState.Search);
+      expect(result.shouldClearResults).toBe(false);
+    });
+
+    it('stays in Search when clearing query with active folderScope', () => {
+      const result = handleQueryChangeWithFileScope('', OverlayState.Search, '2024/Q1', null);
+      expect(result.newState).toBe(OverlayState.Search);
+      expect(result.shouldClearResults).toBe(false);
+    });
+
+    it('returns to Home when clearing query with no scope at all', () => {
+      const result = handleQueryChangeWithFileScope('', OverlayState.Search, null, null);
+      expect(result.newState).toBe(OverlayState.Home);
+      expect(result.shouldClearResults).toBe(true);
+    });
+  });
+
+  // === Modifier-Click Dispatch Logic ===
+
+  describe('modifier-click dispatch', () => {
+    type ClickAction = 'scope' | 'open' | 'reprocess';
+
+    function resolveClickAction(metaOrCtrl: boolean, alt: boolean): ClickAction {
+      if (metaOrCtrl) return 'open';
+      if (alt) return 'reprocess';
+      return 'scope';
+    }
+
+    it('normal click → scope (set active filter)', () => {
+      expect(resolveClickAction(false, false)).toBe('scope');
+    });
+
+    it('Cmd/Ctrl+click → open in Finder', () => {
+      expect(resolveClickAction(true, false)).toBe('open');
+    });
+
+    it('Alt/Option+click → reprocess', () => {
+      expect(resolveClickAction(false, true)).toBe('reprocess');
+    });
+
+    it('Cmd+Alt+click → open takes priority', () => {
+      expect(resolveClickAction(true, true)).toBe('open');
+    });
+  });
+
+  describe('breadcrumb reload', () => {
+    function breadcrumbReloadTarget(fileScope: string | null, folderScope: string | null): { type: 'file' | 'folder'; path: string } | null {
+      if (fileScope) return { type: 'file', path: fileScope };
+      if (folderScope) return { type: 'folder', path: folderScope };
+      return null;
+    }
+
+    it('reloads file when fileScope is active', () => {
+      const result = breadcrumbReloadTarget('2024/Q1/invoice.pdf', '2024/Q1');
+      expect(result).toEqual({ type: 'file', path: '2024/Q1/invoice.pdf' });
+    });
+
+    it('reloads folder when only folderScope is active', () => {
+      const result = breadcrumbReloadTarget(null, '2024/Q1');
+      expect(result).toEqual({ type: 'folder', path: '2024/Q1' });
+    });
+
+    it('returns null when no scope is active', () => {
+      const result = breadcrumbReloadTarget(null, null);
+      expect(result).toBeNull();
+    });
+
+    it('prefers file over folder when both active', () => {
+      const result = breadcrumbReloadTarget('2024/Q1/file.pdf', '2024/Q1');
+      expect(result!.type).toBe('file');
     });
   });
 
