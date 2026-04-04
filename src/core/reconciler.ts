@@ -3,6 +3,7 @@ import {
   DocType, ExtractionResult, ExtractionFileResult, ExtractionRecord,
   ExtractionInvoiceData, ExtractionBankStatementData, BatchStatus, LogLevel,
 } from '../shared/types';
+import { computeMissingTaxField, normalizeTaxRate } from '../shared/tax-utils';
 import {
   createBatch, insertRecord, updateRecord, getRecordsByFileId,
   getRecordByFingerprint, softDeleteRecord, upsertBankStatementData,
@@ -171,6 +172,7 @@ export class Reconciler {
       const inv = data as ExtractionInvoiceData;
       const fields: Record<string, any> = {
         so_hoa_don: inv.so_hoa_don ?? null,
+        tong_tien_truoc_thue: inv.tong_tien_truoc_thue ?? null,
         tong_tien: inv.tong_tien ?? null,
         mst: inv.mst ?? null,
         ten_doi_tac: inv.ten_doi_tac ?? null,
@@ -212,12 +214,23 @@ export class Reconciler {
       processedLineNumbers.add(lineNumber);
       const existing = existingByLineNumber.get(lineNumber);
 
+      // Normalize decimal tax rates (0.08 → 8) before any computation
+      const normalizedRate = normalizeTaxRate(items[i].thue_suat);
+
+      // Compute missing before/after-tax amounts from available fields
+      const computed = computeMissingTaxField({
+        beforeTax: items[i].thanh_tien_truoc_thue,
+        afterTax: items[i].thanh_tien,
+        taxRate: normalizedRate,
+      });
+
       const newData = {
         mo_ta: items[i].mo_ta ?? null,
         don_gia: items[i].don_gia ?? null,
         so_luong: items[i].so_luong ?? null,
-        thue_suat: items[i].thue_suat ?? null,
-        thanh_tien: items[i].thanh_tien ?? null,
+        thue_suat: normalizedRate,
+        thanh_tien_truoc_thue: computed.beforeTax,
+        thanh_tien: computed.afterTax,
       };
 
       if (existing && hasLockedFields(existing.id)) {

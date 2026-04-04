@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { DocType, ExtractionFileResult, ExtractionInvoiceData, ExtractionLineItem } from '../../shared/types';
+import { computeMissingTaxField } from '../../shared/tax-utils';
 
 /**
  * Parse a Vietnamese e-invoice XML file (hóa đơn điện tử) into structured data.
@@ -31,14 +32,17 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
   const tenDoiTac = nban ? getTextContent(nban, 'Ten') : null;
   const diaChiDoiTac = nban ? getTextContent(nban, 'DChi') : null;
 
-  // Total with tax (TgTTTBSo)
+  // Total with tax (TgTTTBSo) — after-tax
   const tongTien = ttoan ? parseNumber(getTextContent(ttoan, 'TgTTTBSo')) : null;
+  // Total before tax (TgTCThue) — before-tax
+  const tongTienTruocThue = ttoan ? parseNumber(getTextContent(ttoan, 'TgTCThue')) : null;
 
   // Parse line items
   const lineItems = parseLineItems(dsHHDVu);
 
   const data: ExtractionInvoiceData = {
     so_hoa_don: soHoaDon ?? undefined,
+    tong_tien_truoc_thue: tongTienTruocThue ?? undefined,
     tong_tien: tongTien ?? undefined,
     mst: mst ?? undefined,
     ten_doi_tac: tenDoiTac ?? undefined,
@@ -47,6 +51,7 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
 
   const fieldConfidence: Record<string, number> = {
     so_hoa_don: 1.0,
+    tong_tien_truoc_thue: 1.0,
     tong_tien: 1.0,
     mst: 1.0,
     ten_doi_tac: 1.0,
@@ -143,10 +148,17 @@ function parseLineItems(dsHHDVu: string | null): ExtractionLineItem[] {
     const mo_ta = getTextContent(itemXml, 'THHDVu') ?? undefined;
     const don_gia = parseNumber(getTextContent(itemXml, 'DGia')) ?? undefined;
     const so_luong = parseNumber(getTextContent(itemXml, 'SLuong')) ?? undefined;
-    const thanh_tien = parseNumber(getTextContent(itemXml, 'ThTien')) ?? undefined;
+    // ThTien in Vietnamese e-invoice XML is pre-tax amount
+    const thanh_tien_truoc_thue = parseNumber(getTextContent(itemXml, 'ThTien')) ?? undefined;
     const thue_suat = parseTaxRate(getTextContent(itemXml, 'TSuat')) ?? undefined;
 
-    items.push({ mo_ta, don_gia, so_luong, thue_suat, thanh_tien });
+    // Compute after-tax from before-tax + rate
+    const computed = computeMissingTaxField({
+      beforeTax: thanh_tien_truoc_thue,
+      taxRate: thue_suat,
+    });
+
+    items.push({ mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien: computed.afterTax ?? undefined });
   }
 
   return items;

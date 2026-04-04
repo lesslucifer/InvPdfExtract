@@ -129,6 +129,7 @@ export interface BankStatementData {
 export interface InvoiceData {
   record_id: string;
   so_hoa_don: string | null;
+  tong_tien_truoc_thue: number | null;
   tong_tien: number | null;
   mst: string | null;
   ten_doi_tac: string | null;
@@ -143,6 +144,7 @@ export interface InvoiceLineItem {
   don_gia: number | null;
   so_luong: number | null;
   thue_suat: number | null;
+  thanh_tien_truoc_thue: number | null;
   thanh_tien: number | null;
   deleted_at: string | null;
 }
@@ -257,6 +259,7 @@ export interface ExtractionBankStatementData {
 
 export interface ExtractionInvoiceData {
   so_hoa_don?: string;
+  tong_tien_truoc_thue?: number;
   tong_tien?: number;
   mst?: string;
   ten_doi_tac?: string;
@@ -268,6 +271,7 @@ export interface ExtractionLineItem {
   don_gia?: number;
   so_luong?: number;
   thue_suat?: number;
+  thanh_tien_truoc_thue?: number;
   thanh_tien?: number;
 }
 
@@ -330,10 +334,13 @@ export interface SearchResult {
   so_tien: number;
   // Invoice fields
   so_hoa_don: string;
+  tong_tien_truoc_thue: number;
   tong_tien: number;
   mst: string;
-  // Computed: sum of line item thanh_tien (null if no line items)
+  // Computed: sum of line item thanh_tien after-tax (null if no line items)
   line_item_sum: number | null;
+  // Computed: sum of line item thanh_tien_truoc_thue (null if no line items)
+  line_item_sum_truoc_thue: number | null;
   // Shared
   ten_doi_tac: string;
   mo_ta: string;

@@ -36,17 +36,36 @@ The parser script MUST output a JSON object to stdout with this exact structure:
 ## Document Types (doc_type)
 
 - "bank_statement" — sao kê ngân hàng (bank statement). Data fields: ten_ngan_hang, stk, mo_ta, so_tien, ten_doi_tac
-- "invoice_out" — hóa đơn đầu ra (sales/output invoice). Data fields: so_hoa_don, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
-- "invoice_in" — hóa đơn đầu vào (purchase/input invoice). Data fields: so_hoa_don, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
+- "invoice_out" — hóa đơn đầu ra (sales/output invoice). Data fields: so_hoa_don, tong_tien_truoc_thue, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
+- "invoice_in" — hóa đơn đầu vào (purchase/input invoice). Data fields: so_hoa_don, tong_tien_truoc_thue, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
 
 ## Invoice Line Items
 
 For invoices, each record should include line_items array:
 - mo_ta: item description
-- don_gia: unit price
+- don_gia: unit price (before tax)
 - so_luong: quantity
-- thue_suat: tax rate as percentage (e.g. 10 for 10%)
-- thanh_tien: line total
+- thue_suat: tax rate as a percentage INTEGER (e.g. 8 for 8%, 10 for 10%). NEVER output decimals like 0.08 — if the source data has 0.08, multiply by 100 to get 8.
+- thanh_tien_truoc_thue: line total BEFORE tax (usually = don_gia × so_luong)
+- thanh_tien: line total AFTER tax (usually = thanh_tien_truoc_thue × (1 + thue_suat/100))
+
+## Amount Fields — CRITICAL RULES
+
+**Tax rate normalization:**
+- If the source spreadsheet stores tax rates as decimals (0.08, 0.1, 0.05), multiply by 100 to convert to percentage integers (8, 10, 5).
+
+**Line item amounts — STRONGLY prefer BEFORE-tax:**
+- If both before-tax and after-tax columns exist, map both (thanh_tien_truoc_thue and thanh_tien)
+- If only ONE amount column exists for line items, map it to thanh_tien_truoc_thue (before-tax) UNLESS the column header explicitly says after-tax (e.g. "đã bao gồm thuế", "sau thuế", "bao gồm VAT")
+- Column headers like "Thành tiền", "Đơn giá × SL", "Cộng tiền hàng" → before-tax (thanh_tien_truoc_thue)
+- If tax is only applied to the invoice total (not per line item), line values are ALWAYS before-tax
+- When in doubt, set as thanh_tien_truoc_thue and leave thanh_tien as null
+
+**Invoice total:**
+- tong_tien = final payment amount including VAT (usually the biggest total on the document)
+- tong_tien_truoc_thue = subtotal before VAT
+
+**Cross-check:** If the document total ≈ SUM(line amounts), those are after-tax. If total ≈ SUM(line amounts) × (1 + rate/100), those are before-tax. Use this to choose the correct mapping.
 
 ## Rules
 

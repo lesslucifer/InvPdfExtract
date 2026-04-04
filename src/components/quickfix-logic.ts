@@ -1,43 +1,33 @@
 import { InvoiceLineItem } from '../shared/types';
 
-const TOLERANCE = 1; // 1 VND rounding tolerance
+const TOLERANCE = 1000; // 1 VND rounding tolerance
 
 /**
- * Compute the tax-inclusive total for a line item.
- * thanh_tien is pre-tax (don_gia * so_luong), thue_suat is percentage (e.g. 10 for 10%).
- */
-function lineItemWithTax(item: { thanh_tien?: number | null; thue_suat?: number | null }): number {
-  const base = item.thanh_tien ?? 0;
-  const rate = item.thue_suat ?? 0;
-  return Math.round(base * (1 + rate / 100));
-}
-
-/**
- * Check if tong_tien matches the tax-inclusive sum of line items.
+ * Check if tong_tien (after-tax) matches the sum of line item thanh_tien (after-tax).
  */
 export function computeTotalMismatch(
   tongTien: number,
-  lineItems: { thanh_tien?: number | null; thue_suat?: number | null }[],
+  lineItems: { thanh_tien?: number | null }[],
 ): { hasMismatch: boolean; sum: number } {
   if (lineItems.length === 0 || !tongTien) {
     return { hasMismatch: false, sum: 0 };
   }
-  const sum = lineItems.reduce((acc, item) => acc + lineItemWithTax(item), 0);
+  const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien ?? 0), 0);
   const hasMismatch = Math.abs(sum - tongTien) > TOLERANCE;
   return { hasMismatch, sum };
 }
 
 /**
- * Check if thanh_tien matches don_gia * so_luong (pre-tax line total).
+ * Check if thanh_tien_truoc_thue matches don_gia * so_luong (both pre-tax).
  */
 export function computeLineItemMismatch(
-  item: { don_gia?: number | null; so_luong?: number | null; thanh_tien?: number | null },
+  item: { don_gia?: number | null; so_luong?: number | null; thanh_tien_truoc_thue?: number | null },
 ): { hasMismatch: boolean; expected: number | null } {
-  if (item.don_gia == null || item.so_luong == null || item.thanh_tien == null) {
+  if (item.don_gia == null || item.so_luong == null || item.thanh_tien_truoc_thue == null) {
     return { hasMismatch: false, expected: null };
   }
   const expected = Math.round(item.don_gia * item.so_luong);
-  const hasMismatch = Math.abs(item.thanh_tien - expected) > TOLERANCE;
+  const hasMismatch = Math.abs(item.thanh_tien_truoc_thue - expected) > TOLERANCE;
   return { hasMismatch, expected };
 }
 

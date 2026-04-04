@@ -40,7 +40,8 @@ describe('XML Invoice Parser', () => {
       expect(item.don_gia).toBe(325000);
       expect(item.so_luong).toBe(1);
       expect(item.thue_suat).toBe(8);
-      expect(item.thanh_tien).toBe(325000);
+      expect(item.thanh_tien_truoc_thue).toBe(325000);
+      expect(item.thanh_tien).toBe(351000); // 325000 * 1.08
     });
 
     it('parses single-item invoice from same seller (In Ky Thuat So #933)', () => {
@@ -66,7 +67,8 @@ describe('XML Invoice Parser', () => {
       expect(item.don_gia).toBe(125000);
       expect(item.so_luong).toBe(1);
       expect(item.thue_suat).toBe(8);
-      expect(item.thanh_tien).toBe(125000);
+      expect(item.thanh_tien_truoc_thue).toBe(125000);
+      expect(item.thanh_tien).toBe(135000); // 125000 * 1.08
     });
 
     it('parses multi-item invoice and skips TChat=4 rows (Dau Tu Duy Phu)', () => {
@@ -96,12 +98,13 @@ describe('XML Invoice Parser', () => {
       expect(record.line_items![0].don_gia).toBe(1800000);
       expect(record.line_items![0].so_luong).toBe(1);
       expect(record.line_items![0].thue_suat).toBe(8);
-      expect(record.line_items![0].thanh_tien).toBe(1800000);
+      expect(record.line_items![0].thanh_tien_truoc_thue).toBe(1800000);
+      expect(record.line_items![0].thanh_tien).toBe(1944000); // 1800000 * 1.08
 
       // Second item: In PP cán màng mờ
       expect(record.line_items![1].mo_ta).toBe('In PP cán màng mờ bồi formex 8mm');
       expect(record.line_items![1].don_gia).toBe(1400000);
-      expect(record.line_items![1].thanh_tien).toBe(1400000);
+      expect(record.line_items![1].thanh_tien_truoc_thue).toBe(1400000);
 
       // Items 3-5: more In PP cán màng mờ with different prices
       expect(record.line_items![2].don_gia).toBe(1000000);
@@ -116,9 +119,9 @@ describe('XML Invoice Parser', () => {
       expect(record.line_items![6].mo_ta).toContain('Phí vận chuyển LALAMOVE');
       expect(record.line_items![6].don_gia).toBe(500000);
 
-      // Verify sum of thanh_tien equals pre-tax total (TgTCThue)
-      const sum = record.line_items!.reduce((acc, li) => acc + (li.thanh_tien ?? 0), 0);
-      expect(sum).toBe(7500000);
+      // Verify sum of thanh_tien_truoc_thue equals pre-tax total (TgTCThue)
+      const preTaxSum = record.line_items!.reduce((acc, li) => acc + (li.thanh_tien_truoc_thue ?? 0), 0);
+      expect(preTaxSum).toBe(7500000);
     });
 
     it('parses invoice with mixed tax rates 8% and 10% (Zion Restaurant)', () => {
@@ -147,40 +150,46 @@ describe('XML Invoice Parser', () => {
       expect(record.line_items![0].don_gia).toBe(320000);
       expect(record.line_items![0].so_luong).toBe(1);
       expect(record.line_items![0].thue_suat).toBe(10);
-      expect(record.line_items![0].thanh_tien).toBe(320000);
+      expect(record.line_items![0].thanh_tien_truoc_thue).toBe(320000);
+      expect(record.line_items![0].thanh_tien).toBe(352000); // 320000 * 1.10
 
       // Item 2: Pornstar Martini (qty 2, 10%)
       expect(record.line_items![1].mo_ta).toBe('Rượu Classics With A Twist Pornstar Martini');
       expect(record.line_items![1].don_gia).toBe(300000);
       expect(record.line_items![1].so_luong).toBe(2);
       expect(record.line_items![1].thue_suat).toBe(10);
-      expect(record.line_items![1].thanh_tien).toBe(600000);
+      expect(record.line_items![1].thanh_tien_truoc_thue).toBe(600000);
+      expect(record.line_items![1].thanh_tien).toBe(660000); // 600000 * 1.10
 
       // Item 3: Juice (8%)
       expect(record.line_items![2].mo_ta).toBe('Nước trái cây');
       expect(record.line_items![2].don_gia).toBe(2000000);
       expect(record.line_items![2].so_luong).toBe(1);
       expect(record.line_items![2].thue_suat).toBe(8);
-      expect(record.line_items![2].thanh_tien).toBe(2000000);
+      expect(record.line_items![2].thanh_tien_truoc_thue).toBe(2000000);
+      expect(record.line_items![2].thanh_tien).toBe(2160000); // 2000000 * 1.08
 
       // Item 4: Wine (10%)
       expect(record.line_items![3].mo_ta).toContain('Concha Y Toro');
       expect(record.line_items![3].don_gia).toBe(320000);
       expect(record.line_items![3].so_luong).toBe(2);
       expect(record.line_items![3].thue_suat).toBe(10);
-      expect(record.line_items![3].thanh_tien).toBe(640000);
+      expect(record.line_items![3].thanh_tien_truoc_thue).toBe(640000);
+      expect(record.line_items![3].thanh_tien).toBe(704000); // 640000 * 1.10
 
       // Item 5: Mojito (10%)
       expect(record.line_items![4].mo_ta).toBe('Mojito');
       expect(record.line_items![4].don_gia).toBe(280000);
       expect(record.line_items![4].thue_suat).toBe(10);
-      expect(record.line_items![4].thanh_tien).toBe(280000);
+      expect(record.line_items![4].thanh_tien_truoc_thue).toBe(280000);
+      expect(record.line_items![4].thanh_tien).toBe(308000); // 280000 * 1.10
 
       // Item 6: Service fee (8%)
       expect(record.line_items![5].mo_ta).toBe('Phí phục vụ');
       expect(record.line_items![5].don_gia).toBe(345600);
       expect(record.line_items![5].thue_suat).toBe(8);
-      expect(record.line_items![5].thanh_tien).toBe(345600);
+      expect(record.line_items![5].thanh_tien_truoc_thue).toBe(345600);
+      expect(record.line_items![5].thanh_tien).toBe(373248); // 345600 * 1.08
     });
   });
 
@@ -214,7 +223,8 @@ describe('XML Invoice Parser', () => {
       expect(item.don_gia).toBe(4900);
       expect(item.so_luong).toBe(100);
       expect(item.thue_suat).toBe(8);
-      expect(item.thanh_tien).toBe(490000);
+      expect(item.thanh_tien_truoc_thue).toBe(490000);
+      expect(item.thanh_tien).toBe(529200); // 490000 * 1.08
     });
   });
 

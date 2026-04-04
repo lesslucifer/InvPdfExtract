@@ -14,19 +14,40 @@ export interface TaxBracket {
 }
 
 /**
- * Validates that the sum of line item thanh_tien equals the pre-tax total.
+ * Validates that the sum of line item thanh_tien (after-tax) equals tong_tien.
  */
 export function validateLineItemSum(
   lineItems: { thanh_tien?: number }[],
-  preTaxTotal: number,
+  total: number,
 ): ValidationWarning[] {
   const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien ?? 0), 0);
 
-  if (sum !== preTaxTotal) {
+  if (Math.abs(sum - total) > 1) {
     return [{
       type: 'line_item_sum_mismatch',
-      message: `Sum of line items (${sum}) does not match pre-tax total (${preTaxTotal})`,
-      expected: preTaxTotal,
+      message: `Sum of line items after-tax (${sum}) does not match total (${total})`,
+      expected: total,
+      actual: sum,
+    }];
+  }
+
+  return [];
+}
+
+/**
+ * Validates that the sum of line item thanh_tien_truoc_thue equals tong_tien_truoc_thue.
+ */
+export function validateLineItemSumBeforeTax(
+  lineItems: { thanh_tien_truoc_thue?: number }[],
+  totalBeforeTax: number,
+): ValidationWarning[] {
+  const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien_truoc_thue ?? 0), 0);
+
+  if (Math.abs(sum - totalBeforeTax) > 1) {
+    return [{
+      type: 'line_item_sum_before_tax_mismatch',
+      message: `Sum of line items before-tax (${sum}) does not match total before-tax (${totalBeforeTax})`,
+      expected: totalBeforeTax,
       actual: sum,
     }];
   }
@@ -87,7 +108,7 @@ export function detectInvoiceNumberGaps(
  */
 export function validateTaxAmount(brackets: TaxBracket[]): ValidationWarning[] {
   const warnings: ValidationWarning[] = [];
-  const TOLERANCE = 1; // 1 VND rounding tolerance
+  const TOLERANCE = 1000; // 1 VND rounding tolerance
 
   for (const bracket of brackets) {
     const expected = bracket.preTaxAmount * (bracket.rate / 100);

@@ -274,7 +274,7 @@ export class OverlayWindow {
     ipcMain.handle('save-line-item-field', async (_event, input: LineItemFieldInput) => {
       try {
         const db = getDatabase();
-        const allowedFields = ['mo_ta', 'don_gia', 'so_luong', 'thue_suat', 'thanh_tien'];
+        const allowedFields = ['mo_ta', 'don_gia', 'so_luong', 'thue_suat', 'thanh_tien_truoc_thue', 'thanh_tien'];
         if (!allowedFields.includes(input.fieldName)) {
           throw new Error(`Invalid line item field: ${input.fieldName}`);
         }
@@ -285,7 +285,7 @@ export class OverlayWindow {
         const currentAiValue = String(row[input.fieldName] ?? '');
 
         // Update the field value
-        const numericFields = ['don_gia', 'so_luong', 'thue_suat', 'thanh_tien'];
+        const numericFields = ['don_gia', 'so_luong', 'thue_suat', 'thanh_tien_truoc_thue', 'thanh_tien'];
         const value = numericFields.includes(input.fieldName)
           ? (input.userValue === '' ? null : parseFloat(input.userValue))
           : input.userValue;

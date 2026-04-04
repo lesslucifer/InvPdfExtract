@@ -86,15 +86,16 @@ export function upsertBankStatementData(recordId: string, data: Partial<BankStat
 export function upsertInvoiceData(recordId: string, data: Partial<InvoiceData>): void {
   const db = getDatabase();
   db.prepare(`
-    INSERT INTO invoice_data (record_id, so_hoa_don, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO invoice_data (record_id, so_hoa_don, tong_tien_truoc_thue, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(record_id) DO UPDATE SET
       so_hoa_don = excluded.so_hoa_don,
+      tong_tien_truoc_thue = excluded.tong_tien_truoc_thue,
       tong_tien = excluded.tong_tien,
       mst = excluded.mst,
       ten_doi_tac = excluded.ten_doi_tac,
       dia_chi_doi_tac = excluded.dia_chi_doi_tac
-  `).run(recordId, data.so_hoa_don ?? null, data.tong_tien ?? null, data.mst ?? null, data.ten_doi_tac ?? null, data.dia_chi_doi_tac ?? null);
+  `).run(recordId, data.so_hoa_don ?? null, data.tong_tien_truoc_thue ?? null, data.tong_tien ?? null, data.mst ?? null, data.ten_doi_tac ?? null, data.dia_chi_doi_tac ?? null);
 }
 
 // === Invoice Line Items ===
@@ -103,9 +104,9 @@ export function insertLineItem(recordId: string, lineNumber: number, data: Parti
   const db = getDatabase();
   const id = uuid();
   db.prepare(`
-    INSERT INTO invoice_line_items (id, record_id, line_number, mo_ta, don_gia, so_luong, thue_suat, thanh_tien)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, recordId, lineNumber, data.mo_ta ?? null, data.don_gia ?? null, data.so_luong ?? null, data.thue_suat ?? null, data.thanh_tien ?? null);
+    INSERT INTO invoice_line_items (id, record_id, line_number, mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, recordId, lineNumber, data.mo_ta ?? null, data.don_gia ?? null, data.so_luong ?? null, data.thue_suat ?? null, data.thanh_tien_truoc_thue ?? null, data.thanh_tien ?? null);
 
   return db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(id) as InvoiceLineItem;
 }
@@ -114,9 +115,9 @@ export function updateLineItem(lineItemId: string, data: Partial<InvoiceLineItem
   const db = getDatabase();
   db.prepare(`
     UPDATE invoice_line_items
-    SET mo_ta = ?, don_gia = ?, so_luong = ?, thue_suat = ?, thanh_tien = ?
+    SET mo_ta = ?, don_gia = ?, so_luong = ?, thue_suat = ?, thanh_tien_truoc_thue = ?, thanh_tien = ?
     WHERE id = ?
-  `).run(data.mo_ta ?? null, data.don_gia ?? null, data.so_luong ?? null, data.thue_suat ?? null, data.thanh_tien ?? null, lineItemId);
+  `).run(data.mo_ta ?? null, data.don_gia ?? null, data.so_luong ?? null, data.thue_suat ?? null, data.thanh_tien_truoc_thue ?? null, data.thanh_tien ?? null, lineItemId);
 }
 
 export function softDeleteLineItem(lineItemId: string): void {
@@ -433,7 +434,7 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
   } else if (parsed.status === 'mismatch') {
     conditions.push(`r.doc_type IN ('invoice_in', 'invoice_out')
       AND ABS(COALESCE(id2.tong_tien, 0) - COALESCE(
-        (SELECT SUM(ROUND(thanh_tien * (1 + COALESCE(thue_suat, 0) / 100.0))) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1
+        (SELECT SUM(thanh_tien) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1
       AND (SELECT COUNT(*) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) > 0`);
   } else if (parsed.status === 'review') {
     conditions.push("f.status = 'review'");
@@ -522,6 +523,7 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
   const sql = `
     SELECT r.*, f.relative_path, f.status as file_status,
       COALESCE(id2.so_hoa_don, '') as so_hoa_don,
+      COALESCE(id2.tong_tien_truoc_thue, 0) as tong_tien_truoc_thue,
       COALESCE(id2.tong_tien, 0) as tong_tien,
       COALESCE(id2.mst, '') as mst,
       COALESCE(id2.ten_doi_tac, bsd.ten_doi_tac, '') as ten_doi_tac,
@@ -530,7 +532,8 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
       COALESCE(bsd.stk, '') as stk,
       COALESCE(bsd.so_tien, 0) as so_tien,
       COALESCE(bsd.mo_ta, '') as mo_ta,
-      (SELECT SUM(ROUND(thanh_tien * (1 + COALESCE(thue_suat, 0) / 100.0))) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum
+      (SELECT SUM(thanh_tien) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum,
+      (SELECT SUM(thanh_tien_truoc_thue) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum_truoc_thue
     ${BASE_JOINS}
     WHERE ${conditions.join(' AND ')}
     ${buildOrderByClause(parsed)}
@@ -579,7 +582,7 @@ export function gatherFilteredExportData(filters: SearchFilters): { bankStatemen
 
   const invoiceHeaders = db.prepare(`
     SELECT r.id as record_id, r.doc_type, r.ngay, f.relative_path,
-      id2.so_hoa_don, id2.tong_tien, id2.mst, id2.ten_doi_tac, id2.dia_chi_doi_tac,
+      id2.so_hoa_don, id2.tong_tien_truoc_thue, id2.tong_tien, id2.mst, id2.ten_doi_tac, id2.dia_chi_doi_tac,
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type IN ('invoice_in', 'invoice_out')

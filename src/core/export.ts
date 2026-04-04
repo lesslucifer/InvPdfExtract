@@ -77,18 +77,18 @@ export function exportToCsv(data: ExportData): Map<string, string> {
 
   // Invoice headers CSV
   if (data.invoiceHeaders.length > 0) {
-    const headers = ['Loại', 'Ngày', 'Số HĐ', 'Tổng tiền', 'MST', 'Đối tác', 'Địa chỉ', 'Confidence', 'File'];
+    const headers = ['Loại', 'Ngày', 'Số HĐ', 'Tổng tiền trước thuế', 'Tổng tiền', 'MST', 'Đối tác', 'Địa chỉ', 'Confidence', 'File'];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.tong_tien, r.mst, r.ten_doi_tac, r.dia_chi_doi_tac, r.confidence, r.relative_path,
+      r.doc_type, r.ngay, r.so_hoa_don, r.tong_tien_truoc_thue, r.tong_tien, r.mst, r.ten_doi_tac, r.dia_chi_doi_tac, r.confidence, r.relative_path,
     ]);
     files.set('invoices.csv', toCsv(headers, rows));
   }
 
   // Line items CSV
   if (data.invoiceLineItems.length > 0) {
-    const headers = ['Loại', 'Ngày', 'Số HĐ', '#', 'Mô tả', 'Đơn giá', 'Số lượng', 'Thuế suất', 'Thành tiền'];
+    const headers = ['Loại', 'Ngày', 'Số HĐ', '#', 'Mô tả', 'Đơn giá', 'Số lượng', 'Thuế suất', 'Thành tiền trước thuế', 'Thành tiền'];
     const rows = data.invoiceLineItems.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.line_number, r.mo_ta, r.don_gia, r.so_luong, r.thue_suat, r.thanh_tien,
+      r.doc_type, r.ngay, r.so_hoa_don, r.line_number, r.mo_ta, r.don_gia, r.so_luong, r.thue_suat, r.thanh_tien_truoc_thue, r.thanh_tien,
     ]);
     files.set('line_items.csv', toCsv(headers, rows));
   }
@@ -130,18 +130,18 @@ export function exportToXlsx(data: ExportData): Buffer {
   }
 
   if (data.invoiceHeaders.length > 0) {
-    const headers = ['Loai', 'Ngay', 'So HD', 'Tong tien', 'MST', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
+    const headers = ['Loai', 'Ngay', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'MST', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.tong_tien, r.mst, r.ten_doi_tac, r.dia_chi_doi_tac, r.confidence, r.relative_path,
+      r.doc_type, r.ngay, r.so_hoa_don, r.tong_tien_truoc_thue, r.tong_tien, r.mst, r.ten_doi_tac, r.dia_chi_doi_tac, r.confidence, r.relative_path,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Hoa don');
   }
 
   if (data.invoiceLineItems.length > 0) {
-    const headers = ['Loai', 'Ngay', 'So HD', '#', 'Mo ta', 'Don gia', 'So luong', 'Thue suat', 'Thanh tien'];
+    const headers = ['Loai', 'Ngay', 'So HD', '#', 'Mo ta', 'Don gia', 'So luong', 'Thue suat', 'Thanh tien truoc thue', 'Thanh tien'];
     const rows = data.invoiceLineItems.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.line_number, r.mo_ta, r.don_gia, r.so_luong, r.thue_suat, r.thanh_tien,
+      r.doc_type, r.ngay, r.so_hoa_don, r.line_number, r.mo_ta, r.don_gia, r.so_luong, r.thue_suat, r.thanh_tien_truoc_thue, r.thanh_tien,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Chi tiet');

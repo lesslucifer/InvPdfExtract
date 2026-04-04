@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   validateLineItemSum,
+  validateLineItemSumBeforeTax,
   detectInvoiceNumberGaps,
   validateTaxAmount,
   type ValidationWarning,
@@ -8,41 +9,29 @@ import {
 } from './invoice-validators';
 
 describe('Invoice Validators', () => {
-  // ── Line item sum validation ──
+  // ── Line item sum validation (after-tax) ──
 
   describe('validateLineItemSum', () => {
-    it('passes when sum of thanh_tien equals pre-tax total (single item)', () => {
+    it('passes when sum of after-tax thanh_tien equals tong_tien', () => {
       const warnings = validateLineItemSum(
-        [{ thanh_tien: 325000 }],
-        325000,
+        [{ thanh_tien: 351000 }],
+        351000,
       );
       expect(warnings).toHaveLength(0);
     });
 
-    it('passes for multi-item invoice (Dau Tu Duy Phu: 7 items)', () => {
+    it('passes for multi-item invoice', () => {
       const lineItems = [
-        { thanh_tien: 1800000 },
-        { thanh_tien: 1400000 },
-        { thanh_tien: 1000000 },
-        { thanh_tien: 1100000 },
-        { thanh_tien: 1300000 },
-        { thanh_tien: 400000 },
-        { thanh_tien: 500000 },
+        { thanh_tien: 1944000 },
+        { thanh_tien: 1512000 },
+        { thanh_tien: 1080000 },
+        { thanh_tien: 1188000 },
+        { thanh_tien: 1404000 },
+        { thanh_tien: 432000 },
+        { thanh_tien: 540000 },
       ];
-      const warnings = validateLineItemSum(lineItems, 7500000);
-      expect(warnings).toHaveLength(0);
-    });
-
-    it('passes for mixed-rate invoice (Zion Restaurant: 6 items)', () => {
-      const lineItems = [
-        { thanh_tien: 320000 },
-        { thanh_tien: 600000 },
-        { thanh_tien: 2000000 },
-        { thanh_tien: 640000 },
-        { thanh_tien: 280000 },
-        { thanh_tien: 345600 },
-      ];
-      const warnings = validateLineItemSum(lineItems, 4185600);
+      const sum = lineItems.reduce((a, b) => a + (b.thanh_tien ?? 0), 0);
+      const warnings = validateLineItemSum(lineItems, sum);
       expect(warnings).toHaveLength(0);
     });
 
@@ -64,9 +53,29 @@ describe('Invoice Validators', () => {
         { thanh_tien: undefined },
         { thanh_tien: 200000 },
       ];
-      // Sum = 300000 (undefined treated as 0)
       const warnings = validateLineItemSum(lineItems, 300000);
       expect(warnings).toHaveLength(0);
+    });
+  });
+
+  // ── Line item sum validation (before-tax) ──
+
+  describe('validateLineItemSumBeforeTax', () => {
+    it('passes when sum of before-tax amounts equals total before tax', () => {
+      const warnings = validateLineItemSumBeforeTax(
+        [{ thanh_tien_truoc_thue: 325000 }],
+        325000,
+      );
+      expect(warnings).toHaveLength(0);
+    });
+
+    it('returns warning when sum does not match', () => {
+      const warnings = validateLineItemSumBeforeTax(
+        [{ thanh_tien_truoc_thue: 100000 }, { thanh_tien_truoc_thue: 200000 }],
+        400000,
+      );
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0].type).toBe('line_item_sum_before_tax_mismatch');
     });
   });
 
@@ -106,7 +115,6 @@ describe('Invoice Validators', () => {
 
     it('handles unsorted input correctly', () => {
       const gaps = detectInvoiceNumberGaps(['3', '1', '5']);
-      // Sorted: [1, 3, 5] → gap between 1-3 (missing 2) and gap between 3-5 (missing 4)
       expect(gaps).toHaveLength(2);
       expect(gaps[0].missing).toContain('2');
       expect(gaps[1].missing).toContain('4');
@@ -134,7 +142,6 @@ describe('Invoice Validators', () => {
     });
 
     it('passes when tax difference is within 1 VND rounding tolerance', () => {
-      // 100001 * 0.08 = 8000.08, diff = 0.08 < 1 VND tolerance → passes
       const brackets: TaxBracket[] = [
         { rate: 8, preTaxAmount: 100001, taxAmount: 8000 },
       ];
@@ -143,7 +150,6 @@ describe('Invoice Validators', () => {
     });
 
     it('flags discrepancy exceeding 1 VND tolerance', () => {
-      // 200000 * 0.08 = 16000, but we claim tax = 14000 → diff = 2000 → fails
       const brackets: TaxBracket[] = [
         { rate: 8, preTaxAmount: 200000, taxAmount: 14000 },
       ];

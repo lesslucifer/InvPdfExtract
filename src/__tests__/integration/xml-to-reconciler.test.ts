@@ -56,7 +56,8 @@ describe('Integration: XML to Reconciler', () => {
     const lineItems = db.prepare('SELECT * FROM invoice_line_items WHERE record_id = ? ORDER BY line_number').all(records[0].id) as any[];
     expect(lineItems).toHaveLength(1);
     expect(lineItems[0].mo_ta).toBe('In Kỹ Thuật Số ( PP dán Formax - 3 tấm )');
-    expect(lineItems[0].thanh_tien).toBe(325000);
+    expect(lineItems[0].thanh_tien_truoc_thue).toBe(325000);
+    expect(lineItems[0].thanh_tien).toBe(351000); // 325000 * 1.08
 
     // Verify file status updated to 'done' (confidence 1.0 > threshold 0.8)
     const updatedFile = db.prepare('SELECT * FROM files WHERE id = ?').get(file.id) as any;
@@ -96,7 +97,8 @@ describe('Integration: XML to Reconciler', () => {
 
     // Verify first and last items
     expect(lineItems[0].mo_ta).toBe('Backdrop  Bạt 2 da xám in KTS');
-    expect(lineItems[0].thanh_tien).toBe(1800000);
+    expect(lineItems[0].thanh_tien_truoc_thue).toBe(1800000);
+    expect(lineItems[0].thanh_tien).toBe(1944000); // 1800000 * 1.08
     expect(lineItems[6].don_gia).toBe(500000);
   });
 

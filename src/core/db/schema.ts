@@ -157,4 +157,10 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE field_overrides ADD COLUMN line_item_id TEXT REFERENCES invoice_line_items(id);
   CREATE INDEX IF NOT EXISTS idx_field_overrides_line_item_id ON field_overrides(line_item_id);
   `,
+
+  // Migration 005: Add before-tax amount columns for tax rework
+  `
+  ALTER TABLE invoice_data ADD COLUMN tong_tien_truoc_thue REAL;
+  ALTER TABLE invoice_line_items ADD COLUMN thanh_tien_truoc_thue REAL;
+  `,
 ];

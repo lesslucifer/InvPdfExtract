@@ -43,7 +43,8 @@ const records = invoiceRows.map(row => {
       don_gia: typeof li['Đơn giá'] === 'number' ? li['Đơn giá'] : null,
       so_luong: typeof li['Số lượng'] === 'number' ? li['Số lượng'] : null,
       thue_suat: null,
-      thanh_tien: typeof li['Thành tiền (chưa thuế)'] === 'number' ? li['Thành tiền (chưa thuế)'] : null,
+      thanh_tien_truoc_thue: typeof li['Thành tiền (chưa thuế)'] === 'number' ? li['Thành tiền (chưa thuế)'] : null,
+      thanh_tien: null,
     }));
 
   return {

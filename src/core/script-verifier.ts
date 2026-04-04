@@ -36,6 +36,9 @@ Your job is to judge whether the parser script correctly extracts the data.
 - Are amounts numeric (not strings)?
 - Are records being extracted (not empty)?
 - Does the output structure match ExtractionFileResult schema?
+- Are thue_suat values percentage INTEGERS (8, 10, 5)? If you see decimals like 0.08 or 0.1, the script must multiply by 100.
+- Are line item amounts correctly mapped? If only one amount column exists and it's ambiguous, it should go to thanh_tien_truoc_thue (before-tax), NOT thanh_tien. If all thanh_tien values are populated but thanh_tien_truoc_thue is all null, this is likely WRONG — the amounts are probably before-tax.
+- Cross-check: does tong_tien ≈ SUM(thanh_tien) or SUM(thanh_tien_truoc_thue × (1+rate/100))? Use this to verify correct before/after-tax mapping.
 
 ## Expected Output Schema
 
@@ -54,8 +57,8 @@ Your job is to judge whether the parser script correctly extracts the data.
 }
 
 ### Bank Statement data fields: ten_ngan_hang, stk, mo_ta, so_tien, ten_doi_tac
-### Invoice data fields: so_hoa_don, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
-### Invoice line_items fields: mo_ta, don_gia, so_luong, thue_suat, thanh_tien
+### Invoice data fields: so_hoa_don, tong_tien_truoc_thue, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
+### Invoice line_items fields: mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien
 
 ## Response Format
 

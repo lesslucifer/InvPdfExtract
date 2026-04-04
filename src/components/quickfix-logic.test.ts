@@ -3,40 +3,29 @@ import { computeTotalMismatch, computeLineItemMismatch, getMismatchedLineItems, 
 import { InvoiceLineItem } from '../shared/types';
 
 describe('computeTotalMismatch', () => {
-  it('returns no mismatch when tax-inclusive sum matches total', () => {
-    // 400 * (1 + 10/100) = 440, 600 * (1 + 0/100) = 600 => sum = 1040
-    const result = computeTotalMismatch(1040, [
-      { thanh_tien: 400, thue_suat: 10 },
-      { thanh_tien: 600, thue_suat: 0 },
-    ]);
-    expect(result.hasMismatch).toBe(false);
-    expect(result.sum).toBe(1040);
-  });
-
-  it('returns mismatch when tax-inclusive sum differs', () => {
-    // 400 * 1.1 = 440, 500 * 1.0 = 500 => sum = 940
+  it('returns no mismatch when after-tax sum matches total', () => {
+    // thanh_tien is now after-tax, so direct sum comparison
     const result = computeTotalMismatch(1000, [
-      { thanh_tien: 400, thue_suat: 10 },
-      { thanh_tien: 500, thue_suat: 0 },
-    ]);
-    expect(result.hasMismatch).toBe(true);
-    expect(result.sum).toBe(940);
-  });
-
-  it('treats null thue_suat as 0% tax', () => {
-    const result = computeTotalMismatch(1000, [
-      { thanh_tien: 400, thue_suat: null },
+      { thanh_tien: 400 },
       { thanh_tien: 600 },
     ]);
     expect(result.hasMismatch).toBe(false);
     expect(result.sum).toBe(1000);
   });
 
+  it('returns mismatch when after-tax sum differs', () => {
+    const result = computeTotalMismatch(1000, [
+      { thanh_tien: 400 },
+      { thanh_tien: 500 },
+    ]);
+    expect(result.hasMismatch).toBe(true);
+    expect(result.sum).toBe(900);
+  });
+
   it('tolerates 1 VND rounding difference', () => {
-    // 500 * 1.08 = 540, 500 * 1.0 = 500 => sum = 1040
-    const result = computeTotalMismatch(1041, [
-      { thanh_tien: 500, thue_suat: 8 },
-      { thanh_tien: 500, thue_suat: 0 },
+    const result = computeTotalMismatch(1001, [
+      { thanh_tien: 500 },
+      { thanh_tien: 500 },
     ]);
     expect(result.hasMismatch).toBe(false);
   });
@@ -60,38 +49,38 @@ describe('computeTotalMismatch', () => {
 });
 
 describe('computeLineItemMismatch', () => {
-  it('returns no mismatch when product equals thanh_tien', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien: 500 });
+  it('returns no mismatch when product equals thanh_tien_truoc_thue', () => {
+    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien_truoc_thue: 500 });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBe(500);
   });
 
   it('returns mismatch when product differs', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien: 600 });
+    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien_truoc_thue: 600 });
     expect(result.hasMismatch).toBe(true);
     expect(result.expected).toBe(500);
   });
 
   it('tolerates 1 VND rounding difference', () => {
-    const result = computeLineItemMismatch({ don_gia: 33.33, so_luong: 3, thanh_tien: 100 });
+    const result = computeLineItemMismatch({ don_gia: 33.33, so_luong: 3, thanh_tien_truoc_thue: 100 });
     // 33.33 * 3 = 99.99, rounded = 100
     expect(result.hasMismatch).toBe(false);
   });
 
   it('returns no mismatch when don_gia is null', () => {
-    const result = computeLineItemMismatch({ don_gia: null, so_luong: 5, thanh_tien: 500 });
+    const result = computeLineItemMismatch({ don_gia: null, so_luong: 5, thanh_tien_truoc_thue: 500 });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
   });
 
   it('returns no mismatch when so_luong is null', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: null, thanh_tien: 500 });
+    const result = computeLineItemMismatch({ don_gia: 100, so_luong: null, thanh_tien_truoc_thue: 500 });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
   });
 
-  it('returns no mismatch when thanh_tien is null', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien: null });
+  it('returns no mismatch when thanh_tien_truoc_thue is null', () => {
+    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien_truoc_thue: null });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
   });
@@ -133,7 +122,7 @@ describe('computeTaxRateMismatch', () => {
 });
 
 describe('getMismatchedLineItems', () => {
-  const makeItem = (id: string, don_gia: number | null, so_luong: number | null, thanh_tien: number | null): InvoiceLineItem => ({
+  const makeItem = (id: string, don_gia: number | null, so_luong: number | null, thanh_tien_truoc_thue: number | null): InvoiceLineItem => ({
     id,
     record_id: 'r1',
     line_number: 1,
@@ -141,11 +130,12 @@ describe('getMismatchedLineItems', () => {
     don_gia,
     so_luong,
     thue_suat: null,
-    thanh_tien,
+    thanh_tien_truoc_thue,
+    thanh_tien: null,
     deleted_at: null,
   });
 
-  it('returns items where thanh_tien differs from don_gia * so_luong', () => {
+  it('returns items where thanh_tien_truoc_thue differs from don_gia * so_luong', () => {
     const items = [
       makeItem('a', 100, 5, 500),   // match
       makeItem('b', 100, 5, 600),   // mismatch
@@ -188,6 +178,7 @@ describe('getItemsWithBadTaxRate', () => {
     don_gia: 100,
     so_luong: 1,
     thue_suat,
+    thanh_tien_truoc_thue: 100,
     thanh_tien: 100,
     deleted_at: null,
   });
