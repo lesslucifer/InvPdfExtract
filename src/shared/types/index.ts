@@ -417,6 +417,9 @@ export interface InvoiceVaultAPI {
   getFileStatusesByPaths: (paths: string[]) => Promise<{ [path: string]: FileStatus }>;
   getFolderStatuses: () => Promise<{ [folder: string]: FileStatus }>;
   onFileStatusChanged: (callback: (data: { fileIds: string[]; status: FileStatus }) => void) => () => void;
+  // Queue cancellation
+  cancelQueueItem: (fileId: string) => Promise<{ success: boolean }>;
+  clearPendingQueue: () => Promise<{ count: number }>;
 }
 
 // === Event Types ===

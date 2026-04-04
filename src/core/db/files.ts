@@ -85,6 +85,25 @@ export function getAllActiveFiles(): VaultFile[] {
   return db.prepare('SELECT * FROM files WHERE deleted_at IS NULL').all() as VaultFile[];
 }
 
+export function cancelQueueItem(fileId: string): boolean {
+  const db = getDatabase();
+  const file = db.prepare('SELECT * FROM files WHERE id = ? AND status = ? AND deleted_at IS NULL')
+    .get(fileId, FileStatus.Pending) as VaultFile | undefined;
+  if (!file) return false;
+  softDeleteFile(fileId);
+  return true;
+}
+
+export function clearPendingQueue(): number {
+  const db = getDatabase();
+  const pending = db.prepare('SELECT id FROM files WHERE status = ? AND deleted_at IS NULL')
+    .all(FileStatus.Pending) as { id: string }[];
+  for (const row of pending) {
+    softDeleteFile(row.id);
+  }
+  return pending.length;
+}
+
 export function getFilesByStatuses(statuses: FileStatus[]): VaultFile[] {
   const db = getDatabase();
   const placeholders = statuses.map(() => '?').join(',');

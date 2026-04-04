@@ -168,6 +168,14 @@ app.on('ready', async () => {
       scanDir(folderPrefix);
       return total;
     },
+    onCancelQueueItem: (fileId: string) => {
+      const { cancelQueueItem } = require('./core/db/files');
+      return cancelQueueItem(fileId);
+    },
+    onClearPendingQueue: () => {
+      const { clearPendingQueue } = require('./core/db/files');
+      return clearPendingQueue();
+    },
     onQuit: handleQuit,
   });
   overlayWindow.registerIpcHandlers();

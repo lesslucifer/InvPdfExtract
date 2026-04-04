@@ -63,6 +63,13 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
     return unsubscribe;
   }, [activeTab]);
 
+  const reloadQueue = async () => {
+    try {
+      const files = await window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]);
+      setQueueFiles(files);
+    } catch { /* ignore */ }
+  };
+
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: 'queue', label: 'Queue', count: queueFiles.length },
     { id: 'processed', label: 'Processed', count: processedFiles.length },
@@ -95,7 +102,7 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
         {loading ? (
           <div className="settings-loading">Loading...</div>
         ) : activeTab === 'queue' ? (
-          <QueueTab files={queueFiles} />
+          <QueueTab files={queueFiles} onRefresh={reloadQueue} />
         ) : activeTab === 'processed' ? (
           <ProcessedTab files={processedFiles} />
         ) : (
@@ -106,25 +113,55 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
   );
 };
 
-const QueueTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
+const QueueTab: React.FC<{ files: VaultFile[]; onRefresh: () => Promise<void> }> = ({ files, onRefresh }) => {
+  const pendingFiles = files.filter(f => f.status === FileStatus.Pending);
+
+  const handleCancel = async (fileId: string) => {
+    await window.api.cancelQueueItem(fileId);
+    await onRefresh();
+  };
+
+  const handleClearAll = async () => {
+    await window.api.clearPendingQueue();
+    await onRefresh();
+  };
+
   if (files.length === 0) {
     return <div className="processing-status-empty">No files in queue</div>;
   }
   return (
-    <ul className="processing-status-list">
-      {files.map(file => (
-        <li key={file.id} className="processing-status-row">
-          <StatusDot status={file.status} />
-          <span className="processing-status-path" title={file.relative_path}>
-            {file.relative_path}
-          </span>
-          <span className="processing-status-label">
-            {file.status === FileStatus.Processing ? 'Processing' : 'Pending'}
-          </span>
-          <span className="processing-status-time">{formatTime(file.created_at)}</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      {pendingFiles.length > 1 && (
+        <div className="processing-queue-actions">
+          <button className="processing-queue-clear-btn" onClick={handleClearAll}>
+            Clear all pending ({pendingFiles.length})
+          </button>
+        </div>
+      )}
+      <ul className="processing-status-list">
+        {files.map(file => (
+          <li key={file.id} className="processing-status-row">
+            <StatusDot status={file.status} />
+            <span className="processing-status-path" title={file.relative_path}>
+              {file.relative_path}
+            </span>
+            <span className="processing-status-label">
+              {file.status === FileStatus.Processing ? 'Processing' : 'Pending'}
+            </span>
+            <span className="processing-status-time">{formatTime(file.created_at)}</span>
+            {file.status === FileStatus.Pending && (
+              <button
+                className="processing-queue-cancel-btn"
+                onClick={() => handleCancel(file.id)}
+                title="Remove from queue"
+              >
+                &#x2715;
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 };
 
