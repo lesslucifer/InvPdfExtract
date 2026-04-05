@@ -1,8 +1,8 @@
 {
-  "name": "inv-pdf-extract",
-  "productName": "InvPdfExtract",
+  "name": "invoicevault",
+  "productName": "InvoiceVault",
   "version": "1.0.0",
-  "description": "Vietnamese VAT Invoice PDF Extractor",
+  "description": "Vietnamese VAT invoice management — extract, search, and reconcile",
   "main": ".webpack/main",
   "private": true,
   "scripts": {
@@ -26,10 +26,13 @@
     "onlyBuiltDependencies": [
       "better-sqlite3",
       "electron",
-      "electron-winstaller"
+      "electron-winstaller",
+      "fs-xattr",
+      "macos-alias"
     ]
   },
   "dependencies": {
+    "@electron-forge/maker-dmg": "^7.11.1",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
     "electron-squirrel-startup": "^1.0.1",
