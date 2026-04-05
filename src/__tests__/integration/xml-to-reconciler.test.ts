@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { openDatabase, closeDatabase, getDatabase } from '../../core/db/database';
+import { openDatabase, closeDatabase, setActiveDatabase, getDatabase } from '../../core/db/database';
 import { insertFile } from '../../core/db/files';
 import { DocType, FileStatus, ExtractionResult } from '../../shared/types';
 import { Reconciler } from '../../core/reconciler';
@@ -8,9 +8,10 @@ import { XML_FILES } from '../helpers/fixtures';
 
 describe('Integration: XML to Reconciler', () => {
   beforeEach(() => {
-    // Open an in-memory database for each test via the singleton
+    // Open an in-memory database for each test and set as active
     closeDatabase();
-    openDatabase(':memory:');
+    const db = openDatabase(':memory:');
+    setActiveDatabase(db);
   });
 
   afterEach(() => {

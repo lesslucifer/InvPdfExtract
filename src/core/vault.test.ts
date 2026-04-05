@@ -5,8 +5,9 @@ import { INVOICEVAULT_DIR, CONFIG_FILE, DB_FILE, VAULT_SUBDIRS } from '../shared
 
 // Mock the database module to avoid native module issues in tests
 vi.mock('./db/database', () => ({
-  openDatabase: vi.fn(),
+  openDatabase: vi.fn(() => ({ close: vi.fn() })),
   closeDatabase: vi.fn(),
+  setActiveDatabase: vi.fn(),
 }));
 
 import { isVault, initVault, openVault, closeVault, getVaultConfig, updateVaultConfig, clearVaultData } from './vault';
@@ -110,6 +111,7 @@ describe('vault core', () => {
       expect(handle.dotPath).toBe(path.join(vaultPath, INVOICEVAULT_DIR));
       expect(handle.dbPath).toBe(path.join(vaultPath, INVOICEVAULT_DIR, DB_FILE));
       expect(handle.config.version).toBe(1);
+      expect(handle.db).toBeDefined();
     });
 
     it('writes default extraction prompt', () => {

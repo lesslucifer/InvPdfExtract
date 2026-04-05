@@ -10,7 +10,7 @@ import { ScriptVerifier } from './script-verifier';
 import { executeScript } from './script-sandbox';
 import { parseXmlInvoice } from './parsers/xml-invoice-parser';
 import { extractMetadata } from './parsers/spreadsheet-metadata';
-import { getDatabase } from './db/database';
+// Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
 import { DEFAULT_BATCH_SIZE, DEFAULT_CLAUDE_MODELS, INVOICEVAULT_DIR } from '../shared/constants';
@@ -37,7 +37,7 @@ export class ExtractionQueue {
     this.pdfRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.pdfExtraction);
     this.scriptRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration);
     this.reconciler = new Reconciler(vault.config.confidence_threshold);
-    this.scriptRegistry = new ScriptRegistry(getDatabase());
+    this.scriptRegistry = new ScriptRegistry(vault.db);
     this.matcherEvaluator = new MatcherEvaluator();
     this.scriptGenerator = new ScriptGenerator(this.scriptRunner);
     this.scriptVerifier = new ScriptVerifier(this.scriptRunner);

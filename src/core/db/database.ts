@@ -2,12 +2,14 @@ import Database from 'better-sqlite3';
 import { openSqlite } from './sqlite-binding';
 import { MIGRATIONS } from './schema';
 
-let db: Database.Database | null = null;
+let activeDb: Database.Database | null = null;
 
+/**
+ * Opens a SQLite database at the given path, runs migrations, and returns the instance.
+ * Does NOT set the active database — call setActiveDatabase() separately if needed.
+ */
 export function openDatabase(dbPath: string): Database.Database {
-  if (db) return db;
-
-  db = openSqlite(dbPath);
+  const db = openSqlite(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
@@ -15,15 +17,32 @@ export function openDatabase(dbPath: string): Database.Database {
   return db;
 }
 
-export function getDatabase(): Database.Database {
-  if (!db) throw new Error('Database not opened');
-  return db;
+/**
+ * Sets the database instance that getDatabase() returns.
+ * Used when switching vaults to make the active vault's DB globally accessible.
+ */
+export function setActiveDatabase(db: Database.Database): void {
+  activeDb = db;
 }
 
-export function closeDatabase(): void {
-  if (db) {
-    db.close();
-    db = null;
+/**
+ * Returns the currently active database instance.
+ * Throws if no database has been set via setActiveDatabase().
+ */
+export function getDatabase(): Database.Database {
+  if (!activeDb) throw new Error('Database not opened');
+  return activeDb;
+}
+
+/**
+ * Clears the active database reference and closes the given database.
+ * If no db is passed, closes the currently active database.
+ */
+export function closeDatabase(db?: Database.Database): void {
+  const target = db ?? activeDb;
+  if (target) {
+    if (target === activeDb) activeDb = null;
+    target.close();
   }
 }
 

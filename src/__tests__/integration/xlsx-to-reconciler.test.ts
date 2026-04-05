@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { openDatabase, closeDatabase, getDatabase } from '../../core/db/database';
+import { openDatabase, closeDatabase, setActiveDatabase, getDatabase } from '../../core/db/database';
 import { insertFile } from '../../core/db/files';
 import { DocType, FileStatus, ExtractionResult } from '../../shared/types';
 import { Reconciler } from '../../core/reconciler';
@@ -84,7 +84,8 @@ describe('Integration: XLSX to Reconciler', () => {
 
   beforeEach(() => {
     closeDatabase();
-    openDatabase(':memory:');
+    const db = openDatabase(':memory:');
+    setActiveDatabase(db);
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlsx-integ-'));
     parserPath = path.join(tmpDir, 'hoadon-sold-parser.js');
     fs.writeFileSync(parserPath, HOADON_SOLD_PARSER);
