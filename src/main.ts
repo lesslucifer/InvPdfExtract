@@ -1,4 +1,5 @@
-import { app } from 'electron';
+import { app, nativeImage } from 'electron';
+import * as path from 'path';
 import { NotificationManager } from './main/notifications';
 import { OverlayWindow } from './main/overlay-window';
 import { initVault, openVault, closeVault, isVault } from './core/vault';
@@ -11,36 +12,63 @@ import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
 import { VaultHandle } from './shared/types';
 import { startIpcBridge, stopIpcBridge } from './main/ipc-bridge';
+import { TrayManager } from './main/tray-manager';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+let isQuitting = false;
 let notificationManager: NotificationManager | null = null;
 let overlayWindow: OverlayWindow | null = null;
+let trayManager: TrayManager | null = null;
 let fileWatcher: FileWatcher | null = null;
 let syncEngine: SyncEngine | null = null;
 let extractionQueue: ExtractionQueue | null = null;
 let currentVault: VaultHandle | null = null;
 let vaultPathCache: VaultPathCache | null = null;
 
+// Graceful shutdown on signals (terminal kill, Ctrl+C)
+process.on('SIGTERM', () => {
+  console.log('[InvoiceVault] Received SIGTERM');
+  handleQuit();
+});
+process.on('SIGINT', () => {
+  console.log('[InvoiceVault] Received SIGINT');
+  handleQuit();
+});
+
 // Prevent default window creation — overlay-only app
 app.on('window-all-closed', () => {
   // Don't quit when all windows close — activated by hotkey
 });
 
-// Gracefully close all spawned windows before quitting
-app.on('before-quit', () => {
+// Show overlay when clicking dock icon (macOS) or taskbar icon (Windows)
+app.on('activate', () => {
+  overlayWindow?.showOverlay();
+});
+
+// Route all quit paths through handleQuit for graceful shutdown
+app.on('before-quit', (event) => {
+  if (!isQuitting) {
+    event.preventDefault();
+    handleQuit();
+    return;
+  }
   overlayWindow?.closeAllSpawnedWindows();
 });
 
 app.on('ready', async () => {
   console.log('[InvoiceVault] App ready');
 
-  // Hide dock icon on macOS — overlay-only app
+  // Set app icon on macOS — keep dock visible so clicking it shows the overlay
   if (process.platform === 'darwin' && app.dock) {
-    app.dock.hide();
+    const resourceDir = path.join(app.getAppPath(), 'resources');
+    const dockIcon = nativeImage.createFromPath(path.join(resourceDir, 'icon-1024.png'));
+    if (!dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon);
+    }
   }
 
   // Check Claude CLI availability
@@ -186,6 +214,12 @@ app.on('ready', async () => {
   overlayWindow.registerIpcHandlers();
   overlayWindow.subscribeToStatusEvents();
   overlayWindow.registerShortcut();
+
+  // System tray — provides Quit menu item on both macOS and Windows
+  trayManager = new TrayManager({ onQuit: handleQuit });
+  trayManager.init();
+  trayManager.setShowOverlayCallback(() => overlayWindow?.showOverlay());
+
   startIpcBridge();
 
   // Wire extraction queue trigger on file events
@@ -319,10 +353,25 @@ async function stopVault(): Promise<void> {
 }
 
 async function handleQuit(): Promise<void> {
+  if (isQuitting) return;
+  isQuitting = true;
   console.log('[InvoiceVault] Shutting down...');
-  stopIpcBridge();
-  await stopVault();
-  eventBus.removeAllListeners();
-  overlayWindow?.destroy();
-  app.quit();
+
+  const forceQuit = setTimeout(() => {
+    console.error('[InvoiceVault] Shutdown timed out, forcing quit');
+    process.exit(1);
+  }, 5000);
+
+  try {
+    stopIpcBridge();
+    await stopVault();
+    eventBus.removeAllListeners();
+    trayManager?.destroy();
+    overlayWindow?.destroy();
+  } catch (err) {
+    console.error('[InvoiceVault] Error during shutdown:', err);
+  } finally {
+    clearTimeout(forceQuit);
+    app.quit();
+  }
 }
