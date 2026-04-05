@@ -131,18 +131,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     directionIcon: 'arrowDown',
     label: 'Date',
     insertText: 'sort:date ',
-    hint: 'ngay',
+    hint: 'Ngày lập',
     keywords: ['sort', 'date', 'ngay'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: 'calendar',
-    directionIcon: 'arrowUp',
-    label: 'Date',
-    insertText: 'sort:date-asc ',
-    hint: 'old→new',
-    keywords: ['sort', 'date', 'ngay', 'asc'],
     filterKey: 'sortField',
   },
   {
@@ -151,18 +141,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     directionIcon: 'arrowDown',
     label: 'Processed',
     insertText: 'sort:time ',
-    hint: 'thoi gian',
+    hint: 'TG Xử lý',
     keywords: ['sort', 'time', 'processed', 'thoi gian'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: 'clock',
-    directionIcon: 'arrowUp',
-    label: 'Processed',
-    insertText: 'sort:time-asc ',
-    hint: 'old→new',
-    keywords: ['sort', 'time', 'processed', 'thoi gian', 'asc'],
     filterKey: 'sortField',
   },
   {
@@ -181,7 +161,7 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     directionIcon: 'arrowUp',
     label: 'Amount',
     insertText: 'sort:amount-asc ',
-    hint: 'low→high',
+    hint: 'Tổng tiền',
     keywords: ['sort', 'amount', 'so tien', 'asc'],
     filterKey: 'sortField',
   },
@@ -191,18 +171,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     directionIcon: 'arrowUp',
     label: 'Path',
     insertText: 'sort:path ',
-    hint: 'duong dan',
+    hint: 'Đường dẫn',
     keywords: ['sort', 'path', 'duong dan', 'file'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: 'folderOpen',
-    directionIcon: 'arrowDown',
-    label: 'Path',
-    insertText: 'sort:path-desc ',
-    hint: 'Z→A',
-    keywords: ['sort', 'path', 'duong dan', 'file', 'desc'],
     filterKey: 'sortField',
   },
   {
@@ -211,20 +181,10 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     directionIcon: 'arrowUp',
     label: 'Confidence',
     insertText: 'sort:confidence ',
-    hint: 'do tin cay',
+    hint: 'Độ chính xác',
     keywords: ['sort', 'confidence', 'do tin cay'],
     filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: 'target',
-    directionIcon: 'arrowDown',
-    label: 'Confidence',
-    insertText: 'sort:confidence-desc ',
-    hint: 'high→low',
-    keywords: ['sort', 'confidence', 'do tin cay', 'desc'],
-    filterKey: 'sortField',
-  },
+  }
 ];
 
 /** Sort direction sub-suggestions, used when user types `sort:<field>-` */
@@ -261,8 +221,8 @@ export const PREFIX_HINTS: PrefixHint[] = [
   { prefix: 'type', label: 'Filter by document type', icon: 'clipboardList', insertText: 'type:' },
   { prefix: 'status', label: 'Filter by status', icon: 'zap', insertText: 'status:' },
   { prefix: 'sort', label: 'Sort results', icon: 'arrowUpDown', insertText: 'sort:' },
-  { prefix: 'amount', label: 'Filter by amount', icon: 'amount', insertText: 'amount:' },
-  { prefix: 'date', label: 'Filter by date', icon: 'calendar', insertText: 'date:' },
+  { prefix: 'amount', label: 'Filter by amount', icon: 'amount', insertText: '' },
+  { prefix: 'date', label: 'Filter by date', icon: 'calendar', insertText: '' },
 ];
 
 /** Hint chips shown when input is empty — uses SuggestionItem for unified rendering.
@@ -271,6 +231,6 @@ export const EMPTY_HINT_ITEMS: SuggestionItem[] = [
   { category: 'type', icon: 'clipboardList', label: 'type:', insertText: 'type:', hint: '', keywords: [], filterKey: 'docType' },
   { category: 'status', icon: 'zap', label: 'status:', insertText: 'status:', hint: '', keywords: [], filterKey: 'status' },
   { category: 'sort', icon: 'arrowUpDown', label: 'sort:', insertText: 'sort:', hint: '', keywords: [], filterKey: 'sortField' },
-  { category: 'amount', icon: 'amount', label: 'amount', insertText: 'amount:', hint: '', keywords: [], filterKey: 'amountMin' },
-  { category: 'date', icon: 'calendar', label: 'date', insertText: 'date:', hint: '', keywords: [], filterKey: 'dateFilter' },
+  { category: 'amount', icon: 'amount', label: 'amount', insertText: '', hint: '', keywords: [], filterKey: 'amountMin' },
+  { category: 'date', icon: 'calendar', label: 'date', insertText: '', hint: '', keywords: [], filterKey: 'dateFilter' },
 ];

@@ -35,7 +35,7 @@ function getPills(filters: ParsedQuery): PillDef[] {
   }
 
   if (filters.status) {
-    const statusIcons: Record<string, IconName> = { conflict: 'conflict', review: 'eye' };
+    const statusIcons: Record<string, IconName> = { conflict: 'conflict', review: 'eye', mismatch: 'mismatch' };
     const icon = statusIcons[filters.status] || 'zap';
     pills.push({ key: 'status', icon, label: filters.status.charAt(0).toUpperCase() + filters.status.slice(1) });
   }

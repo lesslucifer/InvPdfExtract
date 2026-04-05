@@ -341,6 +341,8 @@ export const SearchOverlay: React.FC = () => {
     if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
     if (!value.trim()) {
       hintTimerRef.current = setTimeout(() => setShowHintBar(true), 300);
+    } else if (value.trimEnd().endsWith('?')) {
+      setShowHintBar(true);
     } else {
       setShowHintBar(false);
     }
@@ -367,20 +369,23 @@ export const SearchOverlay: React.FC = () => {
       return;
     }
 
+    // Strip trailing '?' — it's a hint trigger, not a search character
+    const searchValue = value.replace(/\?+$/, '');
+
     // No filter extraction — normal text handling
-    if (value.trim() && overlayState === OverlayState.Home) {
+    if (searchValue.trim() && overlayState === OverlayState.Home) {
       setOverlayState(OverlayState.Search);
     }
     const hasActiveFilters = filters.docType || filters.status || filters.mst ||
       filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
-    if (!value.trim() && overlayState === OverlayState.Search && !folderScope && !fileScope && !hasActiveFilters) {
+    if (!searchValue.trim() && overlayState === OverlayState.Search && !folderScope && !fileScope && !hasActiveFilters) {
       setOverlayState(OverlayState.Home);
       doSearch('', filters, null);
       return;
     }
 
     // For search, merge the raw text with existing filter pills
-    debounceRef.current = setTimeout(() => doSearch(value, filters, folderScope, false, fileScope), DEBOUNCE_MS);
+    debounceRef.current = setTimeout(() => doSearch(searchValue, filters, folderScope, false, fileScope), DEBOUNCE_MS);
   }, [doSearch, overlayState, folderScope, fileScope, filters, extractCompletedFilters]);
 
   // Keep ref in sync so handleSuggestionAccept (defined before handleQueryChangeInner) can call it
@@ -872,7 +877,7 @@ export const SearchOverlay: React.FC = () => {
   // Compute which suggestion chips to show: active suggestions or empty-input hints
   const visibleSuggestions = suggestions.length > 0
     ? suggestions
-    : showHintBar && !query
+    : showHintBar && (!query || query.trimEnd().endsWith('?'))
       ? EMPTY_HINT_ITEMS
       : [];
 
