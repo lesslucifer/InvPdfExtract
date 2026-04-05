@@ -1,0 +1,56 @@
+<svg width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+<style>
+  @media (prefers-color-scheme: dark) {
+    .icon-bg { fill: #1a1a2e; }
+    .book-cover { fill: #2d2b55; stroke: #534AB7; }
+    .book-pages { fill: #3a3860; }
+    .book-spine { fill: #26215C; }
+    .book-spine-line { stroke: #3C3489; }
+    .page-line { stroke: #5a5880; }
+    .debit-mark { fill: #5DCAA5; }
+    .credit-mark { fill: #F0997B; }
+    .bookmark { fill: #7F77DD; }
+  }
+  @media (prefers-color-scheme: light) {
+    .icon-bg { fill: #f0eef9; }
+    .book-cover { fill: #EEEDFE; stroke: #534AB7; }
+    .book-pages { fill: #ffffff; }
+    .book-spine { fill: #CECBF6; }
+    .book-spine-line { stroke: #AFA9EC; }
+    .page-line { stroke: #d4d2e8; }
+    .debit-mark { fill: #0F6E56; }
+    .credit-mark { fill: #D85A30; }
+    .bookmark { fill: #534AB7; }
+  }
+</style>
+
+<rect class="icon-bg" x="0" y="0" width="300" height="300" rx="60"/>
+
+<g transform="translate(150, 150)">
+  <rect class="book-spine" x="-80" y="-85" width="24" height="170" rx="4"/>
+  <line class="book-spine-line" x1="-72" y1="-78" x2="-72" y2="78" stroke-width="0.8"/>
+  <line class="book-spine-line" x1="-64" y1="-78" x2="-64" y2="78" stroke-width="0.8"/>
+
+  <rect class="book-cover" x="-56" y="-92" width="140" height="184" rx="8" stroke-width="2"/>
+  <rect class="book-pages" x="-46" y="-80" width="120" height="160" rx="4"/>
+
+  <rect class="bookmark" x="42" y="-92" width="14" height="36" rx="1"/>
+  <polygon class="bookmark" points="42,-56 49,-48 56,-56"/>
+
+  <line class="page-line" x1="-28" y1="-58" x2="58" y2="-58" stroke-width="1.2"/>
+  <line class="page-line" x1="-28" y1="-38" x2="48" y2="-38" stroke-width="1.2"/>
+  <line class="page-line" x1="-28" y1="-18" x2="54" y2="-18" stroke-width="1.2"/>
+  <line class="page-line" x1="-28" y1="2" x2="40" y2="2" stroke-width="1.2"/>
+  <line class="page-line" x1="-28" y1="22" x2="52" y2="22" stroke-width="1.2"/>
+  <line class="page-line" x1="-28" y1="42" x2="44" y2="42" stroke-width="1.2"/>
+  <line class="page-line" x1="-28" y1="62" x2="56" y2="62" stroke-width="1.2"/>
+
+  <circle class="debit-mark" cx="-28" cy="-58" r="4"/>
+  <circle class="credit-mark" cx="-28" cy="-38" r="4"/>
+  <circle class="debit-mark" cx="-28" cy="-18" r="4"/>
+  <circle class="credit-mark" cx="-28" cy="2" r="4"/>
+  <circle class="debit-mark" cx="-28" cy="22" r="4"/>
+  <circle class="credit-mark" cx="-28" cy="42" r="4"/>
+  <circle class="debit-mark" cx="-28" cy="62" r="4"/>
+</g>
+</svg>
