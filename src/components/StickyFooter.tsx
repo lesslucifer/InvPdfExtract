@@ -1,7 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { AggregateStats, SearchFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
 import { Icons, ICON_SIZE } from '../shared/icons';
+
+export interface StickyFooterHandle {
+  triggerExport: () => void;
+}
 
 interface Props {
   stats: AggregateStats;
@@ -10,7 +14,7 @@ interface Props {
   onSettingsClick?: () => void;
 }
 
-export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize, onSettingsClick }) => {
+export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ stats, filters, onWindowlize, onSettingsClick }, ref) => {
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<{ message: string; filePath: string } | null>(null);
 
@@ -26,6 +30,8 @@ export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize, on
       setExporting(false);
     }
   }, [filters, stats.totalRecords]);
+
+  useImperativeHandle(ref, () => ({ triggerExport: handleExport }), [handleExport]);
 
   const handleOpenExportFile = useCallback(() => {
     if (toast) {
@@ -57,8 +63,10 @@ export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize, on
             className="sticky-footer-export"
             onClick={handleExport}
             disabled={exporting}
+            aria-label="Export XLSX"
+            title="Export XLSX (Ctrl+S)"
           >
-            {exporting ? 'Exporting...' : 'Export XLSX'}
+            <Icons.download size={ICON_SIZE.SM} />
           </button>
         )}
         {onWindowlize && (
@@ -84,4 +92,4 @@ export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize, on
       </div>
     </div>
   );
-};
+});

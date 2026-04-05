@@ -1,5 +1,5 @@
 import {
-  Landmark,
+  CircleDollarSign,
   FileOutput,
   FileInput,
   File,
@@ -22,12 +22,13 @@ import {
   Star,
   Zap,
   Eye,
-  Target,
+  Percent,
   Clock,
   ClipboardList,
   ArrowLeftRight,
-  Maximize2,
+  AppWindow,
   ChevronRight,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -40,7 +41,7 @@ export const ICON_SIZE = {
 
 export const Icons = {
   // Document types
-  bankStatement: Landmark,
+  bankStatement: CircleDollarSign,
   invoiceOut: FileOutput,
   invoiceIn: FileInput,
   file: File,
@@ -55,7 +56,7 @@ export const Icons = {
   amount: Banknote,
   calendar: Calendar,
   clock: Clock,
-  target: Target,
+  target: Percent,
   clipboardList: ClipboardList,
   zap: Zap,
   eye: Eye,
@@ -73,8 +74,9 @@ export const Icons = {
   arrowUpDown: ArrowUpDown,
   arrowLeftRight: ArrowLeftRight,
   star: Star,
-  maximize: Maximize2,
+  maximize: AppWindow,
   chevronRight: ChevronRight,
+  download: Download,
 } as const;
 
 export type IconName = keyof typeof Icons;
@@ -84,7 +86,7 @@ export function getIcon(name: IconName): LucideIcon {
 }
 
 export const DOC_TYPE_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
-  bank_statement: { icon: Landmark, label: 'Bank Statement' },
+  bank_statement: { icon: CircleDollarSign, label: 'Bank Statement' },
   invoice_out: { icon: FileOutput, label: 'Invoice Out' },
   invoice_in: { icon: FileInput, label: 'Invoice In' },
   unknown: { icon: File, label: 'Unknown' },

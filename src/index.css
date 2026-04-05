@@ -154,8 +154,14 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 24px;
+  width: 20px;
   text-align: center;
+}
+
+.result-icon svg {
+  width: auto;
+  height: 22px;
+  aspect-ratio: 3 / 4;
 }
 
 .result-info {

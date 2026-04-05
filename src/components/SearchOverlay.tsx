@@ -10,7 +10,7 @@ import { BreadcrumbBar } from './BreadcrumbBar';
 import { ResultList } from './ResultList';
 import { NoVaultScreen } from './NoVaultScreen';
 import { SettingsPanel } from './SettingsPanel';
-import { StickyFooter } from './StickyFooter';
+import { StickyFooter, StickyFooterHandle } from './StickyFooter';
 import { PathResultsList } from './PathResultsList';
 import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
@@ -55,6 +55,7 @@ export const SearchOverlay: React.FC = () => {
   // Save preset modal
   const [showSaveModal, setShowSaveModal] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const footerRef = useRef<StickyFooterHandle>(null);
 
   // Autocomplete suggestion state
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
@@ -637,6 +638,13 @@ export const SearchOverlay: React.FC = () => {
         return;
       }
 
+      // Ctrl+S / Cmd+S: export XLSX
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        footerRef.current?.triggerExport();
+        return;
+      }
+
       // When save modal is open, block all other keyboard handling
       if (showSaveModal) return;
 
@@ -883,6 +891,7 @@ export const SearchOverlay: React.FC = () => {
       )}
       {hasSearched && aggregates.totalRecords > 0 && (
         <StickyFooter
+          ref={footerRef}
           stats={aggregates}
           filters={buildSearchFilters(query, filters, folderScope, fileScope)}
           onWindowlize={!isWindowlized ? handleWindowlize : undefined}
