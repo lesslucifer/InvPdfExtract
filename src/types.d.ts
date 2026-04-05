@@ -1,3 +1,8 @@
+declare module 'fast-dice-coefficient' {
+  function dice(fst: string, snd: string): number;
+  export = dice;
+}
+
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 

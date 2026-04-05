@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from './shared/types';
+import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus } from './shared/types';
 
 const api: InvoiceVaultAPI = {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => ipcRenderer.invoke('search', query, offset ?? 0, folder ?? null, filePath ?? null),
@@ -62,6 +62,13 @@ const api: InvoiceVaultAPI = {
     ipcRenderer.on('file-status-changed', listener);
     return () => ipcRenderer.removeListener('file-status-changed', listener);
   },
+  // Journal entries
+  getJournalEntries: (recordId: string) => ipcRenderer.invoke('get-journal-entries', recordId),
+  saveJournalEntry: (input: JournalEntryInput) => ipcRenderer.invoke('save-journal-entry', input),
+  deleteJournalEntry: (id: string) => ipcRenderer.invoke('delete-journal-entry', id),
+  generateJournalEntries: (recordId: string) => ipcRenderer.invoke('generate-journal-entries', recordId),
+  getJEInstructions: () => ipcRenderer.invoke('get-je-instructions'),
+  saveJEInstructions: (content: string) => ipcRenderer.invoke('save-je-instructions', content),
 };
 
 contextBridge.exposeInMainWorld('api', api);

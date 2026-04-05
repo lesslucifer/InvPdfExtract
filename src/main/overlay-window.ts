@@ -12,7 +12,12 @@ import {
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
 import { listPresets, savePreset, deletePreset } from '../core/db/presets';
-import { FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
+import {
+  getJournalEntriesByRecord, insertJournalEntry, updateJournalEntry,
+  deleteJournalEntry as dbDeleteJE, findExistingEntry,
+} from '../core/db/journal-entries';
+import { readInstructions, writeInstructions } from '../core/je-instructions';
+import { FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault, clearVaultData } from '../core/vault';
 import { eventBus } from '../core/event-bus';
@@ -31,6 +36,9 @@ export interface OverlayCallbacks {
   onCancelQueueItem: (fileId: string) => boolean;
   onClearPendingQueue: () => number;
   onQuit: () => Promise<void>;
+  onGenerateJE: (recordId: string) => Promise<number>;
+  onGenerateJEForFile: (fileId: string) => Promise<number>;
+  getVaultRoot: () => string | null;
 }
 
 const OVERLAY_WIDTH = 700;
@@ -698,6 +706,83 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Overlay] export-filtered failed:', err);
         return { filePath: null };
+      }
+    });
+
+    // === Journal Entries ===
+
+    ipcMain.handle('get-journal-entries', async (_event, recordId: string) => {
+      try {
+        return getJournalEntriesByRecord(recordId);
+      } catch (err) {
+        console.error('[JournalEntry] Get entries failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('save-journal-entry', async (_event, input: JournalEntryInput) => {
+      try {
+        const existing = findExistingEntry(input.recordId, input.lineItemId ?? null, input.entryType);
+        if (existing) {
+          updateJournalEntry(existing.id, input.tkNo, input.tkCo, input.amount ?? null, input.cashFlow ?? null);
+          const db = getDatabase();
+          const updated = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(existing.id);
+          eventBus.emit('je:updated', { recordId: input.recordId });
+          return updated;
+        }
+        const entry = insertJournalEntry(
+          input.recordId, input.lineItemId ?? null, input.entryType,
+          input.tkNo, input.tkCo, input.amount ?? null, input.cashFlow ?? null,
+          'user', null, null,
+        );
+        eventBus.emit('je:updated', { recordId: input.recordId });
+        return entry;
+      } catch (err) {
+        console.error('[JournalEntry] Save entry failed:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('delete-journal-entry', async (_event, id: string) => {
+      try {
+        dbDeleteJE(id);
+      } catch (err) {
+        console.error('[JournalEntry] Delete entry failed:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('generate-journal-entries', async (_event, recordId: string) => {
+      try {
+        if (!this.callbacks) return { count: 0 };
+        const count = await this.callbacks.onGenerateJE(recordId);
+        return { count };
+      } catch (err) {
+        console.error('[JournalEntry] Generate entries failed:', err);
+        return { count: 0 };
+      }
+    });
+
+    ipcMain.handle('get-je-instructions', async () => {
+      try {
+        const root = this.callbacks?.getVaultRoot();
+        if (!root) return '';
+        return readInstructions(root);
+      } catch (err) {
+        console.error('[JournalEntry] Get instructions failed:', err);
+        return '';
+      }
+    });
+
+    ipcMain.handle('save-je-instructions', async (_event, content: string) => {
+      try {
+        const root = this.callbacks?.getVaultRoot();
+        if (!root) return;
+        writeInstructions(root, content);
+        eventBus.emit('je:instructions-changed', {} as never);
+      } catch (err) {
+        console.error('[JournalEntry] Save instructions failed:', err);
+        throw err;
       }
     });
   }

@@ -20,6 +20,9 @@ function createMockCallbacks(overrides?: Partial<OverlayCallbacks>): OverlayCall
     onCancelQueueItem: vi.fn().mockReturnValue(true),
     onClearPendingQueue: vi.fn().mockReturnValue(2),
     onQuit: vi.fn().mockResolvedValue(undefined),
+    onGenerateJE: vi.fn().mockResolvedValue(0),
+    onGenerateJEForFile: vi.fn().mockResolvedValue(0),
+    getVaultRoot: vi.fn().mockReturnValue(null),
     ...overrides,
   };
 }

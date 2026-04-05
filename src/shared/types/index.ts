@@ -410,6 +410,47 @@ export interface PresetFilters {
   fileScope: string | null;
 }
 
+// === Journal Entry Types ===
+
+export type JEEntryType = 'line' | 'tax' | 'total' | 'bank';
+export type JESource = 'similarity' | 'ai' | 'user';
+export type CashFlowType = 'operating' | 'investing' | 'financing';
+
+export interface JournalEntry {
+  id: string;
+  record_id: string;
+  line_item_id: string | null;
+  entry_type: JEEntryType;
+  tk_no: string | null;
+  tk_co: string | null;
+  amount: number | null;
+  cash_flow: CashFlowType | null;
+  source: JESource;
+  similarity_score: number | null;
+  matched_description: string | null;
+  user_edited: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JournalEntryInput {
+  recordId: string;
+  lineItemId?: string;
+  entryType: JEEntryType;
+  tkNo: string;
+  tkCo: string;
+  amount?: number;
+  cashFlow?: CashFlowType;
+}
+
+export interface JEClassificationResult {
+  lineItemId?: string;
+  entryType: JEEntryType;
+  tkNo: string;
+  tkCo: string;
+  cashFlow?: CashFlowType;
+}
+
 // === Preload API ===
 
 export interface InvoiceVaultAPI {
@@ -461,6 +502,13 @@ export interface InvoiceVaultAPI {
   listPresets: () => Promise<FilterPreset[]>;
   savePreset: (name: string, filtersJson: string) => Promise<FilterPreset>;
   deletePreset: (id: string) => Promise<void>;
+  // Journal entries
+  getJournalEntries: (recordId: string) => Promise<JournalEntry[]>;
+  saveJournalEntry: (input: JournalEntryInput) => Promise<JournalEntry>;
+  deleteJournalEntry: (id: string) => Promise<void>;
+  generateJournalEntries: (recordId: string) => Promise<{ count: number }>;
+  getJEInstructions: () => Promise<string>;
+  saveJEInstructions: (content: string) => Promise<void>;
 }
 
 // === Event Types ===
@@ -476,4 +524,7 @@ export interface AppEvents {
   'conflicts:detected': { fileId: string; conflictCount: number };
   'vault:initialized': { path: string };
   'vault:opened': { path: string };
+  'je:generated': { recordId: string; count: number; source: JESource };
+  'je:updated': { recordId: string };
+  'je:instructions-changed': Record<string, never>;
 }

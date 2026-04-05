@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo } from '../shared/types';
+import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo, JournalEntry } from '../shared/types';
 import { EditableField } from './EditableField';
 import { EditableCell } from './EditableCell';
 import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
@@ -17,6 +17,8 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     tong_tien: result.tong_tien,
     tong_tien_truoc_thue: result.tong_tien_truoc_thue,
   });
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [jeLoading, setJeLoading] = useState(false);
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
 
@@ -38,6 +40,10 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     window.api.getLineItemOverrides(ids).then(setLineItemOverrides);
   }, []);
 
+  const loadJournalEntries = useCallback(() => {
+    window.api.getJournalEntries(result.id).then(setJournalEntries);
+  }, [result.id]);
+
   useEffect(() => {
     if (isInvoice) {
       window.api.getLineItems(result.id).then((items) => {
@@ -46,7 +52,8 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
       });
     }
     loadOverrides();
-  }, [result.id, isInvoice, loadOverrides, loadLineItemOverrides]);
+    loadJournalEntries();
+  }, [result.id, isInvoice, loadOverrides, loadLineItemOverrides, loadJournalEntries]);
 
   const getOverride = (fieldName: string): FieldOverrideInfo | undefined => {
     return overrides.find(o => o.field_name === fieldName);
@@ -131,6 +138,43 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     }
   };
 
+  const handleGenerateJE = async () => {
+    setJeLoading(true);
+    try {
+      await window.api.generateJournalEntries(result.id);
+      loadJournalEntries();
+    } finally {
+      setJeLoading(false);
+    }
+  };
+
+  const handleSaveJE = async (jeId: string, field: 'tk_no' | 'tk_co' | 'cash_flow', value: string) => {
+    const je = journalEntries.find(e => e.id === jeId);
+    if (!je) return;
+    await window.api.saveJournalEntry({
+      recordId: je.record_id,
+      lineItemId: je.line_item_id ?? undefined,
+      entryType: je.entry_type,
+      tkNo: field === 'tk_no' ? value : (je.tk_no ?? ''),
+      tkCo: field === 'tk_co' ? value : (je.tk_co ?? ''),
+      amount: je.amount ?? undefined,
+      cashFlow: field === 'cash_flow' ? value as any : (je.cash_flow ?? undefined),
+    });
+    loadJournalEntries();
+  };
+
+  const handleDeleteJE = async (id: string) => {
+    await window.api.deleteJournalEntry(id);
+    loadJournalEntries();
+  };
+
+  const formatSourceBadge = (je: JournalEntry) => {
+    if (je.source === 'similarity' && je.similarity_score != null) {
+      return `~${Math.round(je.similarity_score * 100)}%`;
+    }
+    return je.source;
+  };
+
   return (
     <div className="result-detail">
       {hasConflicts && (
@@ -207,6 +251,54 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
           )}
         </>
       )}
+
+      {/* Journal Entries — shown for all doc types */}
+      <div className="journal-entries">
+        <div className="je-header">
+          <span className="je-title">But toan No/Co</span>
+          <button
+            className="je-generate-btn"
+            disabled={jeLoading}
+            onClick={handleGenerateJE}
+          >
+            {jeLoading ? 'Dang xu ly...' : 'Phan loai'}
+          </button>
+        </div>
+        {journalEntries.length > 0 && (
+          <table className="je-table">
+            <thead>
+              <tr>
+                <th>Loai</th>
+                <th>TK No</th>
+                <th>TK Co</th>
+                <th>So tien</th>
+                <th>D.tien</th>
+                <th>Nguon</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {journalEntries.map((je) => (
+                <tr key={je.id} className={`je-row je-source-${je.source}`}>
+                  <td className="je-type">{je.entry_type}</td>
+                  <td className="je-editable" onClick={() => {
+                    const val = prompt('TK No:', je.tk_no ?? '');
+                    if (val != null) handleSaveJE(je.id, 'tk_no', val);
+                  }}>{je.tk_no ?? '-'}</td>
+                  <td className="je-editable" onClick={() => {
+                    const val = prompt('TK Co:', je.tk_co ?? '');
+                    if (val != null) handleSaveJE(je.id, 'tk_co', val);
+                  }}>{je.tk_co ?? '-'}</td>
+                  <td className="je-amount">{je.amount != null ? je.amount.toLocaleString() : '-'}</td>
+                  <td className="je-cashflow">{je.cash_flow ?? '-'}</td>
+                  <td><span className={`je-source-badge je-badge-${je.source}`}>{formatSourceBadge(je)}</span></td>
+                  <td><button className="je-delete-btn" onClick={() => handleDeleteJE(je.id)}>&times;</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
     </div>
   );
