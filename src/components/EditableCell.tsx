@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FieldOverrideInfo, OverrideStatus } from '../shared/types';
-import { QuickFixButton } from './QuickFixButton';
 
 interface Props {
   value: string;
@@ -8,13 +7,14 @@ interface Props {
   lineItemId: string;
   override?: FieldOverrideInfo;
   inputType?: 'text' | 'number';
-  quickFix?: { suggestedValue: number; label: string; onApply: (value: string) => void } | null;
+  derivedValue?: number | null;
+  showMismatchIcon?: boolean;
   onSave: (lineItemId: string, fieldName: string, value: string) => void;
   onResolve?: (lineItemId: string, fieldName: string, action: 'keep' | 'accept') => void;
 }
 
 export const EditableCell: React.FC<Props> = ({
-  value, fieldName, lineItemId, override, inputType = 'text', quickFix, onSave, onResolve,
+  value, fieldName, lineItemId, override, inputType = 'text', derivedValue, showMismatchIcon = false, onSave, onResolve,
 }) => {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -45,10 +45,21 @@ export const EditableCell: React.FC<Props> = ({
     }
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    if ((e.metaKey || e.ctrlKey) && derivedValue != null) {
+      e.preventDefault();
+      onSave(lineItemId, fieldName, String(derivedValue));
+      return;
+    }
+    setEditValue(value);
+    setEditing(true);
+  };
+
   const statusIcon = isConflict ? '⚠️' : isLocked ? '🔒' : null;
+  const hasDerived = derivedValue != null;
 
   return (
-    <td className={`editable-cell ${isConflict ? 'cell-conflict' : ''}`}>
+    <td className={`editable-cell ${isConflict ? 'cell-conflict' : ''} ${showMismatchIcon ? 'cell-mismatch' : ''}`}>
       {editing ? (
         <input
           ref={inputRef}
@@ -60,10 +71,10 @@ export const EditableCell: React.FC<Props> = ({
           onBlur={handleSave}
         />
       ) : (
-        <span className="cell-display" onClick={() => { setEditValue(value); setEditing(true); }}>
+        <span className="cell-display" onClick={handleClick} title={hasDerived ? `\u2318+click → ${derivedValue}` : undefined}>
           {statusIcon && <span className="cell-status-icon" title={isConflict ? 'Conflict' : 'Locked'}>{statusIcon}</span>}
+          {showMismatchIcon && <span className="cell-mismatch-icon">!</span>}
           {value || '-'}
-          {quickFix && <QuickFixButton suggestedValue={quickFix.suggestedValue} label={quickFix.label} onApply={quickFix.onApply} />}
         </span>
       )}
       {isConflict && !editing && onResolve && (

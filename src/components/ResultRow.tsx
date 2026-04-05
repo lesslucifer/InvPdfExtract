@@ -102,9 +102,13 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           </div>
         </div>
         <div className="result-right">
-          {amount > 0 && <span className="result-amount">{formatAmount(amount)}</span>}
-          {!isBank && result.line_item_sum != null && result.tong_tien > 0 && result.line_item_sum !== result.tong_tien && (
-            <span className="mismatch-badge" title={`Sum of items: ${formatAmount(result.line_item_sum)}`}>!</span>
+          {amount > 0 && (
+            <span className="result-amount">
+              {formatAmount(amount)}
+              {!isBank && result.line_item_sum != null && result.tong_tien > 0 && Math.abs(result.line_item_sum - result.tong_tien) > 1 && (
+                <span className="mismatch-badge" title={`Sum of items: ${formatAmount(result.line_item_sum)}`}>!</span>
+              )}
+            </span>
           )}
           <span className={`result-confidence ${confidenceClass(result.confidence)}`}>
             {Math.round(result.confidence * 100)}%
