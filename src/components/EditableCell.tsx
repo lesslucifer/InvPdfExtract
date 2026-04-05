@@ -55,7 +55,7 @@ export const EditableCell: React.FC<Props> = ({
     setEditing(true);
   };
 
-  const statusIcon = isConflict ? '⚠️' : isLocked ? '���' : null;
+  const statusIcon = isConflict ? '⚠️' : isLocked ? '🔒' : null;
   const hasDerived = derivedValue != null;
 
   return (

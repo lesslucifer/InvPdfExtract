@@ -496,11 +496,11 @@ export const SearchOverlay: React.FC = () => {
   }, [fileScope, folderScope]);
 
   const handleFieldUpdated = useCallback(() => {
-    if (query.trim() || folderScope || fileScope || filters.docType || filters.status ||
-        filters.amountMin != null || filters.amountMax != null || filters.dateFilter) {
-      doSearch(query, filters, folderScope, false, fileScope);
-    }
-  }, [query, folderScope, fileScope, filters, doSearch]);
+    // No-op: detail component reloads its own data after saves.
+    // We intentionally don't re-search here — re-searching would remove
+    // rows that no longer match filters (e.g. a fixed mismatch row
+    // disappearing from status:mismatch results).
+  }, []);
 
   const handleVaultCreated = useCallback(() => {
     goTo(OverlayState.Home);
