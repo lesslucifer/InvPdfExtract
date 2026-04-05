@@ -1302,7 +1302,7 @@ body {
 .cheatsheet-group-label {
   font-size: 10px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   min-width: 48px;
@@ -1321,18 +1321,131 @@ body {
 
 .cheatsheet-note {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .cheatsheet-note code {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .cheatsheet-hint {
   margin-top: 8px;
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-style: italic;
+}
+
+/* Cheatsheet — Quick Start */
+.cheatsheet-quickstart {
+  display: flex;
+  gap: 12px;
+  padding: 10px 16px;
+  justify-content: center;
+}
+
+.cheatsheet-quickstart-item {
+  font-size: 11px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cheatsheet-quickstart-item kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+/* Cheatsheet — Keyboard Shortcuts */
+.cheatsheet-shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cheatsheet-shortcut-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.cheatsheet-shortcut-row kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* Cheatsheet — Click Actions */
+.cheatsheet-click-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cheatsheet-click-group {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  align-items: baseline;
+}
+
+.cheatsheet-click-modifier {
+  flex-shrink: 0;
+  min-width: 72px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.cheatsheet-click-modifier kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.cheatsheet-click-desc {
+  color: var(--text-primary);
+}
+
+.cheatsheet-click-desc em {
+  color: var(--text-secondary);
+  font-style: normal;
 }
 
 /* === Processing Status Panel === */

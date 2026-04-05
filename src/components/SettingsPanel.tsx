@@ -191,37 +191,6 @@ export const SettingsPanel: React.FC<Props> = ({ onBack, onVaultChanged }) => {
       <div className="settings-divider" />
 
       <div className="settings-section">
-        <div className="settings-section-label">Search Filters</div>
-        <div className="cheatsheet-compact">
-          <div className="cheatsheet-group">
-            <span className="cheatsheet-group-label">Type</span>
-            <code>type:bank</code> <code>type:out</code> <code>type:in</code>
-          </div>
-          <div className="cheatsheet-group">
-            <span className="cheatsheet-group-label">Amount</span>
-            <code>&gt;5tr</code> <code>&lt;100k</code> <code>5tr-10tr</code>
-            <span className="cheatsheet-note">k=1K &middot; tr/m=1M &middot; t/b=1B</span>
-          </div>
-          <div className="cheatsheet-group">
-            <span className="cheatsheet-group-label">Date</span>
-            <code>2024-03</code> <code>2024-03-15</code>
-          </div>
-          <div className="cheatsheet-group">
-            <span className="cheatsheet-group-label">Status</span>
-            <code>status:conflict</code> <code>status:review</code>
-          </div>
-          <div className="cheatsheet-group">
-            <span className="cheatsheet-group-label">Sort</span>
-            <code>sort:date</code> <code>sort:amount</code> <code>sort:path</code> <code>sort:confidence</code>
-            <span className="cheatsheet-note">Add <code>-asc</code> or <code>-desc</code> for direction</span>
-          </div>
-        </div>
-        <div className="cheatsheet-hint">Type a filter followed by Space to activate it as a pill.</div>
-      </div>
-
-      <div className="settings-divider" />
-
-      <div className="settings-section">
         <button className="settings-action-btn settings-danger" onClick={handleQuit}>
           Quit InvoiceVault
         </button>

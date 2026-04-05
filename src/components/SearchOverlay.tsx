@@ -10,6 +10,7 @@ import { BreadcrumbBar } from './BreadcrumbBar';
 import { ResultList } from './ResultList';
 import { NoVaultScreen } from './NoVaultScreen';
 import { SettingsPanel } from './SettingsPanel';
+import { CheatsheetPanel } from './CheatsheetPanel';
 import { StickyFooter, StickyFooterHandle } from './StickyFooter';
 import { PathResultsList } from './PathResultsList';
 import { ProcessingStatusPanel } from './ProcessingStatusPanel';
@@ -609,6 +610,14 @@ export const SearchOverlay: React.FC = () => {
     goTo(OverlayState.Settings);
   }, [goTo]);
 
+  const handleCheatsheetClick = useCallback(() => {
+    goTo(OverlayState.Cheatsheet);
+  }, [goTo]);
+
+  const handleCheatsheetBack = useCallback(() => {
+    goTo(previousState === OverlayState.Cheatsheet ? OverlayState.Home : previousState);
+  }, [goTo, previousState]);
+
   const handleStatusDotClick = useCallback(() => {
     goTo(OverlayState.ProcessingStatus);
   }, [goTo]);
@@ -751,6 +760,8 @@ export const SearchOverlay: React.FC = () => {
             setFilters({ text: '' });
           } else if (overlayState === OverlayState.Settings) {
             handleSettingsBack();
+          } else if (overlayState === OverlayState.Cheatsheet) {
+            handleCheatsheetBack();
           } else if (overlayState === OverlayState.ProcessingStatus) {
             handleProcessingStatusBack();
           } else if (expandedId) {
@@ -824,6 +835,15 @@ export const SearchOverlay: React.FC = () => {
       <div className={overlayClassName}>
         {titleBar}
         <SettingsPanel onBack={handleSettingsBack} onVaultChanged={handleVaultChanged} />
+      </div>
+    );
+  }
+
+  if (overlayState === OverlayState.Cheatsheet) {
+    return (
+      <div className={overlayClassName}>
+        {titleBar}
+        <CheatsheetPanel onBack={handleCheatsheetBack} />
       </div>
     );
   }
@@ -935,6 +955,7 @@ export const SearchOverlay: React.FC = () => {
           stats={aggregates}
           filters={buildSearchFilters(query, filters, folderScope, fileScope)}
           onWindowlize={!isWindowlized ? handleWindowlize : undefined}
+          onCheatsheetClick={!isWindowlized ? handleCheatsheetClick : undefined}
           onSettingsClick={!isWindowlized ? handleGearClick : undefined}
         />
       )}

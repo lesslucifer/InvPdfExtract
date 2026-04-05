@@ -32,6 +32,7 @@ import {
   type LucideIcon,
   CircleAlert,
   FingerprintPattern,
+  CircleHelp,
 } from 'lucide-react';
 
 export const ICON_SIZE = {
@@ -80,7 +81,8 @@ export const Icons = {
   chevronRight: ChevronRight,
   download: Download,
   mismatch: CircleAlert,
-  fingerprint: FingerprintPattern
+  fingerprint: FingerprintPattern,
+  circleHelp: CircleHelp,
 } as const;
 
 export type IconName = keyof typeof Icons;
