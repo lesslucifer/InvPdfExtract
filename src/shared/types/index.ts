@@ -1,4 +1,4 @@
-import type { SortField, SortDirection } from '../parse-query';
+import type { SortField, SortDirection, ParsedQuery } from '../parse-query';
 
 // === Enums ===
 
@@ -46,6 +46,7 @@ export enum OverlayState {
   Home = 'home',
   Search = 'search',
   PathSearch = 'path-search',
+  PresetSearch = 'preset-search',
   Settings = 'settings',
   ProcessingStatus = 'processing-status',
 }
@@ -391,6 +392,22 @@ export interface FieldOverrideInfo {
   ai_value_latest: string | null;
 }
 
+// === Filter Presets ===
+
+export interface FilterPreset {
+  id: string;
+  name: string;
+  filtersJson: string; // JSON of PresetFilters
+  createdAt: string;
+}
+
+export interface PresetFilters {
+  query: string;
+  filters: ParsedQuery;
+  folderScope: string | null;
+  fileScope: string | null;
+}
+
 // === Preload API ===
 
 export interface InvoiceVaultAPI {
@@ -438,6 +455,10 @@ export interface InvoiceVaultAPI {
   // Queue cancellation
   cancelQueueItem: (fileId: string) => Promise<{ success: boolean }>;
   clearPendingQueue: () => Promise<{ count: number }>;
+  // Filter presets
+  listPresets: () => Promise<FilterPreset[]>;
+  savePreset: (name: string, filtersJson: string) => Promise<FilterPreset>;
+  deletePreset: (id: string) => Promise<void>;
 }
 
 // === Event Types ===

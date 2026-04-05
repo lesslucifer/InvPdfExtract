@@ -1748,6 +1748,183 @@ body {
   color: var(--text-muted);
 }
 
+/* === Filter Presets === */
+
+.preset-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  max-height: 340px;
+}
+
+.preset-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.preset-item.selected,
+.preset-item:hover {
+  background: var(--bg-hover);
+}
+
+.preset-item__line1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preset-item__star {
+  color: var(--accent);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.preset-item__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-item__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.preset-item:hover .preset-item__delete {
+  opacity: 0.6;
+}
+
+.preset-item__delete:hover {
+  opacity: 1 !important;
+  background: var(--confidence-low);
+  color: white;
+}
+
+.preset-item__line2 {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-left: 22px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-list-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Save Preset Modal */
+
+.save-preset-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.save-preset-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  width: 320px;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+
+.save-preset-modal__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.save-preset-modal__input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.save-preset-modal__input:focus {
+  border-color: var(--accent);
+}
+
+.save-preset-modal__input::placeholder {
+  color: var(--text-muted);
+}
+
+.save-preset-modal__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.save-preset-modal__cancel,
+.save-preset-modal__save {
+  padding: 6px 14px;
+  font-size: 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.save-preset-modal__cancel {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.save-preset-modal__cancel:hover {
+  background: var(--border);
+}
+
+.save-preset-modal__save {
+  background: var(--accent);
+  color: white;
+}
+
+.save-preset-modal__save:hover {
+  opacity: 0.9;
+}
+
+.save-preset-modal__save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* === Mismatch & Quick-Fix === */
 
 .mismatch-badge {

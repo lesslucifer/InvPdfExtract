@@ -11,6 +11,7 @@ import {
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
+import { listPresets, savePreset, deletePreset } from '../core/db/presets';
 import { FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault, clearVaultData } from '../core/vault';
@@ -647,6 +648,35 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Overlay] get-folder-statuses failed:', err);
         return {};
+      }
+    });
+
+    ipcMain.handle('list-presets', async () => {
+      try {
+        const rows = listPresets();
+        return rows.map(r => ({ id: r.id, name: r.name, filtersJson: r.filters_json, createdAt: r.created_at }));
+      } catch (err) {
+        console.error('[Overlay] list-presets failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('save-preset', async (_event, name: string, filtersJson: string) => {
+      try {
+        const row = savePreset(name, filtersJson);
+        return { id: row.id, name: row.name, filtersJson: row.filters_json, createdAt: row.created_at };
+      } catch (err) {
+        console.error('[Overlay] save-preset failed:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('delete-preset', async (_event, id: string) => {
+      try {
+        deletePreset(id);
+      } catch (err) {
+        console.error('[Overlay] delete-preset failed:', err);
+        throw err;
       }
     });
 
