@@ -13,6 +13,9 @@ import { SettingsPanel } from './SettingsPanel';
 import { StickyFooter } from './StickyFooter';
 import { PathResultsList } from './PathResultsList';
 import { ProcessingStatusPanel } from './ProcessingStatusPanel';
+import { PresetList } from './PresetList';
+import { SavePresetModal } from './SavePresetModal';
+import { mergePresetState } from '../shared/merge-preset';
 
 const DEBOUNCE_MS = 200;
 const PAGE_SIZE = 50;
@@ -46,6 +49,11 @@ export const SearchOverlay: React.FC = () => {
   const [pathQuery, setPathQuery] = useState('');
   // Track the state before PathSearch was entered so Backspace-to-empty can restore it
   const prePathStateRef = useRef<OverlayState>(OverlayState.Home);
+  // PresetSearch state — the text after the leading '#'
+  const [presetQuery, setPresetQuery] = useState('');
+  const prePresetStateRef = useRef<OverlayState>(OverlayState.Home);
+  // Save preset modal
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Autocomplete suggestion state
@@ -244,6 +252,34 @@ export const SearchOverlay: React.FC = () => {
   }, [query]);
 
   const handleQueryChangeInner = useCallback((value: string) => {
+    // PresetSearch: first char is '#'
+    if (value.startsWith('#') && overlayState !== OverlayState.PresetSearch) {
+      prePresetStateRef.current = overlayState;
+      setOverlayState(OverlayState.PresetSearch);
+      setPresetQuery(value.slice(1));
+      setQuery(value);
+      setSuggestions([]);
+      return;
+    }
+
+    // Already in PresetSearch mode — update presetQuery
+    if (overlayState === OverlayState.PresetSearch) {
+      if (!value) {
+        setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
+          ? OverlayState.Home : prePresetStateRef.current);
+        setQuery('');
+        setPresetQuery('');
+      } else if (!value.startsWith('#')) {
+        setOverlayState(OverlayState.Home);
+        setQuery(value);
+        setPresetQuery('');
+      } else {
+        setPresetQuery(value.slice(1));
+        setQuery(value);
+      }
+      return;
+    }
+
     // PathSearch: first char is '/' or '\'
     if ((value.startsWith('/') || value.startsWith('\\')) &&
         overlayState !== OverlayState.PathSearch) {
@@ -542,9 +578,68 @@ export const SearchOverlay: React.FC = () => {
     goTo(previousState === OverlayState.ProcessingStatus ? OverlayState.Home : previousState);
   }, [goTo, previousState]);
 
+  // Preset handlers
+  const handleLoadPreset = useCallback((filtersJson: string) => {
+    try {
+      // Strip the '#...' query — merge uses the real query before PresetSearch was entered
+      const cleanQuery = query.startsWith('#') ? '' : query;
+      const result = mergePresetState(
+        { currentQuery: cleanQuery, currentFilters: filters, currentFolderScope: folderScope, currentFileScope: fileScope },
+        filtersJson,
+      );
+
+      setQuery(result.query);
+      setFilters(result.filters);
+      setFolderScope(result.folderScope);
+      setFileScope(result.fileScope);
+      setOverlayState(OverlayState.Search);
+      setPresetQuery('');
+      doSearch(result.query, result.filters, result.folderScope, false, result.fileScope);
+    } catch { /* ignore parse errors */ }
+  }, [query, filters, folderScope, fileScope, doSearch]);
+
+  const handleDeletePreset = useCallback(async (id: string) => {
+    await window.api.deletePreset(id);
+  }, []);
+
+  const handleWindowlizePreset = useCallback((filtersJson: string) => {
+    try {
+      const state = JSON.parse(filtersJson);
+      const serialized = JSON.stringify({
+        query: state.query || '',
+        filters: state.filters || { text: '' },
+        folderScope: state.folderScope || null,
+        fileScope: state.fileScope || null,
+        overlayState: OverlayState.Search,
+      });
+      window.api.windowlize(serialized);
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleSavePreset = useCallback(async (name: string) => {
+    const filtersJson = JSON.stringify({ query, filters, folderScope, fileScope });
+    await window.api.savePreset(name, filtersJson);
+    setShowSaveModal(false);
+  }, [query, filters, folderScope, fileScope]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+D / Cmd+D: save preset
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        if (showSaveModal) return;
+        const hasActive = query.trim() || folderScope || fileScope || filters.docType || filters.status ||
+          filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
+        if (hasActive) {
+          setShowSaveModal(true);
+        }
+        return;
+      }
+
+      // When save modal is open, block all other keyboard handling
+      if (showSaveModal) return;
+
       // When suggestions are visible, they capture navigation keys
       if (suggestions.length > 0) {
         switch (e.key) {
@@ -573,7 +668,7 @@ export const SearchOverlay: React.FC = () => {
 
       switch (e.key) {
         case 'ArrowDown':
-          // PathResultsList manages its own keyboard nav via its own event listener
+          // PathResultsList and PresetList manage their own keyboard nav
           if (overlayState === OverlayState.Search || overlayState === OverlayState.Home) {
             e.preventDefault();
             setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
@@ -594,7 +689,13 @@ export const SearchOverlay: React.FC = () => {
         case 'Escape':
           e.preventDefault();
           // Escape cascade
-          if (overlayState === OverlayState.PathSearch) {
+          if (overlayState === OverlayState.PresetSearch) {
+            // PresetSearch Esc → back to previous state
+            setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
+              ? OverlayState.Home : prePresetStateRef.current);
+            setQuery('');
+            setPresetQuery('');
+          } else if (overlayState === OverlayState.PathSearch) {
             // PathSearch Esc → full reset to Home
             setOverlayState(OverlayState.Home);
             setQuery('');
@@ -635,7 +736,7 @@ export const SearchOverlay: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
       folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isWindowlized,
-      suggestions, suggestionIndex, handleSuggestionAccept]);
+      suggestions, suggestionIndex, handleSuggestionAccept, showSaveModal]);
 
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&
@@ -709,6 +810,23 @@ export const SearchOverlay: React.FC = () => {
     );
   }
 
+  // PresetSearch mode
+  if (overlayState === OverlayState.PresetSearch) {
+    return (
+      <div className={overlayClassName}>
+        {titleBar}
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
+        <PresetList
+          query={presetQuery}
+          onLoadPreset={handleLoadPreset}
+          onDeletePreset={handleDeletePreset}
+          onWindowlizePreset={handleWindowlizePreset}
+        />
+        <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => setShowSaveModal(false)} />
+      </div>
+    );
+  }
+
   // Compute which suggestion chips to show: active suggestions or empty-input hints
   const visibleSuggestions = suggestions.length > 0
     ? suggestions
@@ -769,6 +887,7 @@ export const SearchOverlay: React.FC = () => {
           onWindowlize={!isWindowlized ? handleWindowlize : undefined}
         />
       )}
+      <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => setShowSaveModal(false)} />
     </div>
   );
 };
