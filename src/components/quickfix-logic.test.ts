@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeTotalMismatch, computeLineItemMismatch, getMismatchedLineItems, computeTaxRateMismatch, getItemsWithBadTaxRate, computeAfterTaxMismatch, deriveFieldValue, computeFixAllPlan } from './quickfix-logic';
+import { computeTotalMismatch, computeLineItemMismatch, getMismatchedLineItems, computeTaxRateMismatch, getItemsWithBadTaxRate, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
 import { InvoiceLineItem } from '../shared/types';
 
 describe('computeTotalMismatch', () => {
@@ -226,7 +226,7 @@ describe('getItemsWithBadTaxRate', () => {
   });
 });
 
-// === New tests for deriveFieldValue and computeFixAllPlan ===
+// === Tests for deriveFieldValue ===
 
 const makeFullItem = (overrides: Partial<InvoiceLineItem> = {}): InvoiceLineItem => ({
   id: 'item1',
@@ -305,107 +305,3 @@ describe('deriveFieldValue', () => {
   });
 });
 
-describe('computeFixAllPlan', () => {
-  it('case 1: before_tax mismatch → fix before_tax, after_tax, and total', () => {
-    const items = [
-      makeFullItem({
-        id: 'a',
-        don_gia: 100,
-        so_luong: 5,
-        thue_suat: 10,
-        thanh_tien_truoc_thue: 600,  // wrong (should be 500)
-        thanh_tien: 660,             // wrong (should be 550)
-      }),
-    ];
-    const plan = computeFixAllPlan(items, 660, 600);
-    expect(plan).not.toBeNull();
-    expect(plan!.steps).toContainEqual('before tax = qty × price');
-    expect(plan!.steps).toContainEqual('after tax = before tax × (1 + tax%)');
-    expect(plan!.steps).toContainEqual('total = sum of after tax');
-    expect(plan!.previewTotal).toBe(550);
-    expect(plan!.previewTotalBeforeTax).toBe(500);
-    expect(plan!.updates).toContainEqual({ lineItemId: 'a', fieldName: 'thanh_tien_truoc_thue', value: 500 });
-    expect(plan!.updates).toContainEqual({ lineItemId: 'a', fieldName: 'thanh_tien', value: 550 });
-  });
-
-  it('case 2: after_tax mismatch only → fix after_tax and total', () => {
-    const items = [
-      makeFullItem({
-        id: 'b',
-        don_gia: 100,
-        so_luong: 5,
-        thue_suat: 10,
-        thanh_tien_truoc_thue: 500,  // correct
-        thanh_tien: 600,             // wrong (should be 550)
-      }),
-    ];
-    const plan = computeFixAllPlan(items, 600, 500);
-    expect(plan).not.toBeNull();
-    expect(plan!.steps).not.toContainEqual('before tax = qty × price');
-    expect(plan!.steps).toContainEqual('after tax = before tax × (1 + tax%)');
-    expect(plan!.previewTotal).toBe(550);
-    expect(plan!.updates).toContainEqual({ lineItemId: 'b', fieldName: 'thanh_tien', value: 550 });
-    // Should NOT update before_tax
-    expect(plan!.updates.find(u => u.fieldName === 'thanh_tien_truoc_thue')).toBeUndefined();
-  });
-
-  it('fixes decimal tax rates along with other issues', () => {
-    const items = [
-      makeFullItem({
-        id: 'c',
-        don_gia: 100,
-        so_luong: 5,
-        thue_suat: 0.1,             // decimal → should become 10
-        thanh_tien_truoc_thue: 500,  // correct
-        thanh_tien: 500,             // wrong (should be 550 after tax fix)
-      }),
-    ];
-    const plan = computeFixAllPlan(items, 500, 500);
-    expect(plan).not.toBeNull();
-    expect(plan!.steps).toContainEqual('tax rate = tax rate × 100');
-    expect(plan!.updates).toContainEqual({ lineItemId: 'c', fieldName: 'thue_suat', value: 10 });
-    expect(plan!.updates).toContainEqual({ lineItemId: 'c', fieldName: 'thanh_tien', value: 550 });
-  });
-
-  it('returns null when everything is correct', () => {
-    const items = [
-      makeFullItem({
-        id: 'd',
-        don_gia: 100,
-        so_luong: 5,
-        thue_suat: 10,
-        thanh_tien_truoc_thue: 500,
-        thanh_tien: 550,
-      }),
-    ];
-    const plan = computeFixAllPlan(items, 550, 500);
-    expect(plan).toBeNull();
-  });
-
-  it('handles multiple items with mixed issues', () => {
-    const items = [
-      makeFullItem({ id: 'a', don_gia: 100, so_luong: 2, thue_suat: 10, thanh_tien_truoc_thue: 300, thanh_tien: 330 }),
-      makeFullItem({ id: 'b', don_gia: 50, so_luong: 4, thue_suat: 10, thanh_tien_truoc_thue: 200, thanh_tien: 220 }),
-    ];
-    const plan = computeFixAllPlan(items, 550, 500);
-    expect(plan).not.toBeNull();
-    // a: before_tax should be 200, after_tax should be 220
-    expect(plan!.updates).toContainEqual({ lineItemId: 'a', fieldName: 'thanh_tien_truoc_thue', value: 200 });
-    expect(plan!.updates).toContainEqual({ lineItemId: 'a', fieldName: 'thanh_tien', value: 220 });
-    // b: before_tax = 200 (correct), after_tax = 220 (correct)
-    expect(plan!.updates.filter(u => u.lineItemId === 'b')).toHaveLength(0);
-    expect(plan!.previewTotal).toBe(440);
-  });
-
-  it('handles total-only mismatch (items correct but total wrong)', () => {
-    const items = [
-      makeFullItem({ id: 'a', don_gia: 100, so_luong: 5, thue_suat: 10, thanh_tien_truoc_thue: 500, thanh_tien: 550 }),
-    ];
-    // Total is wrong (999 instead of 550), but all items are correct
-    const plan = computeFixAllPlan(items, 999, 999);
-    expect(plan).not.toBeNull();
-    expect(plan!.steps).toEqual(['total = sum of after tax']);
-    expect(plan!.previewTotal).toBe(550);
-    expect(plan!.updates).toHaveLength(0); // no line item updates, just total
-  });
-});

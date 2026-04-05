@@ -2,24 +2,31 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo } from '../shared/types';
 import { EditableField } from './EditableField';
 import { EditableCell } from './EditableCell';
-import { computeTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, hasAnyIssues, computeFixAllPlan, deriveFieldValue } from './quickfix-logic';
+import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
 
 interface Props {
   result: SearchResult;
   onFieldUpdated: () => void;
 }
 
-function formatAmount(amount: number): string {
-  if (!amount) return '-';
-  return new Intl.NumberFormat('vi-VN').format(amount);
-}
-
 export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [overrides, setOverrides] = useState<FieldOverrideInfo[]>([]);
   const [lineItemOverrides, setLineItemOverrides] = useState<Record<string, FieldOverrideInfo[]>>({});
+  const [localTotals, setLocalTotals] = useState<{ tong_tien: number; tong_tien_truoc_thue: number }>({
+    tong_tien: result.tong_tien,
+    tong_tien_truoc_thue: result.tong_tien_truoc_thue,
+  });
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
+
+  // Sync local totals when result prop changes (e.g. different record selected)
+  useEffect(() => {
+    setLocalTotals({
+      tong_tien: result.tong_tien,
+      tong_tien_truoc_thue: result.tong_tien_truoc_thue,
+    });
+  }, [result.id, result.tong_tien, result.tong_tien_truoc_thue]);
 
   const loadOverrides = useCallback(() => {
     window.api.getFieldOverrides(result.id).then(setOverrides);
@@ -52,6 +59,11 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
       fieldName,
       userValue,
     });
+    // Update local totals so the display refreshes immediately
+    if (fieldName === 'tong_tien' || fieldName === 'tong_tien_truoc_thue') {
+      const numVal = parseFloat(userValue) || 0;
+      setLocalTotals(prev => ({ ...prev, [fieldName]: numVal }));
+    }
     loadOverrides();
     onFieldUpdated();
   };
@@ -88,18 +100,13 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
   const hasConflicts = overrides.some(o => o.status === 'conflict');
 
   const totalMismatch = useMemo(
-    () => computeTotalMismatch(result.tong_tien, lineItems),
-    [result.tong_tien, lineItems],
+    () => computeTotalMismatch(localTotals.tong_tien, lineItems),
+    [localTotals.tong_tien, lineItems],
   );
 
-  const hasIssues = useMemo(
-    () => hasAnyIssues(lineItems) || totalMismatch.hasMismatch,
-    [lineItems, totalMismatch],
-  );
-
-  const fixPlan = useMemo(
-    () => hasIssues ? computeFixAllPlan(lineItems, result.tong_tien, result.tong_tien_truoc_thue) : null,
-    [lineItems, result.tong_tien, result.tong_tien_truoc_thue, hasIssues],
+  const beforeTaxTotalMismatch = useMemo(
+    () => computeBeforeTaxTotalMismatch(localTotals.tong_tien_truoc_thue, lineItems),
+    [localTotals.tong_tien_truoc_thue, lineItems],
   );
 
   const reloadLineItems = useCallback(() => {
@@ -109,23 +116,19 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     });
   }, [result.id, loadLineItemOverrides]);
 
-  const handleFixAll = async () => {
-    if (!fixPlan) return;
-    for (const { lineItemId, fieldName, value } of fixPlan.updates) {
-      await handleLineItemSave(lineItemId, fieldName, String(value));
+  const hasColumnIssues = useMemo(() => {
+    const beforeTax = lineItems.some(i => deriveFieldValue('thanh_tien_truoc_thue', i) != null);
+    const afterTax = lineItems.some(i => deriveFieldValue('thanh_tien', i) != null);
+    return { beforeTax, afterTax };
+  }, [lineItems]);
+
+  const handleColumnFix = async (fieldName: 'thanh_tien_truoc_thue' | 'thanh_tien') => {
+    for (const item of lineItems) {
+      const derived = deriveFieldValue(fieldName, item);
+      if (derived != null) {
+        await handleLineItemSave(item.id, fieldName, String(derived));
+      }
     }
-    // Reload items to get updated values, then fix totals
-    const freshItems = await window.api.getLineItems(result.id);
-    const newTotal = freshItems.reduce((acc, li) => acc + (li.thanh_tien ?? 0), 0);
-    const newTotalBeforeTax = freshItems.reduce((acc, li) => acc + (li.thanh_tien_truoc_thue ?? 0), 0);
-    if (newTotal > 0 && Math.abs(result.tong_tien - newTotal) > 1) {
-      await handleSave('invoice_data', 'tong_tien', String(newTotal));
-    }
-    if (newTotalBeforeTax > 0 && Math.abs(result.tong_tien_truoc_thue - newTotalBeforeTax) > 1) {
-      await handleSave('invoice_data', 'tong_tien_truoc_thue', String(newTotalBeforeTax));
-    }
-    setLineItems(freshItems);
-    loadLineItemOverrides(freshItems);
   };
 
   return (
@@ -157,8 +160,8 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
             <tbody>
               <EditableField label="Invoice #" value={result.so_hoa_don || ''} fieldName="so_hoa_don" tableName="invoice_data" recordId={result.id} override={getOverride('so_hoa_don')} onSave={(v) => handleSave('invoice_data', 'so_hoa_don', v)} onResolve={(a) => handleResolve('so_hoa_don', a)} />
               <EditableField label="MST" value={result.mst || ''} fieldName="mst" tableName="invoice_data" recordId={result.id} override={getOverride('mst')} onSave={(v) => handleSave('invoice_data', 'mst', v)} onResolve={(a) => handleResolve('mst', a)} />
-              <EditableField label="Before-tax Total" value={String(result.tong_tien_truoc_thue || '')} fieldName="tong_tien_truoc_thue" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien_truoc_thue')} inputType="number" onSave={(v) => handleSave('invoice_data', 'tong_tien_truoc_thue', v)} onResolve={(a) => handleResolve('tong_tien_truoc_thue', a)} />
-              <EditableField label="Total (incl. tax)" value={String(result.tong_tien || '')} fieldName="tong_tien" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} onSave={(v) => handleSave('invoice_data', 'tong_tien', v)} onResolve={(a) => handleResolve('tong_tien', a)} />
+              <EditableField label="Before-tax Total" value={String(localTotals.tong_tien_truoc_thue || '')} fieldName="tong_tien_truoc_thue" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien_truoc_thue')} inputType="number" derivedValue={beforeTaxTotalMismatch.hasMismatch ? beforeTaxTotalMismatch.sum : null} showMismatchIcon={beforeTaxTotalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'tong_tien_truoc_thue', v)} onResolve={(a) => handleResolve('tong_tien_truoc_thue', a)} />
+              <EditableField label="Total (incl. tax)" value={String(localTotals.tong_tien || '')} fieldName="tong_tien" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'tong_tien', v)} onResolve={(a) => handleResolve('tong_tien', a)} />
               <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('invoice_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
               <EditableField label="Address" value={result.dia_chi_doi_tac || ''} fieldName="dia_chi_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('dia_chi_doi_tac')} onSave={(v) => handleSave('invoice_data', 'dia_chi_doi_tac', v)} onResolve={(a) => handleResolve('dia_chi_doi_tac', a)} />
               <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
@@ -168,18 +171,6 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
           {lineItems.length > 0 && (
             <div className="line-items">
               <div className="line-items-header">Line Items</div>
-              {fixPlan && (
-                <div className="batch-quickfix-actions">
-                  <div className="quickfix-plan">
-                    {fixPlan.steps.map((step, i) => (
-                      <span key={i} className="quickfix-step">{step}</span>
-                    ))}
-                    <span className="quickfix-preview">total = {formatAmount(fixPlan.previewTotal)}</span>
-                  </div>
-                  <button className="quickfix-btn quickfix-apply" onClick={handleFixAll}>Fix all</button>
-                  <span className="quickfix-hint">{'\u2318'}+click cell to fix individually</span>
-                </div>
-              )}
               <table className="line-items-table">
                 <thead>
                   <tr>
@@ -187,9 +178,9 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
                     <th>Description</th>
                     <th>Qty</th>
                     <th>Price</th>
-                    <th>Before tax</th>
+                    <th className={hasColumnIssues.beforeTax ? 'th-fixable' : ''} onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('thanh_tien_truoc_thue'); }} title={hasColumnIssues.beforeTax ? '\u2318+click to fix column' : undefined}>Before tax{hasColumnIssues.beforeTax && <span className="th-fix-hint">!</span>}</th>
                     <th>Tax %</th>
-                    <th>After tax</th>
+                    <th className={hasColumnIssues.afterTax ? 'th-fixable' : ''} onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('thanh_tien'); }} title={hasColumnIssues.afterTax ? '\u2318+click to fix column' : undefined}>After tax{hasColumnIssues.afterTax && <span className="th-fix-hint">!</span>}</th>
                   </tr>
                 </thead>
                 <tbody>

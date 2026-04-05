@@ -1717,68 +1717,29 @@ td.cell-mismatch .cell-display {
   cursor: pointer;
 }
 
-.quickfix-btn {
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-size: 11px;
-  cursor: pointer;
-  background: transparent;
-  color: var(--text);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.quickfix-apply {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.quickfix-apply:hover {
-  opacity: 0.85;
-}
-
-.batch-quickfix-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
-}
-
-.quickfix-plan {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  flex: 1;
-  min-width: 0;
-}
-
-.quickfix-step {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.quickfix-step::before {
-  content: '→ ';
+.field-mismatch-hint {
   color: var(--confidence-low);
-}
-
-.quickfix-preview {
-  color: var(--confidence-low);
+  font-size: 11px;
   font-weight: 600;
-  font-size: 11px;
 }
 
-.quickfix-hint {
-  color: var(--text-muted);
-  font-size: 10px;
-  margin-left: auto;
-  flex-shrink: 0;
+.field-display.field-mismatch {
+  cursor: pointer;
+}
+
+th.th-fixable {
+  cursor: pointer;
+  color: var(--confidence-low);
+}
+
+th.th-fixable:hover {
+  text-decoration: underline;
+}
+
+.th-fix-hint {
+  color: var(--confidence-low);
+  font-weight: 700;
+  margin-left: 2px;
 }
 
 tr.line-item-mismatch {

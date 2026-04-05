@@ -18,6 +18,21 @@ export function computeTotalMismatch(
 }
 
 /**
+ * Check if tong_tien_truoc_thue (before-tax total) matches the sum of line item thanh_tien_truoc_thue.
+ */
+export function computeBeforeTaxTotalMismatch(
+  tongTienTruocThue: number,
+  lineItems: { thanh_tien_truoc_thue?: number | null }[],
+): { hasMismatch: boolean; sum: number } {
+  if (lineItems.length === 0 || !tongTienTruocThue) {
+    return { hasMismatch: false, sum: 0 };
+  }
+  const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien_truoc_thue ?? 0), 0);
+  const hasMismatch = Math.abs(sum - tongTienTruocThue) > TOLERANCE;
+  return { hasMismatch, sum };
+}
+
+/**
  * Check if thanh_tien_truoc_thue matches don_gia * so_luong (both pre-tax).
  */
 export function computeLineItemMismatch(
@@ -163,119 +178,3 @@ export function deriveFieldValue(
   return derived;
 }
 
-/**
- * Check if any line item has issues (mismatch or bad tax rate).
- */
-export function hasAnyIssues(items: InvoiceLineItem[]): boolean {
-  return items.some(item => {
-    const lineM = computeLineItemMismatch(item);
-    const taxM = computeTaxRateMismatch(item);
-    const afterTaxM = computeAfterTaxMismatch(item);
-    return lineM.hasMismatch || taxM.hasMismatch || afterTaxM.hasMismatch;
-  });
-}
-
-/** Description of what Fix All will do, shown to the user before confirming. */
-export interface FixAllPlan {
-  steps: string[];
-  previewTotal: number;
-  previewTotalBeforeTax: number;
-  updates: { lineItemId: string; fieldName: string; value: number }[];
-}
-
-/**
- * Compute all fixes for "Fix All" button.
- *
- * Logic:
- * 1. Fix decimal tax rates (0.08 -> 8) — always
- * 2. If any before_tax mismatch (before_tax != qty * price):
- *    - Fix before_tax = qty * price
- *    - Recalc after_tax = before_tax * (1 + tax/100)
- * 3. Else if any after_tax mismatch only:
- *    - Fix after_tax = before_tax * (1 + tax/100)
- * 4. Total = sum of after_tax, total_before_tax = sum of before_tax
- */
-export function computeFixAllPlan(
-  items: InvoiceLineItem[],
-  currentTotal: number,
-  currentTotalBeforeTax: number,
-): FixAllPlan | null {
-  const updates: { lineItemId: string; fieldName: string; value: number }[] = [];
-  const steps: string[] = [];
-
-  const hasBadTaxRates = items.some(i => computeTaxRateMismatch(i).hasMismatch);
-  const hasBeforeTaxMismatch = items.some(i => computeLineItemMismatch(i).hasMismatch);
-  const hasAfterTaxMismatch = items.some(i => computeAfterTaxMismatch(i).hasMismatch);
-
-  if (!hasBadTaxRates && !hasBeforeTaxMismatch && !hasAfterTaxMismatch) {
-    // Only total mismatch — just recompute total from existing values
-    const afterTaxSum = items.reduce((acc, i) => acc + (i.thanh_tien ?? 0), 0);
-    const beforeTaxSum = items.reduce((acc, i) => acc + (i.thanh_tien_truoc_thue ?? 0), 0);
-    if (Math.abs(afterTaxSum - currentTotal) <= TOLERANCE && Math.abs(beforeTaxSum - currentTotalBeforeTax) <= TOLERANCE) {
-      return null;
-    }
-    steps.push('total = sum of after tax');
-    return { steps, previewTotal: afterTaxSum, previewTotalBeforeTax: beforeTaxSum, updates };
-  }
-
-  // Working copies for computing final sums
-  const finalBeforeTax: number[] = [];
-  const finalAfterTax: number[] = [];
-
-  for (const item of items) {
-    let tax = item.thue_suat ?? 0;
-    let beforeTax = item.thanh_tien_truoc_thue ?? 0;
-    let afterTax = item.thanh_tien ?? 0;
-
-    // Step 1: Fix decimal tax rates
-    const taxFix = computeTaxRateMismatch(item);
-    if (taxFix.hasMismatch && taxFix.expected != null) {
-      tax = taxFix.expected;
-      updates.push({ lineItemId: item.id, fieldName: 'thue_suat', value: tax });
-    }
-
-    if (hasBeforeTaxMismatch) {
-      // Fix before_tax = qty * price
-      if (item.don_gia != null && item.so_luong != null) {
-        const newBeforeTax = Math.round(item.don_gia * item.so_luong);
-        if (Math.abs(beforeTax - newBeforeTax) > TOLERANCE) {
-          beforeTax = newBeforeTax;
-          updates.push({ lineItemId: item.id, fieldName: 'thanh_tien_truoc_thue', value: newBeforeTax });
-        }
-      }
-      // Always recalc after_tax from (possibly updated) before_tax
-      const newAfterTax = Math.round(beforeTax * (1 + tax / 100));
-      if (Math.abs(afterTax - newAfterTax) > TOLERANCE) {
-        afterTax = newAfterTax;
-        updates.push({ lineItemId: item.id, fieldName: 'thanh_tien', value: newAfterTax });
-      }
-    } else {
-      // after_tax mismatch only — fix after_tax = before_tax * (1 + tax/100)
-      const newAfterTax = Math.round(beforeTax * (1 + tax / 100));
-      if (Math.abs(afterTax - newAfterTax) > TOLERANCE) {
-        afterTax = newAfterTax;
-        updates.push({ lineItemId: item.id, fieldName: 'thanh_tien', value: newAfterTax });
-      }
-    }
-
-    finalBeforeTax.push(beforeTax);
-    finalAfterTax.push(afterTax);
-  }
-
-  // Build step descriptions
-  if (hasBadTaxRates) {
-    steps.push('tax rate = tax rate × 100');
-  }
-  if (hasBeforeTaxMismatch) {
-    steps.push('before tax = qty × price');
-    steps.push('after tax = before tax × (1 + tax%)');
-  } else if (hasAfterTaxMismatch || hasBadTaxRates) {
-    steps.push('after tax = before tax × (1 + tax%)');
-  }
-
-  const previewTotalBeforeTax = finalBeforeTax.reduce((a, b) => a + b, 0);
-  const previewTotal = finalAfterTax.reduce((a, b) => a + b, 0);
-  steps.push('total = sum of after tax');
-
-  return { steps, previewTotal, previewTotalBeforeTax, updates };
-}
