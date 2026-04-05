@@ -18,7 +18,7 @@ jobs:
             platform: darwin
             arch: arm64
             artifact: macos-arm64
-          - os: macos-13
+          - os: macos-14
             platform: darwin
             arch: x64
             artifact: macos-x64
