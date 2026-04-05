@@ -18,6 +18,13 @@ pnpm run make        # Build platform-specific installers
 
 Package manager is **pnpm**.
 
+> **Symlinked `node_modules` warning:** If `node_modules` is a symlink (e.g. from a shared/packaged build), you must unlink it and reinstall before adding new packages:
+> ```bash
+> rm node_modules            # remove the symlink (not rm -rf)
+> pnpm install               # reinstall local node_modules
+> pnpm add <package>         # now safe to add new packages
+> ```
+
 ## Architecture
 
 **Electron Forge + Webpack** setup with separate main/renderer webpack configs:

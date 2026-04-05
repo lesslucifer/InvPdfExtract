@@ -171,6 +171,10 @@ function handleEscapeWithFolder(
     const backTo = previousState === OverlayState.Settings ? OverlayState.Home : previousState;
     return { newState: backTo };
   }
+  if (overlayState === OverlayState.Cheatsheet) {
+    const backTo = previousState === OverlayState.Cheatsheet ? OverlayState.Home : previousState;
+    return { newState: backTo };
+  }
   if (expandedId) {
     return { clearExpanded: true };
   }
@@ -222,6 +226,10 @@ function handleEscape(
 ): EscapeResult {
   if (overlayState === OverlayState.Settings) {
     const backTo = previousState === OverlayState.Settings ? OverlayState.Home : previousState;
+    return { newState: backTo };
+  }
+  if (overlayState === OverlayState.Cheatsheet) {
+    const backTo = previousState === OverlayState.Cheatsheet ? OverlayState.Home : previousState;
     return { newState: backTo };
   }
   if (expandedId) {
@@ -312,6 +320,15 @@ describe('Overlay State Machine', () => {
       expect(result.current).toBe(OverlayState.Settings);
       expect(result.previous).toBe(OverlayState.Search);
     });
+
+    it('transitions from Search to Cheatsheet', () => {
+      const result = goTo(
+        { current: OverlayState.Search, previous: OverlayState.Home },
+        OverlayState.Cheatsheet,
+      );
+      expect(result.current).toBe(OverlayState.Cheatsheet);
+      expect(result.previous).toBe(OverlayState.Search);
+    });
   });
 
   describe('handleEscape (escape cascade)', () => {
@@ -327,6 +344,21 @@ describe('Overlay State Machine', () => {
 
     it('returns to Search when settings was opened from Search', () => {
       const result = handleEscape(OverlayState.Settings, OverlayState.Search, null, '');
+      expect(result.newState).toBe(OverlayState.Search);
+    });
+
+    it('returns to previous state when in Cheatsheet', () => {
+      const result = handleEscape(OverlayState.Cheatsheet, OverlayState.Home, null, '');
+      expect(result.newState).toBe(OverlayState.Home);
+    });
+
+    it('returns to Home when previous was also Cheatsheet (safety)', () => {
+      const result = handleEscape(OverlayState.Cheatsheet, OverlayState.Cheatsheet, null, '');
+      expect(result.newState).toBe(OverlayState.Home);
+    });
+
+    it('returns to Search when cheatsheet was opened from Search', () => {
+      const result = handleEscape(OverlayState.Cheatsheet, OverlayState.Search, null, '');
       expect(result.newState).toBe(OverlayState.Search);
     });
 

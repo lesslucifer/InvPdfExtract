@@ -18,13 +18,24 @@ const zlib = require('zlib');
 const { execFileSync } = require('child_process');
 
 const PKG_VERSION = require('../node_modules/better-sqlite3/package.json').version;
-const PLATFORM = process.platform;   // 'darwin' | 'linux' | 'win32'
-const ARCH     = process.arch;       // 'arm64' | 'x64'
 
-const TARGETS = [
+// Allow overriding platform/arch via env vars for CI cross-platform builds
+const PLATFORM = process.env.PREBUILD_PLATFORM || process.platform;   // 'darwin' | 'linux' | 'win32'
+const ARCH     = process.env.PREBUILD_ARCH     || process.arch;       // 'arm64' | 'x64'
+
+// Node ABI varies by Node.js version; Electron ABI is per Electron version.
+// When building for a different platform, we only need the Electron prebuilt
+// (tests run on the host platform with the host Node ABI).
+const ELECTRON_ONLY = !!process.env.PREBUILD_PLATFORM;
+
+const ALL_TARGETS = [
   { runtime: 'node',     abi: '137' },
   { runtime: 'electron', abi: '145' },
 ];
+
+const TARGETS = ELECTRON_ONLY
+  ? ALL_TARGETS.filter(t => t.runtime === 'electron')
+  : ALL_TARGETS;
 
 const PREBUILDS_DIR = path.resolve(__dirname, '../node_modules/better-sqlite3/prebuilds');
 

@@ -49,6 +49,7 @@ export enum OverlayState {
   PresetSearch = 'preset-search',
   Settings = 'settings',
   ProcessingStatus = 'processing-status',
+  Cheatsheet = 'cheatsheet',
 }
 
 // === Spotlight UX Types ===

@@ -1,4 +1,4 @@
-import { BrowserWindow, globalShortcut, screen, ipcMain, shell, dialog } from 'electron';
+import { BrowserWindow, globalShortcut, screen, ipcMain, shell, dialog, app, nativeImage } from 'electron';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import {
@@ -196,6 +196,17 @@ export class OverlayWindow {
     }
   }
 
+  private getAppIcon(): Electron.NativeImage | undefined {
+    const resourceDir = app.isPackaged
+      ? path.join(process.resourcesPath, 'resources')
+      : path.join(app.getAppPath(), 'resources');
+    // Use platform-appropriate icon format
+    const iconFile = process.platform === 'win32' ? 'icon.ico' : 'icon-1024.png';
+    const iconPath = path.join(resourceDir, iconFile);
+    const img = nativeImage.createFromPath(iconPath);
+    return img.isEmpty() ? undefined : img;
+  }
+
   private spawnWindowlized(serializedState?: string): void {
     const win = new BrowserWindow({
       width: 800,
@@ -209,6 +220,7 @@ export class OverlayWindow {
       resizable: true,
       show: false,
       backgroundColor: '#1c1c1e',
+      icon: this.getAppIcon(),
       webPreferences: {
         preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
         contextIsolation: true,

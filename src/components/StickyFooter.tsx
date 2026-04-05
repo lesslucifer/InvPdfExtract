@@ -11,10 +11,11 @@ interface Props {
   stats: AggregateStats;
   filters: SearchFilters;
   onWindowlize?: () => void;
+  onCheatsheetClick?: () => void;
   onSettingsClick?: () => void;
 }
 
-export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ stats, filters, onWindowlize, onSettingsClick }, ref) => {
+export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ stats, filters, onWindowlize, onCheatsheetClick, onSettingsClick }, ref) => {
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<{ message: string; filePath: string } | null>(null);
 
@@ -95,6 +96,16 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ stats, filt
             title="Open as window"
           >
             <Icons.maximize size={ICON_SIZE.SM} />
+          </button>
+        )}
+        {onCheatsheetClick && (
+          <button
+            className="windowlize-btn"
+            onClick={onCheatsheetClick}
+            aria-label="Cheatsheet"
+            title="Cheatsheet (?)"
+          >
+            <Icons.circleHelp size={ICON_SIZE.SM} />
           </button>
         )}
         {onSettingsClick && (

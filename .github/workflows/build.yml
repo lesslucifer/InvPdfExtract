@@ -1,0 +1,96 @@
+name: Build & Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            artifact: macos-arm64
+          - os: macos-13
+            platform: darwin
+            arch: x64
+            artifact: macos-x64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            artifact: windows-x64
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.artifact }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Download prebuilts for target platform
+        run: node scripts/download-prebuilts.js
+        env:
+          PREBUILD_PLATFORM: ${{ matrix.platform }}
+          PREBUILD_ARCH: ${{ matrix.arch }}
+
+      - name: Generate app icons (macOS only — requires rsvg-convert + iconutil)
+        if: runner.os == 'macOS'
+        run: |
+          brew install librsvg
+          node scripts/generate-app-icon.js
+
+      - name: Build installers
+        run: pnpm run make
+        env:
+          APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CERT_FILE: ${{ secrets.WIN_CERT_FILE }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            out/make/**/*.dmg
+            out/make/**/*.exe
+            out/make/**/*.nupkg
+            out/make/**/*.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
