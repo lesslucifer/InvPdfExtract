@@ -311,7 +311,7 @@ async function stopVault(): Promise<void> {
   vaultPathCache = null;
 
   if (currentVault) {
-    closeVault();
+    closeVault(currentVault);
     currentVault = null;
   }
 

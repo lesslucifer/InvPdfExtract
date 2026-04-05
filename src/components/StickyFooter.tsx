@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { AggregateStats, SearchFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
 import { Icons, ICON_SIZE } from '../shared/icons';
@@ -39,6 +39,19 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ stats, filt
     }
   }, [toast]);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (!exporting && stats.totalRecords > 0 && !toast) {
+          handleExport();
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [exporting, stats.totalRecords, toast, handleExport]);
+
   if (stats.totalRecords === 0) return null;
 
   return (
@@ -66,7 +79,12 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ stats, filt
             aria-label="Export XLSX"
             title="Export XLSX (Ctrl+S)"
           >
-            <Icons.download size={ICON_SIZE.SM} />
+            <>
+              
+              {exporting ? (
+                'Exporting...'
+              ) : <Icons.download size={ICON_SIZE.SM} />}
+            </>
           </button>
         )}
         {onWindowlize && (

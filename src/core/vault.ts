@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { openDatabase, closeDatabase } from './db/database';
+import { openDatabase, closeDatabase, setActiveDatabase } from './db/database';
 import { VaultConfig, VaultHandle } from '../shared/types';
 import {
   INVOICEVAULT_DIR, CONFIG_FILE, DB_FILE, VAULT_SUBDIRS,
@@ -36,14 +36,15 @@ export function initVault(folderPath: string): VaultHandle {
 
   // Initialize database
   const dbPath = path.join(dotPath, DB_FILE);
-  openDatabase(dbPath);
+  const db = openDatabase(dbPath);
+  setActiveDatabase(db);
 
   // Write default extraction prompt
   writeDefaultExtractionPrompt(dotPath);
 
   console.log(`[Vault] Initialized at ${folderPath}`);
 
-  return { rootPath: folderPath, dotPath, dbPath, config };
+  return { rootPath: folderPath, dotPath, dbPath, config, db };
 }
 
 export function openVault(folderPath: string): VaultHandle {
@@ -56,18 +57,23 @@ export function openVault(folderPath: string): VaultHandle {
   const configRaw = fs.readFileSync(path.join(dotPath, CONFIG_FILE), 'utf-8');
   const config: VaultConfig = JSON.parse(configRaw);
 
-  openDatabase(dbPath);
+  const db = openDatabase(dbPath);
+  setActiveDatabase(db);
 
   // Ensure extraction prompt exists (may be missing in older vaults)
   writeDefaultExtractionPrompt(dotPath);
 
   console.log(`[Vault] Opened ${folderPath}`);
 
-  return { rootPath: folderPath, dotPath, dbPath, config };
+  return { rootPath: folderPath, dotPath, dbPath, config, db };
 }
 
-export function closeVault(): void {
-  closeDatabase();
+export function closeVault(handle?: VaultHandle): void {
+  if (handle) {
+    closeDatabase(handle.db);
+  } else {
+    closeDatabase();
+  }
   console.log('[Vault] Closed');
 }
 

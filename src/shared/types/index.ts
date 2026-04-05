@@ -204,6 +204,7 @@ export interface VaultHandle {
   dotPath: string;
   dbPath: string;
   config: VaultConfig;
+  db: import('better-sqlite3').Database;
 }
 
 // === Model Configuration ===
