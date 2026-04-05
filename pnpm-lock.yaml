@@ -11,6 +11,9 @@ importers:
       '@electron-forge/maker-dmg':
         specifier: ^7.11.1
         version: 7.11.1
+      '@timfish/forge-externals-plugin':
+        specifier: ^0.2.1
+        version: 0.2.1
       better-sqlite3:
         specifier: ^12.8.0
         version: 12.8.0
@@ -551,6 +554,9 @@ packages:
   '@szmarczak/http-timer@4.0.6':
     resolution: {integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==}
     engines: {node: '>=10'}
+
+  '@timfish/forge-externals-plugin@0.2.1':
+    resolution: {integrity: sha512-80TVZM4n/8x2zxT+SowyHJEzzQR0KLfmZpHg5UX2JnwR1WRa1h03Y7TUvV7PYD4P9/h3r+LcBZy6a7EsDwMtPg==}
 
   '@tootallnate/once@2.0.0':
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
@@ -1633,6 +1639,10 @@ packages:
   flat@5.0.2:
     resolution: {integrity: sha512-b6suED+5/3rTpUBdG1gupIl8MPFCAMA0QXwmljLhvCUKcUvdE4gWky9zpuGCcXHOsz4J9wPGNWq6OKpmIzz3hQ==}
     hasBin: true
+
+  flora-colossus@1.0.1:
+    resolution: {integrity: sha512-d+9na7t9FyH8gBJoNDSi28mE4NgQVGGvxQ4aHtFRetjyh5SXjuus+V5EZaxFmFdXVemSOrx0lsgEl/ZMjnOWJA==}
+    engines: {node: '>= 6.0.0'}
 
   flora-colossus@2.0.0:
     resolution: {integrity: sha512-dz4HxH6pOvbUzZpZ/yXhafjbR2I8cenK5xL0KtBFb7U2ADsR+OwXifnxZjij/pZWF775uSCMzWVd+jDik2H2IA==}
@@ -4582,6 +4592,12 @@ snapshots:
     dependencies:
       defer-to-connect: 2.0.1
 
+  '@timfish/forge-externals-plugin@0.2.1':
+    dependencies:
+      flora-colossus: 1.0.1
+    transitivePeerDependencies:
+      - supports-color
+
   '@tootallnate/once@2.0.0': {}
 
   '@tybys/wasm-util@0.10.1':
@@ -5854,6 +5870,13 @@ snapshots:
 
   flat@5.0.2: {}
 
+  flora-colossus@1.0.1:
+    dependencies:
+      debug: 4.4.3
+      fs-extra: 7.0.1
+    transitivePeerDependencies:
+      - supports-color
+
   flora-colossus@2.0.0:
     dependencies:
       debug: 4.4.3
@@ -5917,7 +5940,6 @@ snapshots:
       graceful-fs: 4.2.11
       jsonfile: 4.0.0
       universalify: 0.1.2
-    optional: true
 
   fs-extra@8.1.0:
     dependencies:
