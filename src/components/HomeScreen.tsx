@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FolderInfo, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
 import { StickyFooter } from './StickyFooter';
 import { StatusDot } from './StatusDot';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 const ALL_FILTERS: SearchFilters = {};
 
@@ -137,7 +138,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               aria-label="Open vault root in file manager"
               title="Open vault root"
             >
-              &#x1F4C2;
+              <Icons.folderOpen size={ICON_SIZE.MD} />
             </button>
           </div>
           {topFolders.map(folder => (
@@ -203,7 +204,7 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
   return (
     <>
       <div className="folder-row" onClick={() => onBrowse(folder.path)} role="button" tabIndex={0}>
-        <span className="folder-icon">&#x1F4C1;</span>
+        <span className="folder-icon"><Icons.folder size={ICON_SIZE.MD} /></span>
         {folderStatus && <StatusDot status={folderStatus} />}
         <span className="folder-path">{folder.path}/</span>
         <span className="folder-count">{folder.recordCount} rec</span>
@@ -215,7 +216,7 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
               aria-label={`Reprocess all files in ${folder.path}`}
               title="Reprocess folder"
             >
-              &#x21BB;
+              <Icons.refresh size={ICON_SIZE.SM} />
             </button>
           )}
           <button
@@ -224,7 +225,7 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
             aria-label={`Open ${folder.path} in file manager`}
             title="Open in Finder"
           >
-            &#x1F4C2;
+            <Icons.folderOpen size={ICON_SIZE.MD} />
           </button>
         </div>
       </div>

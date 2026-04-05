@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FieldOverrideInfo, OverrideStatus } from '../shared/types';
+import { formatCurrency } from '../shared/format';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 interface Props {
   label: string;
@@ -47,12 +49,16 @@ export const EditableField: React.FC<Props> = ({
     }
   };
 
-  const statusIcon = isConflict ? '⚠️' : isLocked ? '🔒' : null;
+  const StatusIcon = isConflict ? Icons.conflict : isLocked ? Icons.overridden : null;
+
+  const displayValue = value
+    ? (inputType === 'number' ? formatCurrency(Number(value)) : value)
+    : '-';
 
   return (
     <tr className={`editable-field ${isConflict ? 'field-conflict' : ''}`}>
       <td className="detail-label">
-        {statusIcon && <span className="field-status-icon" title={isConflict ? 'Conflict' : 'Locked'}>{statusIcon}</span>}
+        {StatusIcon && <span className="field-status-icon" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.SM} /></span>}
         {label}
       </td>
       <td className="field-value-cell">
@@ -76,9 +82,9 @@ export const EditableField: React.FC<Props> = ({
               return;
             }
             setEditValue(value); setEditing(true);
-          }} title={derivedValue != null ? `\u2318+click → ${derivedValue}` : undefined}>
-            {value || '-'}
-            {showMismatchIcon && derivedValue != null && <span className="field-mismatch-hint"> ({new Intl.NumberFormat('vi-VN').format(derivedValue)}!)</span>}
+          }} title={derivedValue != null ? `\u2318+click → ${formatCurrency(derivedValue)}` : undefined}>
+            {displayValue}
+            {showMismatchIcon && derivedValue != null && <span className="field-mismatch-hint"> ({formatCurrency(derivedValue)}!)</span>}
           </span>
         )}
 

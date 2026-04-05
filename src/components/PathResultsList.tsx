@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
 import { StatusDot } from './StatusDot';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 const CONFIRM_THRESHOLD = 10;
 
@@ -182,7 +183,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
             onClick={(e) => handleSelect(item, e)}
             onMouseEnter={() => setSelectedIndex(idx)}
           >
-            <span className="path-results-icon">{item.isDir ? '📁' : '📄'}</span>
+            <span className="path-results-icon">{item.isDir ? <Icons.folder size={ICON_SIZE.MD} /> : <Icons.file size={ICON_SIZE.MD} />}</span>
             {itemStatuses[item.isDir ? item.name : item.relativePath] && (
               <StatusDot status={itemStatuses[item.isDir ? item.name : item.relativePath]} />
             )}
@@ -193,7 +194,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
                 className="path-reload-btn"
                 title={item.isDir ? `Reprocess all files in ${item.relativePath}` : 'Reprocess this file'}
                 onClick={(e) => handleReprocess(e, item)}
-              >↻</button>
+              ><Icons.refresh size={ICON_SIZE.SM} /></button>
             )}
           </li>
         ))}

@@ -1,17 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FilterPreset, PresetFilters } from '../shared/types';
-
-const DOC_TYPE_LABELS: Record<string, { icon: string; label: string }> = {
-  bank_statement: { icon: '🏦', label: 'Bank Statement' },
-  invoice_out: { icon: '📤', label: 'Invoice Out' },
-  invoice_in: { icon: '📥', label: 'Invoice In' },
-};
+import { formatCurrency } from '../shared/format';
+import { DOC_TYPE_ICONS, Icons, ICON_SIZE } from '../shared/icons';
 
 function formatAmount(n: number): string {
-  if (n >= 1_000_000_000 && n % 1_000_000_000 === 0) return `${n / 1_000_000_000}t`;
-  if (n >= 1_000_000 && n % 1_000_000 === 0) return `${n / 1_000_000}tr`;
-  if (n >= 1_000 && n % 1_000 === 0) return `${n / 1_000}k`;
-  return new Intl.NumberFormat('vi-VN').format(n);
+  return formatCurrency(n, { abbreviated: true });
 }
 
 export function buildPresetSummary(filtersJson: string): string {
@@ -20,37 +13,37 @@ export function buildPresetSummary(filtersJson: string): string {
     const parts: string[] = [];
 
     if (state.filters?.docType) {
-      const dt = DOC_TYPE_LABELS[state.filters.docType];
-      if (dt) parts.push(`${dt.icon} ${dt.label}`);
+      const dt = DOC_TYPE_ICONS[state.filters.docType];
+      if (dt) parts.push(dt.label);
     }
 
     if (state.filters?.status) {
-      parts.push(`⚡ ${state.filters.status}`);
+      parts.push(state.filters.status);
     }
 
     if (state.filters?.amountMin != null && state.filters?.amountMax != null) {
-      parts.push(`💰 ${formatAmount(state.filters.amountMin)}–${formatAmount(state.filters.amountMax)}`);
+      parts.push(`${formatAmount(state.filters.amountMin)}–${formatAmount(state.filters.amountMax)}`);
     } else if (state.filters?.amountMin != null) {
-      parts.push(`💰 >${formatAmount(state.filters.amountMin)}`);
+      parts.push(`>${formatAmount(state.filters.amountMin)}`);
     } else if (state.filters?.amountMax != null) {
-      parts.push(`💰 <${formatAmount(state.filters.amountMax)}`);
+      parts.push(`<${formatAmount(state.filters.amountMax)}`);
     }
 
     if (state.filters?.dateFilter) {
-      parts.push(`📅 ${state.filters.dateFilter}`);
+      parts.push(state.filters.dateFilter);
     }
 
     if (state.filters?.sortField) {
       const dir = state.filters.sortDirection || 'desc';
-      parts.push(`↕️ ${state.filters.sortField}:${dir}`);
+      parts.push(`${state.filters.sortField}:${dir}`);
     }
 
     if (state.folderScope) {
-      parts.push(`📁 ${state.folderScope}`);
+      parts.push(state.folderScope);
     }
 
     if (state.fileScope) {
-      parts.push(`📄 ${state.fileScope}`);
+      parts.push(state.fileScope);
     }
 
     if (state.query?.trim()) {
@@ -142,14 +135,14 @@ export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePrese
           onMouseEnter={() => setSelectedIndex(idx)}
         >
           <div className="preset-item__line1">
-            <span className="preset-item__star">★</span>
+            <span className="preset-item__star"><Icons.star size={ICON_SIZE.SM} /></span>
             <span className="preset-item__name">{preset.name}</span>
             <button
               className="preset-item__delete"
               onClick={(e) => handleDelete(e, preset.id)}
               aria-label={`Delete ${preset.name}`}
               title="Delete preset"
-            >×</button>
+            ><Icons.close size={ICON_SIZE.XS} /></button>
           </div>
           <div className="preset-item__line2">
             {buildPresetSummary(preset.filtersJson)}

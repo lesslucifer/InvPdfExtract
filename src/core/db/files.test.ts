@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { createInMemoryDb } from '../../__tests__/helpers/mock-db';
-import { FileStatus } from '../../shared/types';
+import { BatchStatus, DocType, FileStatus } from '../../shared/types';
 
 // Mock getDatabase to return our in-memory db
 vi.mock('./database', () => ({
@@ -103,8 +103,8 @@ describe('cancelQueueItem', () => {
     // Simulate: file was processed, has records, then re-queued
     const file = insertFile('processed.pdf', 'hash1', 'pdf', 100);
     updateFileStatus(file.id, FileStatus.Done);
-    const batch = createBatch(file.id, 'success', 1, 0.95, null, null);
-    const record = insertRecord(batch.id, file.id, 'invoice_in', 'fp1', 0.95, '2026-01-01', {}, {});
+    const batch = createBatch(file.id, BatchStatus.Success,  1, 0.95, null, null);
+    const record = insertRecord(batch.id, file.id, DocType.InvoiceIn, 'fp1', 0.95, '2026-01-01', {}, {});
 
     // File content changed — re-queued
     updateFileHash(file.id, 'hash2', 100);
@@ -152,8 +152,8 @@ describe('clearPendingQueue', () => {
     // File with records (previously processed, re-queued)
     const processed = insertFile('processed.pdf', 'hash1', 'pdf', 100);
     updateFileStatus(processed.id, FileStatus.Done);
-    const batch = createBatch(processed.id, 'success', 1, 0.9, null, null);
-    insertRecord(batch.id, processed.id, 'invoice_in', 'fp1', 0.9, '2026-01-01', {}, {});
+    const batch = createBatch(processed.id, BatchStatus.Success, 1, 0.9, null, null);
+    insertRecord(batch.id, processed.id, DocType.InvoiceIn, 'fp1', 0.9, '2026-01-01', {}, {});
     updateFileHash(processed.id, 'hash1b', 100); // re-queue
 
     // Brand new file (no records)

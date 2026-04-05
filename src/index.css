@@ -64,7 +64,8 @@ body {
 }
 
 .search-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
   opacity: 0.5;
 }
@@ -89,8 +90,6 @@ body {
   border-radius: 50%;
   width: 20px;
   height: 20px;
-  font-size: 14px;
-  line-height: 1;
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
@@ -151,10 +150,18 @@ body {
 }
 
 .result-icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  width: 24px;
+  width: 20px;
   text-align: center;
+}
+
+.result-icon svg {
+  width: auto;
+  height: 22px;
+  aspect-ratio: 3 / 4;
 }
 
 .result-info {
@@ -393,8 +400,9 @@ body {
 }
 
 .field-status-icon {
+  display: inline-flex;
+  align-items: center;
   margin-right: 4px;
-  font-size: 11px;
 }
 
 .field-value-cell {
@@ -500,7 +508,8 @@ body {
 }
 
 .cell-status-icon {
-  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
   margin-right: 2px;
 }
 
@@ -538,24 +547,7 @@ body {
   font-size: 10px;
 }
 
-/* === Gear Icon === */
-.gear-icon {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  line-height: 1;
-  transition: color 0.1s, background 0.1s;
-}
-
-.gear-icon:hover {
-  color: var(--text);
-  background: var(--bg-hover);
-}
+/* (gear icon removed — settings button now lives in StickyFooter) */
 
 /* === Windowlize Button (in StickyFooter) === */
 .windowlize-btn {
@@ -821,7 +813,8 @@ body {
 }
 
 .folder-icon {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
   width: 20px;
   text-align: center;
@@ -859,12 +852,12 @@ body {
 .folder-open-btn {
   background: none;
   border: none;
-  font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .folder-open-btn:hover {
@@ -875,12 +868,12 @@ body {
 .folder-reload-btn {
   background: none;
   border: none;
-  font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .folder-reload-btn:hover {
@@ -910,7 +903,8 @@ body {
 }
 
 .filter-pill-icon {
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .filter-pill-label {
@@ -920,11 +914,11 @@ body {
 .filter-pill-close {
   background: none;
   border: none;
-  font-size: 14px;
   color: var(--text-muted);
   cursor: pointer;
   padding: 0 2px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
   border-radius: 50%;
 }
 
@@ -936,11 +930,11 @@ body {
 .filter-pill-direction {
   background: none;
   border: none;
-  font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 0 2px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
   border-radius: 4px;
   transition: color 0.1s, background 0.1s;
 }
@@ -962,13 +956,15 @@ body {
 }
 
 .breadcrumb-root {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
 .breadcrumb-separator {
   color: var(--text-muted);
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -999,12 +995,12 @@ body {
 .breadcrumb-action-btn {
   background: none;
   border: none;
-  font-size: 13px;
   color: var(--text-muted);
   cursor: pointer;
   padding: 1px 4px;
   border-radius: 4px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .breadcrumb-action-btn:hover {
@@ -1137,12 +1133,12 @@ body {
 .settings-back-btn {
   background: none;
   border: none;
-  font-size: 18px;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 4px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .settings-back-btn:hover {
@@ -1208,6 +1204,9 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   font-weight: 500;
   color: var(--text);
@@ -1523,8 +1522,9 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 12px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
   padding: 0 4px;
   flex-shrink: 0;
   line-height: 1;
@@ -1542,8 +1542,9 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 13px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
   padding: 0 4px;
   flex-shrink: 0;
   line-height: 1;
@@ -1704,7 +1705,8 @@ body {
 }
 
 .path-results-icon {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -1793,7 +1795,8 @@ body {
 
 .preset-item__star {
   color: var(--accent);
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -2030,7 +2033,9 @@ tr.line-item-mismatch {
 }
 
 .suggestion-chip-icon {
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
 }
 
 .suggestion-chip-label {
