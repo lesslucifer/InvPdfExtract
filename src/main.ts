@@ -44,6 +44,11 @@ app.on('window-all-closed', () => {
   // Don't quit when all windows close — activated by hotkey
 });
 
+// Show overlay when clicking dock icon (macOS) or taskbar icon (Windows)
+app.on('activate', () => {
+  overlayWindow?.showOverlay();
+});
+
 // Route all quit paths through handleQuit for graceful shutdown
 app.on('before-quit', (event) => {
   if (!isQuitting) {
@@ -57,14 +62,13 @@ app.on('before-quit', (event) => {
 app.on('ready', async () => {
   console.log('[InvoiceVault] App ready');
 
-  // Set app icon and hide dock on macOS — overlay-only app
+  // Set app icon on macOS — keep dock visible so clicking it shows the overlay
   if (process.platform === 'darwin' && app.dock) {
     const resourceDir = path.join(app.getAppPath(), 'resources');
     const dockIcon = nativeImage.createFromPath(path.join(resourceDir, 'icon-1024.png'));
     if (!dockIcon.isEmpty()) {
       app.dock.setIcon(dockIcon);
     }
-    app.dock.hide();
   }
 
   // Check Claude CLI availability
