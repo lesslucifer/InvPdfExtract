@@ -48,19 +48,19 @@ describe('getSuggestions', () => {
 
     it('shows status suggestions for "status:"', () => {
       const results = getSuggestions('status:', 7, emptyFilters);
-      expect(results).toHaveLength(2);
-      expect(results.map(r => r.label)).toEqual(['Conflict', 'Needs Review']);
+      expect(results).toHaveLength(3);
+      expect(results.map(r => r.label)).toEqual(['Conflict', 'Needs Review', 'Mismatch']);
     });
 
-    it('shows sort suggestions for "sort:" (asc + desc per field)', () => {
+    it('shows sort suggestions for "sort:" (one per field)', () => {
       const results = getSuggestions('sort:', 5, emptyFilters);
-      expect(results).toHaveLength(10); // 5 fields × 2 directions
+      expect(results).toHaveLength(6); // 6 fields: date, time, amount, path, confidence, shd
     });
 
     it('filters sort suggestions by value "sort:dat"', () => {
       const results = getSuggestions('sort:dat', 8, emptyFilters);
-      expect(results).toHaveLength(2); // date-desc + date-asc
-      expect(results.every(r => r.label === 'Date')).toBe(true);
+      expect(results).toHaveLength(1);
+      expect(results[0].label).toBe('Date');
     });
 
     it('returns empty for unknown prefix "foo:"', () => {
@@ -89,31 +89,11 @@ describe('getSuggestions', () => {
     });
   });
 
-  describe('sort direction sub-suggestions', () => {
-    it('shows directions for "sort:date-"', () => {
-      const results = getSuggestions('sort:date-', 10, emptyFilters);
-      expect(results).toHaveLength(2);
-      expect(results[0].label).toBe('Ascending');
-      expect(results[1].label).toBe('Descending');
-    });
-
-    it('includes full sort expression in insertText', () => {
-      const results = getSuggestions('sort:date-', 10, emptyFilters);
-      expect(results[0].insertText).toBe('sort:date-asc ');
-      expect(results[1].insertText).toBe('sort:date-desc ');
-    });
-
-    it('filters directions by partial "sort:date-a"', () => {
-      const results = getSuggestions('sort:date-a', 11, emptyFilters);
+  describe('sort by shd', () => {
+    it('shows shd in sort suggestions for "sort:shd"', () => {
+      const results = getSuggestions('sort:shd', 8, emptyFilters);
       expect(results).toHaveLength(1);
-      expect(results[0].label).toBe('Ascending');
-    });
-
-    it('works for all sort fields via dash syntax', () => {
-      for (const field of ['time', 'amount', 'path', 'confidence']) {
-        const results = getSuggestions(`sort:${field}-`, `sort:${field}-`.length, emptyFilters);
-        expect(results).toHaveLength(2);
-      }
+      expect(results[0].label).toBe('Invoice #');
     });
   });
 
@@ -152,16 +132,14 @@ describe('getSuggestions', () => {
       expect(results[0].insertText).toBe('status:');
     });
 
-    it('suggests "amount:" for input "am"', () => {
+    it('does not suggest "amount:" for input "am" (no longer a prefix hint)', () => {
       const results = getSuggestions('am', 2, emptyFilters);
-      expect(results).toHaveLength(1);
-      expect(results[0].insertText).toBe('amount:');
+      expect(results).toHaveLength(0);
     });
 
-    it('suggests "date:" for input "da"', () => {
+    it('does not suggest "date:" for input "da" (no longer a prefix hint)', () => {
       const results = getSuggestions('da', 2, emptyFilters);
-      expect(results).toHaveLength(1);
-      expect(results[0].insertText).toBe('date:');
+      expect(results).toHaveLength(0);
     });
 
     it('does not suggest for single character "t"', () => {
@@ -205,7 +183,7 @@ describe('getSuggestions', () => {
   describe('date suggestions', () => {
     it('shows date options for "date:"', () => {
       const results = getSuggestions('date:', 5, emptyFilters);
-      expect(results.length).toBe(5); // today, yesterday, this month, last month, this year
+      expect(results.length).toBe(4); // today, this month, last month, this year
       expect(results[0].category).toBe('date');
     });
 
@@ -254,16 +232,14 @@ describe('getPartialPrefixMatch', () => {
     expect(result!.prefix).toBe('sort');
   });
 
-  it('matches "am" to amount prefix', () => {
+  it('does not match "am" (amount removed from prefix hints)', () => {
     const result = getPartialPrefixMatch('am', emptyFilters);
-    expect(result).not.toBeNull();
-    expect(result!.prefix).toBe('amount');
+    expect(result).toBeNull();
   });
 
-  it('matches "da" to date prefix', () => {
+  it('does not match "da" (date removed from prefix hints)', () => {
     const result = getPartialPrefixMatch('da', emptyFilters);
-    expect(result).not.toBeNull();
-    expect(result!.prefix).toBe('date');
+    expect(result).toBeNull();
   });
 
   it('returns null for single char', () => {
@@ -279,13 +255,4 @@ describe('getPartialPrefixMatch', () => {
     expect(getPartialPrefixMatch('sor', filters)).toBeNull();
   });
 
-  it('returns null for amount when amountMin is active', () => {
-    const filters: ParsedQuery = { text: '', amountMin: 5000000 };
-    expect(getPartialPrefixMatch('am', filters)).toBeNull();
-  });
-
-  it('returns null for date when dateFilter is active', () => {
-    const filters: ParsedQuery = { text: '', dateFilter: '2026-04' };
-    expect(getPartialPrefixMatch('da', filters)).toBeNull();
-  });
 });

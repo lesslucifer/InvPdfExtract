@@ -466,6 +466,11 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     params.push(`${parsed.dateFilter}%`);
   }
 
+  if (parsed.mst) {
+    conditions.push('id2.mst = ?');
+    params.push(parsed.mst);
+  }
+
   return { conditions, params };
 }
 
@@ -475,6 +480,7 @@ function filtersToParsed(filters: SearchFilters): ParsedQuery {
     text: filters.text || '',
     docType: filters.docType,
     status: filters.status,
+    mst: filters.mst,
     folder: filters.folder,
     filePath: filters.filePath,
     amountMin: filters.amountMin,
@@ -491,6 +497,7 @@ const SORT_FIELD_SQL: Record<SortField, string> = {
   path: 'f.relative_path',
   amount: 'COALESCE(id2.tong_tien, bsd.so_tien, 0)',
   confidence: 'r.confidence',
+  shd: 'COALESCE(id2.so_hoa_don, \'\')',
 };
 
 function buildOrderByClause(parsed: ParsedQuery): string {

@@ -43,10 +43,14 @@ function getPills(filters: ParsedQuery): PillDef[] {
   }
 
   if (filters.status) {
-    const statusIcons: Record<string, string> = { conflict: '⚠️', review: '🔍' };
+    const statusIcons: Record<string, string> = { conflict: '⚠️', review: '🔍', mismatch: '❗' };
     const icon = statusIcons[filters.status] || '🔖';
     const label = filters.status.charAt(0).toUpperCase() + filters.status.slice(1);
     pills.push({ key: 'status', icon, label });
+  }
+
+  if (filters.mst) {
+    pills.push({ key: 'mst', icon: '🏢', label: `MST: ${filters.mst}` });
   }
 
   if (filters.amountMin != null && filters.amountMax != null) {
@@ -70,7 +74,7 @@ function getPills(filters: ParsedQuery): PillDef[] {
       (!filters.sortDirection || filters.sortDirection === 'desc');
     if (!isDefault) {
       const sortLabels: Record<string, string> = {
-        time: 'Processed', date: 'Date', path: 'Path', amount: 'Amount', confidence: 'Confidence',
+        time: 'Processed', date: 'Date', path: 'Path', amount: 'Amount', confidence: 'Confidence', shd: 'Invoice #',
       };
       const dir = filters.sortDirection || SORT_DEFAULT_DIRECTIONS[filters.sortField];
       const arrow = dir === 'asc' ? '\u2191' : '\u2193';

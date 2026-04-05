@@ -15,7 +15,7 @@ function parseAmountWithSuffix(s: string): number | null {
   return num * multiplier;
 }
 
-export type SortField = 'time' | 'date' | 'path' | 'amount' | 'confidence';
+export type SortField = 'time' | 'date' | 'path' | 'amount' | 'confidence' | 'shd';
 export type SortDirection = 'asc' | 'desc';
 
 export const SORT_DEFAULT_DIRECTIONS: Record<SortField, SortDirection> = {
@@ -24,6 +24,7 @@ export const SORT_DEFAULT_DIRECTIONS: Record<SortField, SortDirection> = {
   path: 'asc',
   amount: 'desc',
   confidence: 'asc',
+  shd: 'asc',
 };
 
 export interface ParsedQuery {
@@ -37,6 +38,7 @@ export interface ParsedQuery {
   dateFilter?: string;
   sortField?: SortField;
   sortDirection?: SortDirection;
+  mst?: string;
 }
 
 export function parseSearchQuery(raw: string): ParsedQuery {
@@ -62,10 +64,16 @@ export function parseSearchQuery(raw: string): ParsedQuery {
       continue;
     }
 
+    // mst: filter (tax ID — preserve original case)
+    if (lower.startsWith('mst:')) {
+      result.mst = part.slice(4);
+      continue;
+    }
+
     // sort: filter — sort:field or sort:field-asc / sort:field-desc
     if (lower.startsWith('sort:')) {
       const sortVal = lower.slice(5);
-      const match = sortVal.match(/^(time|processed|date|path|amount|confidence)(?:-(asc|desc))?$/);
+      const match = sortVal.match(/^(time|processed|date|path|amount|confidence|shd)(?:-(asc|desc))?$/);
       if (match) {
         const rawField = match[1];
         result.sortField = (rawField === 'processed' ? 'time' : rawField) as SortField;
@@ -121,6 +129,8 @@ export function buildQueryString(parsed: ParsedQuery): string {
   }
 
   if (parsed.status) parts.push(`status:${parsed.status}`);
+
+  if (parsed.mst) parts.push(`mst:${parsed.mst}`);
 
   if (parsed.amountMin != null && parsed.amountMax != null) {
     // Check if both are clean multiples of 1M for Ntr-Mtr shorthand

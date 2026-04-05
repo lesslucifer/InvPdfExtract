@@ -2,7 +2,7 @@ import { ParsedQuery } from './parse-query';
 
 export interface SuggestionItem {
   /** Category for grouping */
-  category: 'type' | 'status' | 'sort' | 'sort-direction' | 'amount' | 'date';
+  category: 'type' | 'status' | 'sort' | 'amount' | 'date';
   /** Display icon (emoji) */
   icon: string;
   /** Primary label shown to the user */
@@ -111,121 +111,73 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     keywords: ['status', 'review', 'xem lai'],
     filterKey: 'status',
   },
+  {
+    category: 'status',
+    icon: '❗',
+    label: 'Mismatch',
+    insertText: 'status:mismatch ',
+    hint: 'Total ≠ line items',
+    keywords: ['status', 'mismatch', 'chenh lech', 'sai'],
+    filterKey: 'status',
+  },
 
-  // Sort filters (each shown twice: desc ↓ and asc ↑)
+  // Sort filters (asc only — user can toggle direction on the pill)
   {
     category: 'sort',
-    icon: '📅↓',
+    icon: '📅',
     label: 'Date',
-    insertText: 'sort:date-desc ',
-    hint: 'new→old',
-    keywords: ['sort', 'date', 'ngay', 'desc'],
+    insertText: 'sort:date ',
+    hint: 'ngay',
+    keywords: ['sort', 'date', 'ngay'],
     filterKey: 'sortField',
   },
   {
     category: 'sort',
-    icon: '📅↑',
-    label: 'Date',
-    insertText: 'sort:date-asc ',
-    hint: 'old→new',
-    keywords: ['sort', 'date', 'ngay', 'asc'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: '🕐↓',
+    icon: '🕐',
     label: 'Processed',
-    insertText: 'sort:time-desc ',
-    hint: 'new→old',
-    keywords: ['sort', 'time', 'processed', 'thoi gian', 'desc'],
+    insertText: 'sort:time ',
+    hint: 'thoi gian',
+    keywords: ['sort', 'time', 'processed', 'thoi gian'],
     filterKey: 'sortField',
   },
   {
     category: 'sort',
-    icon: '🕐↑',
-    label: 'Processed',
-    insertText: 'sort:time-asc ',
-    hint: 'old→new',
-    keywords: ['sort', 'time', 'processed', 'thoi gian', 'asc'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: '💰↓',
+    icon: '💰',
     label: 'Amount',
-    insertText: 'sort:amount-desc ',
-    hint: 'high→low',
-    keywords: ['sort', 'amount', 'so tien', 'desc'],
+    insertText: 'sort:amount ',
+    hint: 'so tien',
+    keywords: ['sort', 'amount', 'so tien'],
     filterKey: 'sortField',
   },
   {
     category: 'sort',
-    icon: '💰↑',
-    label: 'Amount',
-    insertText: 'sort:amount-asc ',
-    hint: 'low→high',
-    keywords: ['sort', 'amount', 'so tien', 'asc'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: '📂↑',
+    icon: '📂',
     label: 'Path',
-    insertText: 'sort:path-asc ',
-    hint: 'A→Z',
-    keywords: ['sort', 'path', 'duong dan', 'file', 'asc'],
+    insertText: 'sort:path ',
+    hint: 'duong dan',
+    keywords: ['sort', 'path', 'duong dan', 'file'],
     filterKey: 'sortField',
   },
   {
     category: 'sort',
-    icon: '📂↓',
-    label: 'Path',
-    insertText: 'sort:path-desc ',
-    hint: 'Z→A',
-    keywords: ['sort', 'path', 'duong dan', 'file', 'desc'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort',
-    icon: '🎯↑',
+    icon: '🎯',
     label: 'Confidence',
-    insertText: 'sort:confidence-asc ',
-    hint: 'low→high',
-    keywords: ['sort', 'confidence', 'do tin cay', 'asc'],
+    insertText: 'sort:confidence ',
+    hint: 'do tin cay',
+    keywords: ['sort', 'confidence', 'do tin cay'],
     filterKey: 'sortField',
   },
   {
     category: 'sort',
-    icon: '🎯↓',
-    label: 'Confidence',
-    insertText: 'sort:confidence-desc ',
-    hint: 'high→low',
-    keywords: ['sort', 'confidence', 'do tin cay', 'desc'],
+    icon: '🔢',
+    label: 'Invoice #',
+    insertText: 'sort:shd ',
+    hint: 'so hoa don',
+    keywords: ['sort', 'shd', 'so hoa don', 'invoice number'],
     filterKey: 'sortField',
   },
 ];
 
-/** Sort direction sub-suggestions, used when user types `sort:<field>-` */
-export const SORT_DIRECTION_ITEMS: SuggestionItem[] = [
-  {
-    category: 'sort-direction',
-    icon: '↑',
-    label: 'Ascending',
-    insertText: '-asc ',
-    hint: 'A→Z, 0→9, old→new',
-    keywords: ['asc', 'ascending', 'tang dan'],
-    filterKey: 'sortField',
-  },
-  {
-    category: 'sort-direction',
-    icon: '↓',
-    label: 'Descending',
-    insertText: '-desc ',
-    hint: 'Z→A, 9→0, new→old',
-    keywords: ['desc', 'descending', 'giam dan'],
-    filterKey: 'sortField',
-  },
-];
 
 /** Prefix hints shown when user types a partial prefix like "ty" or "sor" */
 export interface PrefixHint {
@@ -239,15 +191,14 @@ export const PREFIX_HINTS: PrefixHint[] = [
   { prefix: 'type', label: 'Filter by document type', icon: '📋', insertText: 'type:' },
   { prefix: 'status', label: 'Filter by status', icon: '⚡', insertText: 'status:' },
   { prefix: 'sort', label: 'Sort results', icon: '↕️', insertText: 'sort:' },
-  { prefix: 'amount', label: 'Filter by amount', icon: '💰', insertText: 'amount:' },
-  { prefix: 'date', label: 'Filter by date', icon: '📅', insertText: 'date:' },
 ];
 
-/** Hint chips shown when input is empty — uses SuggestionItem for unified rendering */
+/** Hint chips shown when input is empty — uses SuggestionItem for unified rendering.
+ *  Amount and Date use special '__show:' prefix to trigger category expansion without inserting text. */
 export const EMPTY_HINT_ITEMS: SuggestionItem[] = [
   { category: 'type', icon: '📋', label: 'type:', insertText: 'type:', hint: '', keywords: [], filterKey: 'docType' },
   { category: 'status', icon: '⚡', label: 'status:', insertText: 'status:', hint: '', keywords: [], filterKey: 'status' },
   { category: 'sort', icon: '↕️', label: 'sort:', insertText: 'sort:', hint: '', keywords: [], filterKey: 'sortField' },
-  { category: 'amount', icon: '💰', label: 'amount', insertText: 'amount:', hint: '', keywords: [], filterKey: 'amountMin' },
-  { category: 'date', icon: '📅', label: 'date', insertText: 'date:', hint: '', keywords: [], filterKey: 'dateFilter' },
+  { category: 'amount', icon: '💰', label: 'Amount', insertText: '__show:amount', hint: '', keywords: [], filterKey: 'amountMin' },
+  { category: 'date', icon: '📅', label: 'Date', insertText: '__show:date', hint: '', keywords: [], filterKey: 'dateFilter' },
 ];

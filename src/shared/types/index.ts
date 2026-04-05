@@ -65,6 +65,7 @@ export interface SearchFilters {
   filePath?: string;
   docType?: string;
   status?: string;
+  mst?: string;
   amountMin?: number;
   amountMax?: number;
   dateFilter?: string;

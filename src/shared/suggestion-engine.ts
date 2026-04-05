@@ -2,7 +2,6 @@ import { ParsedQuery } from './parse-query';
 import {
   SuggestionItem,
   SUGGESTION_ITEMS,
-  SORT_DIRECTION_ITEMS,
   PREFIX_HINTS,
   PrefixHint,
   AMOUNT_SUGGESTION_ITEMS,
@@ -42,6 +41,7 @@ function isFilterActive(filterKey: keyof ParsedQuery, filters: ParsedQuery): boo
     case 'dateFilter': return !!filters.dateFilter;
     case 'amountMin': return filters.amountMin != null;
     case 'amountMax': return filters.amountMax != null;
+    case 'mst': return !!filters.mst;
     default: return false;
   }
 }
@@ -72,21 +72,6 @@ export function getSuggestions(
   if (!token) return [];
 
   const lower = token.toLowerCase();
-
-  // Sort direction sub-suggestions: sort:<field>-
-  const sortDirMatch = lower.match(/^sort:(time|processed|date|path|amount|confidence)-(.*)$/);
-  if (sortDirMatch) {
-    const partial = sortDirMatch[2]; // text after the dash
-    const field = sortDirMatch[1];
-    const baseToken = `sort:${field}`;
-    return SORT_DIRECTION_ITEMS
-      .filter(item => !partial || item.keywords.some(kw => kw.startsWith(partial)))
-      .map(item => ({
-        ...item,
-        // Override insertText to include the full sort expression
-        insertText: `${baseToken}${item.insertText}`,
-      }));
-  }
 
   // Prefix-colon triggers: type:, status:, sort:, amount:, date:
   if (lower.includes(':')) {
@@ -168,8 +153,6 @@ export function getPartialPrefixMatch(
     type: 'docType',
     status: 'status',
     sort: 'sortField',
-    amount: 'amountMin',
-    date: 'dateFilter',
   };
 
   for (const hint of PREFIX_HINTS) {

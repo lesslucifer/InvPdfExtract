@@ -14,6 +14,8 @@ interface Props {
   onOpenFolder?: (folder: string) => void;
   onReprocessFile?: (relativePath: string) => void;
   onReprocessFolder?: (folder: string) => void;
+  onMstFilter?: (mst: string) => void;
+  onDateFilter?: (date: string) => void;
 }
 
 const DOC_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -63,7 +65,7 @@ function splitPath(relativePath: string): { folder: string; folderFull: string; 
 const FOLDER_MAX_LEN = 30;
 const FILENAME_MAX_LEN = 35;
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onFileClick, onDocTypeClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder }) => {
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onFileClick, onDocTypeClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder, onMstFilter, onDateFilter }) => {
   const meta = DOC_TYPE_LABELS[result.doc_type] || DOC_TYPE_LABELS[DocType.Unknown];
   const isBank = result.doc_type === DocType.BankStatement;
 
@@ -94,11 +96,32 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         <div className="result-info">
           <div className="result-primary">
             <span className="result-label">{primaryLabel}</span>
-            {result.mst && <span className="result-mst">MST: {result.mst}</span>}
+            {result.mst && <span
+              className={`result-mst${onMstFilter ? ' result-mst-filterable' : ''}`}
+              title={onMstFilter ? 'Ctrl+Click to filter by this MST' : undefined}
+              onClick={onMstFilter ? (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                  e.stopPropagation();
+                  onMstFilter(result.mst);
+                }
+              } : undefined}
+            >MST: {result.mst}</span>}
           </div>
           <div className="result-secondary">
             {counterparty && <span className="result-counterparty">{counterparty}</span>}
-            {result.ngay && <span className="result-date">{result.ngay}</span>}
+            {result.ngay && <span
+              className={`result-date${onDateFilter ? ' result-date-filterable' : ''}`}
+              title={onDateFilter ? 'Click to filter by date, Ctrl+Click for month' : undefined}
+              onClick={onDateFilter ? (e) => {
+                e.stopPropagation();
+                // Ctrl/Cmd+Click → filter by month (YYYY-MM), plain click → exact date
+                if (e.ctrlKey || e.metaKey) {
+                  onDateFilter(result.ngay.slice(0, 7)); // YYYY-MM
+                } else {
+                  onDateFilter(result.ngay);
+                }
+              } : undefined}
+            >{result.ngay}</span>}
           </div>
         </div>
         <div className="result-right">

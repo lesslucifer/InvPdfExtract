@@ -17,6 +17,8 @@ interface Props {
   onOpenFolder?: (folder: string) => void;
   onReprocessFile?: (relativePath: string) => void;
   onReprocessFolder?: (folder: string) => void;
+  onMstFilter?: (mst: string) => void;
+  onDateFilter?: (date: string) => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -25,7 +27,7 @@ interface Props {
 export const ResultList: React.FC<Props> = ({
   results, selectedIndex, expandedId, onSelect, onToggleExpand, onOpenFile, onFieldUpdated,
   onFolderClick, onFileClick, onDocTypeClick,
-  onOpenFolder, onReprocessFile, onReprocessFolder,
+  onOpenFolder, onReprocessFile, onReprocessFolder, onMstFilter, onDateFilter,
   onLoadMore, hasMore, isLoadingMore,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
@@ -78,6 +80,8 @@ export const ResultList: React.FC<Props> = ({
             onOpenFolder={onOpenFolder}
             onReprocessFile={onReprocessFile}
             onReprocessFolder={onReprocessFolder}
+            onMstFilter={onMstFilter}
+            onDateFilter={onDateFilter}
           />
           {expandedId === result.id && (
             <ResultDetail

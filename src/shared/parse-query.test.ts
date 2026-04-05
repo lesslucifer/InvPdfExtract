@@ -125,6 +125,20 @@ describe('parseSearchQuery', () => {
     it('parses status:review', () => {
       expect(parseSearchQuery('status:review').status).toBe('review');
     });
+
+    it('parses status:mismatch', () => {
+      expect(parseSearchQuery('status:mismatch').status).toBe('mismatch');
+    });
+  });
+
+  describe('mst filters', () => {
+    it('parses mst:<value>', () => {
+      expect(parseSearchQuery('mst:0123456789').mst).toBe('0123456789');
+    });
+
+    it('preserves original case', () => {
+      expect(parseSearchQuery('mst:ABC123').mst).toBe('ABC123');
+    });
   });
 
   describe('sort filters', () => {
@@ -160,6 +174,12 @@ describe('parseSearchQuery', () => {
       const result = parseSearchQuery('sort:path-desc');
       expect(result.sortField).toBe('path');
       expect(result.sortDirection).toBe('desc');
+    });
+
+    it('parses sort:shd', () => {
+      const result = parseSearchQuery('sort:shd');
+      expect(result.sortField).toBe('shd');
+      expect(result.sortDirection).toBeUndefined();
     });
 
     it('treats sort:invalid as plain text', () => {
@@ -218,6 +238,10 @@ describe('buildQueryString', () => {
 
   it('builds from status', () => {
     expect(buildQueryString({ text: '', status: 'conflict' })).toBe('status:conflict');
+  });
+
+  it('builds from mst', () => {
+    expect(buildQueryString({ text: '', mst: '0123456789' })).toBe('mst:0123456789');
   });
 
   it('builds from amount range (triệu shorthand)', () => {

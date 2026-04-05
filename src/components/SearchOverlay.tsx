@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SearchResult, OverlayState, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
 import { parseSearchQuery, buildQueryString, ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 import { getSuggestions, getActiveToken } from '../shared/suggestion-engine';
-import { SuggestionItem, EMPTY_HINT_ITEMS } from '../shared/suggestion-data';
+import { SuggestionItem, EMPTY_HINT_ITEMS, AMOUNT_SUGGESTION_ITEMS, getDateSuggestionItems } from '../shared/suggestion-data';
 import { SearchInput } from './SearchInput';
 import { FilterPills } from './FilterPills';
 import { SuggestionList } from './SuggestionList';
@@ -124,6 +124,7 @@ export const SearchOverlay: React.FC = () => {
     filePath: file || undefined,
     docType: currentFilters.docType,
     status: currentFilters.status,
+    mst: currentFilters.mst,
     amountMin: currentFilters.amountMin,
     amountMax: currentFilters.amountMax,
     dateFilter: currentFilters.dateFilter,
@@ -216,7 +217,7 @@ export const SearchOverlay: React.FC = () => {
     if (!value.endsWith(' ')) return null;
 
     const parsed = parseSearchQuery(value);
-    const hasInlineFilters = parsed.docType || parsed.status ||
+    const hasInlineFilters = parsed.docType || parsed.status || parsed.mst ||
       parsed.amountMin != null || parsed.amountMax != null || parsed.dateFilter ||
       parsed.sortField;
 
@@ -237,6 +238,19 @@ export const SearchOverlay: React.FC = () => {
   const queryChangeRef = useRef<(value: string) => void>(() => {});
 
   const handleSuggestionAccept = useCallback((item: SuggestionItem) => {
+    // Special __show: prefix — expand category chips without inserting text
+    if (item.insertText.startsWith('__show:')) {
+      const category = item.insertText.slice(7); // 'amount' or 'date'
+      if (category === 'amount') {
+        setSuggestions(AMOUNT_SUGGESTION_ITEMS);
+      } else if (category === 'date') {
+        setSuggestions(getDateSuggestionItems());
+      }
+      setSuggestionIndex(0);
+      setShowHintBar(false);
+      return;
+    }
+
     const { text: activeToken, startIndex } = getActiveToken(query, cursorPosRef.current);
     // Replace the active token with the suggestion's insertText
     const before = query.slice(0, startIndex);
@@ -337,6 +351,7 @@ export const SearchOverlay: React.FC = () => {
       const { extracted } = extraction;
       if (extracted.docType) newFilters.docType = extracted.docType;
       if (extracted.status) newFilters.status = extracted.status;
+      if (extracted.mst) newFilters.mst = extracted.mst;
       if (extracted.amountMin != null) newFilters.amountMin = extracted.amountMin;
       if (extracted.amountMax != null) newFilters.amountMax = extracted.amountMax;
       if (extracted.dateFilter) newFilters.dateFilter = extracted.dateFilter;
@@ -355,7 +370,7 @@ export const SearchOverlay: React.FC = () => {
     if (value.trim() && overlayState === OverlayState.Home) {
       setOverlayState(OverlayState.Search);
     }
-    const hasActiveFilters = filters.docType || filters.status ||
+    const hasActiveFilters = filters.docType || filters.status || filters.mst ||
       filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
     if (!value.trim() && overlayState === OverlayState.Search && !folderScope && !fileScope && !hasActiveFilters) {
       setOverlayState(OverlayState.Home);
@@ -389,7 +404,7 @@ export const SearchOverlay: React.FC = () => {
 
     // Check if anything is left to search
     const hasRemaining = query.trim() || folderScope || fileScope || newFilters.docType ||
-      newFilters.status || newFilters.amountMin != null || newFilters.amountMax != null ||
+      newFilters.status || newFilters.mst || newFilters.amountMin != null || newFilters.amountMax != null ||
       newFilters.dateFilter || newFilters.sortField;
 
     if (!hasRemaining) {
@@ -448,7 +463,7 @@ export const SearchOverlay: React.FC = () => {
   const handleClearFolderScope = useCallback(() => {
     setFolderScope(null);
     setFileScope(null);
-    const hasActiveFilters = filters.docType || filters.status ||
+    const hasActiveFilters = filters.docType || filters.status || filters.mst ||
       filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
     if (!query.trim() && !hasActiveFilters) {
       setOverlayState(OverlayState.Home);
@@ -478,6 +493,24 @@ export const SearchOverlay: React.FC = () => {
     // Keep folderScope — just widen from file to folder
     doSearch(query, filters, folderScope, false, null);
   }, [query, filters, folderScope, doSearch]);
+
+  const handleDateFilter = useCallback((date: string) => {
+    const newFilters = { ...filters, text: '', dateFilter: date };
+    setFilters(newFilters);
+    if (overlayState === OverlayState.Home) {
+      setOverlayState(OverlayState.Search);
+    }
+    doSearch(query, newFilters, folderScope, false, fileScope);
+  }, [filters, query, folderScope, fileScope, overlayState, doSearch]);
+
+  const handleMstFilter = useCallback((mst: string) => {
+    const newFilters = { ...filters, text: '', mst };
+    setFilters(newFilters);
+    if (overlayState === OverlayState.Home) {
+      setOverlayState(OverlayState.Search);
+    }
+    doSearch(query, newFilters, folderScope, false, fileScope);
+  }, [filters, query, folderScope, fileScope, overlayState, doSearch]);
 
   const handleDocTypeClick = useCallback((docType: string) => {
     // Toggle: if same type, remove it; otherwise set it
@@ -629,7 +662,7 @@ export const SearchOverlay: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
         if (showSaveModal) return;
-        const hasActive = query.trim() || folderScope || fileScope || filters.docType || filters.status ||
+        const hasActive = query.trim() || folderScope || fileScope || filters.docType || filters.status || filters.mst ||
           filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
         if (hasActive) {
           setShowSaveModal(true);
@@ -711,7 +744,7 @@ export const SearchOverlay: React.FC = () => {
             setExpandedId(null);
           } else if (query) {
             handleQueryChange('');
-          } else if (filters.docType || filters.status || filters.amountMin != null ||
+          } else if (filters.docType || filters.status || filters.mst || filters.amountMin != null ||
                      filters.amountMax != null || filters.dateFilter) {
             // Clear all filter pills
             setFilters({ text: '' });
@@ -741,7 +774,7 @@ export const SearchOverlay: React.FC = () => {
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&
     !(filters.sortField === 'time' && (!filters.sortDirection || filters.sortDirection === 'desc'));
-  const hasFilterPills = filters.docType || filters.status ||
+  const hasFilterPills = filters.docType || filters.status || filters.mst ||
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
   const titleBar = isWindowlized ? (
@@ -875,6 +908,8 @@ export const SearchOverlay: React.FC = () => {
           onOpenFolder={handleOpenFolder}
           onReprocessFile={handleReprocessFile}
           onReprocessFolder={handleReprocessFolder}
+          onMstFilter={handleMstFilter}
+          onDateFilter={handleDateFilter}
           onLoadMore={loadMore}
           hasMore={hasMore}
           isLoadingMore={isLoadingMore}

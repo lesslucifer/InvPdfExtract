@@ -181,6 +181,20 @@ body {
   white-space: nowrap;
 }
 
+.result-mst-filterable,
+.result-date-filterable {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.result-mst-filterable:hover,
+.result-date-filterable:hover {
+  background: var(--hover-bg, rgba(255,255,255,0.08));
+  color: var(--accent, #6cb6ff);
+  text-decoration: underline;
+}
+
 .result-secondary {
   display: flex;
   gap: 12px;
