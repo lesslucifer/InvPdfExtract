@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry } from '../shared/types';
 import { StatusDot } from './StatusDot';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 type TabId = 'queue' | 'processed' | 'errors';
 
@@ -99,7 +100,7 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
     <div className="processing-status-panel">
       <div className="settings-header">
         <button className="settings-back-btn" onClick={onBack} aria-label="Back">
-          &#x2190;
+          <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
         <span className="settings-title">Processing Status</span>
       </div>
@@ -188,7 +189,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; onRefresh: () => Promise<void> }>
               onClick={() => copy(file.id, formatEntry(file))}
               title="Copy to clipboard"
             >
-              {copiedId === file.id ? '\u2713' : '\u29C9'}
+              {copiedId === file.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
             </button>
             {file.status === FileStatus.Pending && (
               <button
@@ -196,7 +197,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; onRefresh: () => Promise<void> }>
                 onClick={() => handleCancel(file.id)}
                 title="Remove from queue"
               >
-                &#x2715;
+                <Icons.close size={ICON_SIZE.SM} />
               </button>
             )}
           </li>
@@ -249,7 +250,7 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
               onClick={() => copy(file.id, formatEntry(file))}
               title="Copy to clipboard"
             >
-              {copiedId === file.id ? '\u2713' : '\u29C9'}
+              {copiedId === file.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
             </button>
           </li>
         ))}
@@ -300,7 +301,7 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[] }> = ({ logs }) => {
               onClick={() => copy(log.id, formatEntry(log))}
               title="Copy to clipboard"
             >
-              {copiedId === log.id ? '\u2713' : '\u29C9'}
+              {copiedId === log.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
             </button>
           </li>
         ))}

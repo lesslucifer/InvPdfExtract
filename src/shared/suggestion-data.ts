@@ -1,10 +1,13 @@
 import { ParsedQuery } from './parse-query';
+import { type IconName } from './icons';
 
 export interface SuggestionItem {
   /** Category for grouping */
   category: 'type' | 'status' | 'sort' | 'sort-direction' | 'amount' | 'date';
-  /** Display icon (emoji) */
-  icon: string;
+  /** Icon name from shared/icons */
+  icon: IconName;
+  /** Optional secondary icon for sort direction */
+  directionIcon?: IconName;
   /** Primary label shown to the user */
   label: string;
   /** The raw text to insert into the input on acceptance */
@@ -45,28 +48,28 @@ function getRelativeDates() {
 export function getDateSuggestionItems(): SuggestionItem[] {
   const d = getRelativeDates();
   return [
-    { category: 'date', icon: '📅', label: 'Today', insertText: `${d.today} `, hint: d.today, keywords: ['today', 'hom nay'], filterKey: 'dateFilter' },
-    { category: 'date', icon: '📅', label: 'This Month', insertText: `${d.thisMonth} `, hint: d.thisMonth, keywords: ['this month', 'thang nay'], filterKey: 'dateFilter' },
-    { category: 'date', icon: '📅', label: 'Last Month', insertText: `${d.lastMonth} `, hint: d.lastMonth, keywords: ['last month', 'thang truoc'], filterKey: 'dateFilter' },
-    { category: 'date', icon: '📅', label: 'This Year', insertText: `${d.thisYear} `, hint: d.thisYear, keywords: ['this year', 'nam nay'], filterKey: 'dateFilter' },
+    { category: 'date', icon: 'calendar', label: 'Today', insertText: `${d.today} `, hint: d.today, keywords: ['today', 'hom nay'], filterKey: 'dateFilter' },
+    { category: 'date', icon: 'calendar', label: 'This Month', insertText: `${d.thisMonth} `, hint: d.thisMonth, keywords: ['this month', 'thang nay'], filterKey: 'dateFilter' },
+    { category: 'date', icon: 'calendar', label: 'Last Month', insertText: `${d.lastMonth} `, hint: d.lastMonth, keywords: ['last month', 'thang truoc'], filterKey: 'dateFilter' },
+    { category: 'date', icon: 'calendar', label: 'This Year', insertText: `${d.thisYear} `, hint: d.thisYear, keywords: ['this year', 'nam nay'], filterKey: 'dateFilter' },
   ];
 }
 
 /** Common amount filter suggestions */
 export const AMOUNT_SUGGESTION_ITEMS: SuggestionItem[] = [
-  { category: 'amount', icon: '💰', label: '>1tr', insertText: '>1tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
-  { category: 'amount', icon: '💰', label: '>5tr', insertText: '>5tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
-  { category: 'amount', icon: '💰', label: '>10tr', insertText: '>10tr ', hint: '>', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
-  { category: 'amount', icon: '💰', label: '>50tr', insertText: '>50tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
-  { category: 'amount', icon: '💰', label: '>100tr', insertText: '>100tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
-  { category: 'amount', icon: '💰', label: '1tr-5tr', insertText: '1tr-5tr ', hint: '1M–5M', keywords: ['amount', 'range', 'so tien'], filterKey: 'amountMin' },
+  { category: 'amount', icon: 'amount', label: '>1tr', insertText: '>1tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
+  { category: 'amount', icon: 'amount', label: '>5tr', insertText: '>5tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
+  { category: 'amount', icon: 'amount', label: '>10tr', insertText: '>10tr ', hint: '>', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
+  { category: 'amount', icon: 'amount', label: '>50tr', insertText: '>50tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
+  { category: 'amount', icon: 'amount', label: '>100tr', insertText: '>100tr ', hint: '', keywords: ['amount', 'so tien'], filterKey: 'amountMin' },
+  { category: 'amount', icon: 'amount', label: '1tr-5tr', insertText: '1tr-5tr ', hint: '1M–5M', keywords: ['amount', 'range', 'so tien'], filterKey: 'amountMin' },
 ];
 
 export const SUGGESTION_ITEMS: SuggestionItem[] = [
   // Type filters
   {
     category: 'type',
-    icon: '🏦',
+    icon: 'bankStatement',
     label: 'Bank Statement',
     insertText: 'type:bank ',
     hint: 'saoke',
@@ -75,7 +78,7 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'type',
-    icon: '📤',
+    icon: 'invoiceOut',
     label: 'Invoice Out',
     insertText: 'type:out ',
     hint: 'hdra',
@@ -84,7 +87,7 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'type',
-    icon: '📥',
+    icon: 'invoiceIn',
     label: 'Invoice In',
     insertText: 'type:in ',
     hint: 'hdv',
@@ -95,7 +98,7 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   // Status filters
   {
     category: 'status',
-    icon: '⚠️',
+    icon: 'conflict',
     label: 'Conflict',
     insertText: 'status:conflict ',
     hint: 'Fields differ from AI',
@@ -104,7 +107,7 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'status',
-    icon: '🔍',
+    icon: 'eye',
     label: 'Needs Review',
     insertText: 'status:review ',
     hint: 'Low confidence',
@@ -115,7 +118,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   // Sort filters (each shown twice: desc ↓ and asc ↑)
   {
     category: 'sort',
-    icon: '📅↓',
+    icon: 'calendar',
+    directionIcon: 'arrowDown',
     label: 'Date',
     insertText: 'sort:date-desc ',
     hint: 'new→old',
@@ -124,7 +128,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '📅↑',
+    icon: 'calendar',
+    directionIcon: 'arrowUp',
     label: 'Date',
     insertText: 'sort:date-asc ',
     hint: 'old→new',
@@ -133,7 +138,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '🕐↓',
+    icon: 'clock',
+    directionIcon: 'arrowDown',
     label: 'Processed',
     insertText: 'sort:time-desc ',
     hint: 'new→old',
@@ -142,7 +148,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '🕐↑',
+    icon: 'clock',
+    directionIcon: 'arrowUp',
     label: 'Processed',
     insertText: 'sort:time-asc ',
     hint: 'old→new',
@@ -151,7 +158,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '💰↓',
+    icon: 'amount',
+    directionIcon: 'arrowDown',
     label: 'Amount',
     insertText: 'sort:amount-desc ',
     hint: 'high→low',
@@ -160,7 +168,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '💰↑',
+    icon: 'amount',
+    directionIcon: 'arrowUp',
     label: 'Amount',
     insertText: 'sort:amount-asc ',
     hint: 'low→high',
@@ -169,7 +178,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '📂↑',
+    icon: 'folderOpen',
+    directionIcon: 'arrowUp',
     label: 'Path',
     insertText: 'sort:path-asc ',
     hint: 'A→Z',
@@ -178,7 +188,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '📂↓',
+    icon: 'folderOpen',
+    directionIcon: 'arrowDown',
     label: 'Path',
     insertText: 'sort:path-desc ',
     hint: 'Z→A',
@@ -187,7 +198,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '🎯↑',
+    icon: 'target',
+    directionIcon: 'arrowUp',
     label: 'Confidence',
     insertText: 'sort:confidence-asc ',
     hint: 'low→high',
@@ -196,7 +208,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort',
-    icon: '🎯↓',
+    icon: 'target',
+    directionIcon: 'arrowDown',
     label: 'Confidence',
     insertText: 'sort:confidence-desc ',
     hint: 'high→low',
@@ -209,7 +222,7 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
 export const SORT_DIRECTION_ITEMS: SuggestionItem[] = [
   {
     category: 'sort-direction',
-    icon: '↑',
+    icon: 'arrowUp',
     label: 'Ascending',
     insertText: '-asc ',
     hint: 'A→Z, 0→9, old→new',
@@ -218,7 +231,7 @@ export const SORT_DIRECTION_ITEMS: SuggestionItem[] = [
   },
   {
     category: 'sort-direction',
-    icon: '↓',
+    icon: 'arrowDown',
     label: 'Descending',
     insertText: '-desc ',
     hint: 'Z→A, 9→0, new→old',
@@ -231,23 +244,23 @@ export const SORT_DIRECTION_ITEMS: SuggestionItem[] = [
 export interface PrefixHint {
   prefix: string;
   label: string;
-  icon: string;
+  icon: IconName;
   insertText: string;
 }
 
 export const PREFIX_HINTS: PrefixHint[] = [
-  { prefix: 'type', label: 'Filter by document type', icon: '📋', insertText: 'type:' },
-  { prefix: 'status', label: 'Filter by status', icon: '⚡', insertText: 'status:' },
-  { prefix: 'sort', label: 'Sort results', icon: '↕️', insertText: 'sort:' },
-  { prefix: 'amount', label: 'Filter by amount', icon: '💰', insertText: 'amount:' },
-  { prefix: 'date', label: 'Filter by date', icon: '📅', insertText: 'date:' },
+  { prefix: 'type', label: 'Filter by document type', icon: 'clipboardList', insertText: 'type:' },
+  { prefix: 'status', label: 'Filter by status', icon: 'zap', insertText: 'status:' },
+  { prefix: 'sort', label: 'Sort results', icon: 'arrowUpDown', insertText: 'sort:' },
+  { prefix: 'amount', label: 'Filter by amount', icon: 'amount', insertText: 'amount:' },
+  { prefix: 'date', label: 'Filter by date', icon: 'calendar', insertText: 'date:' },
 ];
 
 /** Hint chips shown when input is empty — uses SuggestionItem for unified rendering */
 export const EMPTY_HINT_ITEMS: SuggestionItem[] = [
-  { category: 'type', icon: '📋', label: 'type:', insertText: 'type:', hint: '', keywords: [], filterKey: 'docType' },
-  { category: 'status', icon: '⚡', label: 'status:', insertText: 'status:', hint: '', keywords: [], filterKey: 'status' },
-  { category: 'sort', icon: '↕️', label: 'sort:', insertText: 'sort:', hint: '', keywords: [], filterKey: 'sortField' },
-  { category: 'amount', icon: '💰', label: 'amount', insertText: 'amount:', hint: '', keywords: [], filterKey: 'amountMin' },
-  { category: 'date', icon: '📅', label: 'date', insertText: 'date:', hint: '', keywords: [], filterKey: 'dateFilter' },
+  { category: 'type', icon: 'clipboardList', label: 'type:', insertText: 'type:', hint: '', keywords: [], filterKey: 'docType' },
+  { category: 'status', icon: 'zap', label: 'status:', insertText: 'status:', hint: '', keywords: [], filterKey: 'status' },
+  { category: 'sort', icon: 'arrowUpDown', label: 'sort:', insertText: 'sort:', hint: '', keywords: [], filterKey: 'sortField' },
+  { category: 'amount', icon: 'amount', label: 'amount', insertText: 'amount:', hint: '', keywords: [], filterKey: 'amountMin' },
+  { category: 'date', icon: 'calendar', label: 'date', insertText: 'date:', hint: '', keywords: [], filterKey: 'dateFilter' },
 ];

@@ -1,5 +1,7 @@
 import React from 'react';
 import { SuggestionItem } from '../shared/suggestion-data';
+import { Icon } from './Icon';
+import { ICON_SIZE } from '../shared/icons';
 
 interface Props {
   items: SuggestionItem[];
@@ -26,7 +28,10 @@ export const SuggestionList: React.FC<Props> = ({ items, selectedIndex, onAccept
             onAccept(item);
           }}
         >
-          <span className="suggestion-chip-icon">{item.icon}</span>
+          <span className="suggestion-chip-icon">
+            <Icon name={item.icon} size={ICON_SIZE.SM} />
+            {item.directionIcon && <Icon name={item.directionIcon} size={ICON_SIZE.XS} />}
+          </span>
           <span className="suggestion-chip-label">{item.label}</span>
           {item.hint && <span className="suggestion-chip-hint">{item.hint}</span>}
         </button>

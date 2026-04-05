@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppConfig } from '../shared/types';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 interface Props {
   onBack: () => void;
@@ -99,7 +100,7 @@ export const SettingsPanel: React.FC<Props> = ({ onBack, onVaultChanged }) => {
     <div className="settings-panel">
       <div className="settings-header">
         <button className="settings-back-btn" onClick={onBack} aria-label="Back">
-          &larr;
+          <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
         <span className="settings-title">Settings</span>
       </div>
@@ -126,7 +127,7 @@ export const SettingsPanel: React.FC<Props> = ({ onBack, onVaultChanged }) => {
                 onClick={(e) => handleDisconnectVault(config.lastVaultPath!, e)}
                 title={clearConfirmVault === config.lastVaultPath ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
               >
-                {clearConfirmVault === config.lastVaultPath ? 'Confirm Clear?' : '\u2715'}
+                {clearConfirmVault === config.lastVaultPath ? 'Confirm Clear?' : <Icons.close size={ICON_SIZE.SM} />}
               </button>
             </div>
           </div>
@@ -145,14 +146,14 @@ export const SettingsPanel: React.FC<Props> = ({ onBack, onVaultChanged }) => {
                   onClick={() => handleSwitchVault(vp)}
                   title={switchConfirm === vp ? 'Click again to confirm switch' : 'Switch to this vault'}
                 >
-                  {switchConfirm === vp ? 'Confirm?' : '\u21C4'}
+                  {switchConfirm === vp ? 'Confirm?' : <Icons.arrowLeftRight size={ICON_SIZE.SM} />}
                 </button>
                 <button
                   className={`settings-icon-btn settings-danger`}
                   onClick={(e) => handleDisconnectVault(vp, e)}
                   title={clearConfirmVault === vp ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
                 >
-                  {clearConfirmVault === vp ? 'Confirm Clear?' : '\u2715'}
+                  {clearConfirmVault === vp ? 'Confirm Clear?' : <Icons.close size={ICON_SIZE.SM} />}
                 </button>
               </div>
             </div>

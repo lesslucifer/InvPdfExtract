@@ -763,6 +763,7 @@ export const SearchOverlay: React.FC = () => {
   // Render based on state
   const overlayClassName = `search-overlay${isWindowlized ? ' search-overlay--windowlized' : ''}`;
 
+
   if (overlayState === OverlayState.NoVault) {
     return (
       <div className={overlayClassName}>
@@ -795,7 +796,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} />
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -815,7 +816,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} />
         <PresetList
           query={presetQuery}
           onLoadPreset={handleLoadPreset}
@@ -838,7 +839,7 @@ export const SearchOverlay: React.FC = () => {
   return (
     <div className={overlayClassName}>
       {titleBar}
-      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
+      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} />
       <SuggestionList
         items={visibleSuggestions}
         selectedIndex={suggestionIndex}
@@ -885,6 +886,7 @@ export const SearchOverlay: React.FC = () => {
           stats={aggregates}
           filters={buildSearchFilters(query, filters, folderScope, fileScope)}
           onWindowlize={!isWindowlized ? handleWindowlize : undefined}
+          onSettingsClick={!isWindowlized ? handleGearClick : undefined}
         />
       )}
       <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => setShowSaveModal(false)} />

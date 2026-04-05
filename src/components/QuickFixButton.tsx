@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
+import { formatCurrency } from '../shared/format';
 
 interface Props {
   suggestedValue: number;
   label: string;
   onApply: (value: string) => void;
-}
-
-function formatAmount(amount: number): string {
-  if (!amount) return '0';
-  return new Intl.NumberFormat('vi-VN').format(amount);
 }
 
 export const QuickFixButton: React.FC<Props> = ({ suggestedValue, label, onApply }) => {
@@ -18,7 +14,7 @@ export const QuickFixButton: React.FC<Props> = ({ suggestedValue, label, onApply
     return (
       <button
         className="quickfix-trigger"
-        title={`${label}: ${formatAmount(suggestedValue)}`}
+        title={`${label}: ${formatCurrency(suggestedValue)}`}
         onClick={(e) => { e.stopPropagation(); setState('confirming'); }}
       >
         !
@@ -28,7 +24,7 @@ export const QuickFixButton: React.FC<Props> = ({ suggestedValue, label, onApply
 
   return (
     <span className="quickfix-confirm" onClick={(e) => e.stopPropagation()}>
-      <span className="quickfix-label">{label}: {formatAmount(suggestedValue)}</span>
+      <span className="quickfix-label">{label}: {formatCurrency(suggestedValue)}</span>
       <button
         className="quickfix-btn quickfix-apply"
         onClick={() => { onApply(String(suggestedValue)); setState('idle'); }}

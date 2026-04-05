@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { ParsedQuery } from '../shared/parse-query';
+import { formatCurrency } from '../shared/format';
+import { DOC_TYPE_ICONS } from '../shared/icons';
+import type { IconName } from '../shared/icons';
 
 /**
  * Tests for FilterPills logic — extracted as pure functions since
@@ -10,60 +13,47 @@ import { ParsedQuery } from '../shared/parse-query';
 
 interface PillDef {
   key: keyof ParsedQuery;
-  icon: string;
+  icon: IconName;
   label: string;
 }
 
-const DOC_TYPE_PILLS: Record<string, { icon: string; label: string }> = {
-  bank_statement: { icon: '🏦', label: 'Bank Statement' },
-  invoice_out: { icon: '📤', label: 'Invoice Out' },
-  invoice_in: { icon: '📥', label: 'Invoice In' },
-};
-
 function formatAmount(n: number): string {
-  if (n >= 1_000_000_000 && n % 1_000_000_000 === 0) {
-    return `${n / 1_000_000_000}t`;
-  }
-  if (n >= 1_000_000 && n % 1_000_000 === 0) {
-    return `${n / 1_000_000}tr`;
-  }
-  if (n >= 1_000 && n % 1_000 === 0) {
-    return `${n / 1_000}k`;
-  }
-  return new Intl.NumberFormat('vi-VN').format(n);
+  return formatCurrency(n, { abbreviated: true });
 }
 
 function getPills(filters: ParsedQuery): PillDef[] {
   const pills: PillDef[] = [];
 
   if (filters.docType) {
-    const meta = DOC_TYPE_PILLS[filters.docType];
+    const meta = DOC_TYPE_ICONS[filters.docType];
     if (meta) {
-      pills.push({ key: 'docType', icon: meta.icon, label: meta.label });
+      const iconName = filters.docType === 'bank_statement' ? 'bankStatement'
+        : filters.docType === 'invoice_out' ? 'invoiceOut'
+        : 'invoiceIn';
+      pills.push({ key: 'docType', icon: iconName as IconName, label: meta.label });
     }
   }
 
   if (filters.status) {
-    const statusIcons: Record<string, string> = { conflict: '⚠️', review: '🔍' };
-    const icon = statusIcons[filters.status] || '🔖';
-    const label = filters.status.charAt(0).toUpperCase() + filters.status.slice(1);
-    pills.push({ key: 'status', icon, label });
+    const statusIcons: Record<string, IconName> = { conflict: 'conflict', review: 'eye' };
+    const icon = statusIcons[filters.status] || 'zap';
+    pills.push({ key: 'status', icon, label: filters.status.charAt(0).toUpperCase() + filters.status.slice(1) });
   }
 
   if (filters.amountMin != null && filters.amountMax != null) {
     pills.push({
       key: 'amountMin',
-      icon: '💰',
+      icon: 'amount',
       label: `${formatAmount(filters.amountMin)}–${formatAmount(filters.amountMax)}`,
     });
   } else if (filters.amountMin != null) {
-    pills.push({ key: 'amountMin', icon: '💰', label: `>${formatAmount(filters.amountMin)}` });
+    pills.push({ key: 'amountMin', icon: 'amount', label: `>${formatAmount(filters.amountMin)}` });
   } else if (filters.amountMax != null) {
-    pills.push({ key: 'amountMax', icon: '💰', label: `<${formatAmount(filters.amountMax)}` });
+    pills.push({ key: 'amountMax', icon: 'amount', label: `<${formatAmount(filters.amountMax)}` });
   }
 
   if (filters.dateFilter) {
-    pills.push({ key: 'dateFilter', icon: '📅', label: filters.dateFilter });
+    pills.push({ key: 'dateFilter', icon: 'calendar', label: filters.dateFilter });
   }
 
   return pills;
@@ -80,7 +70,7 @@ describe('FilterPills logic', () => {
     it('returns doc type pill for bank_statement', () => {
       const pills = getPills({ text: '', docType: 'bank_statement' });
       expect(pills).toHaveLength(1);
-      expect(pills[0]).toEqual({ key: 'docType', icon: '🏦', label: 'Bank Statement' });
+      expect(pills[0]).toEqual({ key: 'docType', icon: 'bankStatement', label: 'Bank Statement' });
     });
 
     it('returns doc type pill for invoice_out', () => {
@@ -96,12 +86,12 @@ describe('FilterPills logic', () => {
     it('returns status pill for conflict', () => {
       const pills = getPills({ text: '', status: 'conflict' });
       expect(pills).toHaveLength(1);
-      expect(pills[0]).toEqual({ key: 'status', icon: '⚠️', label: 'Conflict' });
+      expect(pills[0]).toEqual({ key: 'status', icon: 'conflict', label: 'Conflict' });
     });
 
     it('returns status pill for review', () => {
       const pills = getPills({ text: '', status: 'review' });
-      expect(pills[0]).toEqual({ key: 'status', icon: '🔍', label: 'Review' });
+      expect(pills[0]).toEqual({ key: 'status', icon: 'eye', label: 'Review' });
     });
 
     it('returns amount range pill with triệu shorthand', () => {
@@ -123,7 +113,7 @@ describe('FilterPills logic', () => {
     it('returns date filter pill', () => {
       const pills = getPills({ text: '', dateFilter: '2024-03' });
       expect(pills).toHaveLength(1);
-      expect(pills[0]).toEqual({ key: 'dateFilter', icon: '📅', label: '2024-03' });
+      expect(pills[0]).toEqual({ key: 'dateFilter', icon: 'calendar', label: '2024-03' });
     });
 
     it('returns multiple pills for combined filters', () => {

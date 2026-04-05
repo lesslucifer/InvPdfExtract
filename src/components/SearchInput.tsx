@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -6,12 +7,11 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   onCursorChange?: (pos: number) => void;
-  onGearClick?: () => void;
   onStatusDotClick?: () => void;
   status?: StatusIndicator;
 }
 
-export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onGearClick, onStatusDotClick, status = 'idle' }) => {
+export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onStatusDotClick, status = 'idle' }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
 
   return (
     <div className="search-input-container">
-      <span className="search-icon">&#x1F50D;</span>
+      <span className="search-icon"><Icons.search size={ICON_SIZE.LG} /></span>
       <input
         ref={inputRef}
         className="search-input"
@@ -46,7 +46,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
       />
       {value && (
         <button className="search-clear" onClick={() => onChange('')} aria-label="Clear">
-          &times;
+          <Icons.close size={ICON_SIZE.SM} />
         </button>
       )}
       {onStatusDotClick ? (
@@ -62,11 +62,6 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
           title={status === 'idle' ? 'Idle' : status === 'processing' ? 'Processing...' : status === 'review' ? 'Needs review' : 'Error'}
           aria-label={`Status: ${status}`}
         />
-      )}
-      {onGearClick && (
-        <button className="gear-icon" onClick={onGearClick} aria-label="Settings">
-          &#x2699;
-        </button>
       )}
     </div>
   );

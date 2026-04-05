@@ -1,4 +1,5 @@
 import React from 'react';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 interface Props {
   folder: string | null;
@@ -34,10 +35,10 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
 
   return (
     <div className="breadcrumb-bar">
-      <span className="breadcrumb-root">📁</span>
+      <span className="breadcrumb-root"><Icons.folder size={ICON_SIZE.MD} /></span>
       {segments.map((seg, i) => (
         <React.Fragment key={seg.path}>
-          {i > 0 && <span className="breadcrumb-separator">&gt;</span>}
+          {i > 0 && <span className="breadcrumb-separator"><Icons.chevronRight size={ICON_SIZE.XS} /></span>}
           <button
             className="breadcrumb-segment"
             onClick={() => onNavigate(seg.path)}
@@ -49,9 +50,9 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
       ))}
       {fileName && (
         <>
-          {segments.length > 0 && <span className="breadcrumb-separator">&gt;</span>}
+          {segments.length > 0 && <span className="breadcrumb-separator"><Icons.chevronRight size={ICON_SIZE.XS} /></span>}
           <span className="breadcrumb-file" title={file!}>
-            📄 {fileName}
+            <Icons.file size={ICON_SIZE.SM} /> {fileName}
           </span>
           {onClearFile && (
             <button
@@ -60,7 +61,7 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
               title="Clear file scope (show all records in folder)"
               aria-label="Clear file scope"
             >
-              &times;
+              <Icons.close size={ICON_SIZE.XS} />
             </button>
           )}
         </>
@@ -73,7 +74,7 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
             title={file ? 'Reprocess this file' : 'Reprocess folder'}
             aria-label={file ? 'Reprocess file' : 'Reprocess folder'}
           >
-            ↻
+            <Icons.refresh size={ICON_SIZE.MD} />
           </button>
         )}
         {folder && (
@@ -83,7 +84,7 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
             title="Open in Finder"
             aria-label="Open folder in file manager"
           >
-            📂
+            <Icons.folderOpen size={ICON_SIZE.MD} />
           </button>
         )}
         <button
@@ -92,7 +93,7 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
           title="Clear all scope"
           aria-label="Clear all scope"
         >
-          &times;
+          <Icons.close size={ICON_SIZE.MD} />
         </button>
       </div>
     </div>

@@ -1,18 +1,16 @@
 import React, { useState, useCallback } from 'react';
 import { AggregateStats, SearchFilters } from '../shared/types';
+import { formatCurrency } from '../shared/format';
+import { Icons, ICON_SIZE } from '../shared/icons';
 
 interface Props {
   stats: AggregateStats;
   filters: SearchFilters;
   onWindowlize?: () => void;
+  onSettingsClick?: () => void;
 }
 
-export function formatVND(amount: number): string {
-  if (amount === 0) return '0';
-  return new Intl.NumberFormat('vi-VN').format(amount);
-}
-
-export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize }) => {
+export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize, onSettingsClick }) => {
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<{ message: string; filePath: string } | null>(null);
 
@@ -44,7 +42,7 @@ export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize }) 
         {stats.totalAmount > 0 && (
           <>
             <span className="sticky-footer-separator" />
-            <span className="sticky-footer-amount">{formatVND(stats.totalAmount)}</span>
+            <span className="sticky-footer-amount">{formatCurrency(stats.totalAmount)}</span>
           </>
         )}
       </div>
@@ -70,9 +68,17 @@ export const StickyFooter: React.FC<Props> = ({ stats, filters, onWindowlize }) 
             aria-label="Open as window"
             title="Open as window"
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M2.5 1A1.5 1.5 0 0 0 1 2.5v11A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 1h-11zM2 2.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 .5.5V4H2V2.5zM2 5h12v8.5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5V5z" />
-            </svg>
+            <Icons.maximize size={ICON_SIZE.SM} />
+          </button>
+        )}
+        {onSettingsClick && (
+          <button
+            className="windowlize-btn"
+            onClick={onSettingsClick}
+            aria-label="Settings"
+            title="Settings"
+          >
+            <Icons.settings size={ICON_SIZE.SM} />
           </button>
         )}
       </div>

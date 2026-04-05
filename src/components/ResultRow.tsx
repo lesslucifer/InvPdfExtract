@@ -1,6 +1,8 @@
 import React from 'react';
 import { SearchResult, DocType } from '../shared/types';
 import { StatusDot } from './StatusDot';
+import { formatCurrency } from '../shared/format';
+import { DOC_TYPE_ICONS, ICON_SIZE } from '../shared/icons';
 
 interface Props {
   result: SearchResult;
@@ -14,18 +16,6 @@ interface Props {
   onOpenFolder?: (folder: string) => void;
   onReprocessFile?: (relativePath: string) => void;
   onReprocessFolder?: (folder: string) => void;
-}
-
-const DOC_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
-  [DocType.BankStatement]: { label: 'Bank', icon: '🏦' },
-  [DocType.InvoiceOut]: { label: 'Out', icon: '📤' },
-  [DocType.InvoiceIn]: { label: 'In', icon: '📥' },
-  [DocType.Unknown]: { label: '?', icon: '📄' },
-};
-
-function formatAmount(amount: number): string {
-  if (!amount) return '';
-  return new Intl.NumberFormat('vi-VN').format(amount);
 }
 
 function confidenceClass(confidence: number): string {
@@ -64,7 +54,7 @@ const FOLDER_MAX_LEN = 30;
 const FILENAME_MAX_LEN = 35;
 
 export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onFileClick, onDocTypeClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder }) => {
-  const meta = DOC_TYPE_LABELS[result.doc_type] || DOC_TYPE_LABELS[DocType.Unknown];
+  const meta = DOC_TYPE_ICONS[result.doc_type] || DOC_TYPE_ICONS['unknown'];
   const isBank = result.doc_type === DocType.BankStatement;
 
   const primaryLabel = isBank
@@ -89,7 +79,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           title={meta.label}
           onClick={onDocTypeClick ? (e) => { e.stopPropagation(); onDocTypeClick(result.doc_type); } : undefined}
         >
-          {meta.icon}
+          <meta.icon size={ICON_SIZE.LG} />
         </span>
         <div className="result-info">
           <div className="result-primary">
@@ -104,9 +94,9 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         <div className="result-right">
           {amount > 0 && (
             <span className="result-amount">
-              {formatAmount(amount)}
+              {formatCurrency(amount)}
               {!isBank && result.line_item_sum != null && result.tong_tien > 0 && Math.abs(result.line_item_sum - result.tong_tien) > 1 && (
-                <span className="mismatch-badge" title={`Sum of items: ${formatAmount(result.line_item_sum)}`}>!</span>
+                <span className="mismatch-badge" title={`Sum of items: ${formatCurrency(result.line_item_sum)}`}>!</span>
               )}
             </span>
           )}

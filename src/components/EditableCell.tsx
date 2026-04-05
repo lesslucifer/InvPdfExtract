@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FieldOverrideInfo, OverrideStatus } from '../shared/types';
+import { Icons, ICON_SIZE } from '../shared/icons';
+import { formatCurrency } from '../shared/format';
 
 interface Props {
   value: string;
@@ -55,8 +57,12 @@ export const EditableCell: React.FC<Props> = ({
     setEditing(true);
   };
 
-  const statusIcon = isConflict ? '⚠️' : isLocked ? '🔒' : null;
+  const StatusIcon = isConflict ? Icons.conflict : isLocked ? Icons.overridden : null;
   const hasDerived = derivedValue != null;
+
+  const displayValue = value
+    ? (inputType === 'number' ? formatCurrency(Number(value)) : value)
+    : '-';
 
   return (
     <td className={`editable-cell ${isConflict ? 'cell-conflict' : ''} ${showMismatchIcon ? 'cell-mismatch' : ''}`}>
@@ -71,10 +77,10 @@ export const EditableCell: React.FC<Props> = ({
           onBlur={handleSave}
         />
       ) : (
-        <span className="cell-display" onClick={handleClick} title={hasDerived ? `\u2318+click → ${derivedValue}` : undefined}>
-          {statusIcon && <span className="cell-status-icon" title={isConflict ? 'Conflict' : 'Locked'}>{statusIcon}</span>}
+        <span className="cell-display" onClick={handleClick} title={hasDerived ? `\u2318+click → ${formatCurrency(derivedValue)}` : undefined}>
+          {StatusIcon && <span className="cell-status-icon" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.XS} /></span>}
           {showMismatchIcon && <span className="cell-mismatch-icon">!</span>}
-          {value || '-'}
+          {displayValue}
         </span>
       )}
       {isConflict && !editing && onResolve && (
