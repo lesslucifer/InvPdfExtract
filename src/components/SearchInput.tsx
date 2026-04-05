@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -6,21 +6,17 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   onCursorChange?: (pos: number) => void;
+  onGearClick?: () => void;
   onStatusDotClick?: () => void;
   status?: StatusIndicator;
-  hasActiveFilters?: boolean;
-  onSavePreset?: (name: string) => void;
 }
 
-export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onStatusDotClick, status = 'idle', hasActiveFilters, onSavePreset }) => {
+export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onGearClick, onStatusDotClick, status = 'idle' }) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [savingName, setSavingName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (savingName === null) {
-      inputRef.current?.focus();
-    }
-  }, [savingName]);
+    inputRef.current?.focus();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
@@ -34,40 +30,6 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
       onCursorChange(inputRef.current.selectionStart ?? value.length);
     }
   };
-
-  const handleStartSave = useCallback(() => {
-    setSavingName('');
-  }, []);
-
-  const handleSaveKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && savingName && savingName.trim()) {
-      onSavePreset?.(savingName.trim());
-      setSavingName(null);
-    } else if (e.key === 'Escape') {
-      setSavingName(null);
-    }
-  }, [savingName, onSavePreset]);
-
-  // Saving mode: show name input instead of search input
-  if (savingName !== null) {
-    return (
-      <div className="search-input-container">
-        <span className="search-icon preset-save-icon">&#x2605;</span>
-        <input
-          className="search-input"
-          type="text"
-          placeholder="Preset name..."
-          value={savingName}
-          onChange={(e) => setSavingName(e.target.value)}
-          onKeyDown={handleSaveKeyDown}
-          autoFocus
-        />
-        <button className="search-clear" onClick={() => setSavingName(null)} aria-label="Cancel">
-          &times;
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="search-input-container">
@@ -101,9 +63,9 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
           aria-label={`Status: ${status}`}
         />
       )}
-      {hasActiveFilters && onSavePreset && (
-        <button className="preset-save-btn" onClick={handleStartSave} aria-label="Save filter preset" title="Save filter preset">
-          &#x2606;
+      {onGearClick && (
+        <button className="gear-icon" onClick={onGearClick} aria-label="Settings">
+          &#x2699;
         </button>
       )}
     </div>

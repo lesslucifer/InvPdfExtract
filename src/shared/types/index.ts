@@ -1,4 +1,4 @@
-import type { SortField, SortDirection, ParsedQuery } from '../parse-query';
+import type { SortField, SortDirection } from '../parse-query';
 
 // === Enums ===
 
@@ -187,22 +187,6 @@ export interface ProcessingLog {
   level: LogLevel;
   message: string;
   timestamp: string;
-}
-
-// === Filter Preset Types ===
-
-export interface FilterPreset {
-  id: string;
-  name: string;
-  filters: string; // JSON-serialized PresetFilters
-  created_at: string;
-}
-
-export interface PresetFilters {
-  query: string;
-  filters: ParsedQuery;
-  folderScope: string | null;
-  fileScope: string | null;
 }
 
 // === Vault Config ===
@@ -454,10 +438,6 @@ export interface InvoiceVaultAPI {
   // Queue cancellation
   cancelQueueItem: (fileId: string) => Promise<{ success: boolean }>;
   clearPendingQueue: () => Promise<{ count: number }>;
-  // Filter presets
-  listPresets: () => Promise<FilterPreset[]>;
-  savePreset: (name: string, filters: string) => Promise<FilterPreset>;
-  deletePreset: (id: string) => Promise<void>;
 }
 
 // === Event Types ===

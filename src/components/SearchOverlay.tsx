@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { SearchResult, OverlayState, AggregateStats, SearchFilters, FileStatus, FilterPreset, PresetFilters } from '../shared/types';
+import { SearchResult, OverlayState, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
 import { parseSearchQuery, buildQueryString, ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 import { getSuggestions, getActiveToken } from '../shared/suggestion-engine';
 import { SuggestionItem, EMPTY_HINT_ITEMS } from '../shared/suggestion-data';
@@ -16,45 +16,6 @@ import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 
 const DEBOUNCE_MS = 200;
 const PAGE_SIZE = 50;
-
-/** Convert a FilterPreset to a SuggestionItem for display in the chips bar */
-function presetToSuggestionItem(preset: FilterPreset): SuggestionItem {
-  let summary = '';
-  try {
-    const pf: PresetFilters = JSON.parse(preset.filters);
-    const parts: string[] = [];
-    if (pf.filters?.docType) {
-      const icons: Record<string, string> = { bank_statement: '🏦', invoice_out: '📤', invoice_in: '📥' };
-      parts.push(icons[pf.filters.docType] || '');
-    }
-    if (pf.filters?.status) parts.push(pf.filters.status);
-    if (pf.filters?.amountMin != null) parts.push(`>${formatCompact(pf.filters.amountMin)}`);
-    if (pf.filters?.amountMax != null) parts.push(`<${formatCompact(pf.filters.amountMax)}`);
-    if (pf.filters?.dateFilter) parts.push(pf.filters.dateFilter);
-    if (pf.folderScope) parts.push('📁');
-    if (pf.query) parts.push(pf.query);
-    summary = parts.join(' ');
-  } catch { /* ignore */ }
-
-  return {
-    category: 'preset',
-    icon: '\u2605', // ★
-    label: preset.name,
-    insertText: '', // presets don't insert text, they load state
-    hint: summary,
-    keywords: [preset.name.toLowerCase()],
-    filterKey: 'text',
-    presetId: preset.id,
-    presetFilters: preset.filters,
-  };
-}
-
-function formatCompact(n: number): string {
-  if (n >= 1_000_000_000 && n % 1_000_000_000 === 0) return `${n / 1_000_000_000}t`;
-  if (n >= 1_000_000 && n % 1_000_000 === 0) return `${n / 1_000_000}tr`;
-  if (n >= 1_000 && n % 1_000 === 0) return `${n / 1_000}k`;
-  return String(n);
-}
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -95,16 +56,11 @@ export const SearchOverlay: React.FC = () => {
   const [showHintBar, setShowHintBar] = useState(false);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Filter presets
-  const [presets, setPresets] = useState<FilterPreset[]>([]);
-
-  // On mount: check if vault exists + load presets
+  // On mount: check if vault exists
   useEffect(() => {
     window.api.getAppConfig().then(config => {
       if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
         setOverlayState(OverlayState.NoVault);
-      } else {
-        window.api.listPresets().then(setPresets).catch(() => {});
       }
     });
   }, []);
@@ -260,14 +216,8 @@ export const SearchOverlay: React.FC = () => {
     return { extracted: parsed, remaining: parsed.text };
   }, []);
 
-  // When the `?` trigger is active, cursor-change events must not overwrite suggestions.
-  // We store the `?`-mode query so we can check it even with stale closures.
-  const questionTriggerQueryRef = useRef<string | null>(null);
-
   const handleCursorChange = useCallback((pos: number) => {
     cursorPosRef.current = pos;
-    // Skip suggestion recomputation while `?` trigger is active
-    if (questionTriggerQueryRef.current !== null) return;
     // Recompute suggestions with new cursor position
     if (overlayState !== OverlayState.PathSearch) {
       const newSuggestions = getSuggestions(query, pos, filters);
@@ -277,16 +227,8 @@ export const SearchOverlay: React.FC = () => {
   }, [query, filters, overlayState]);
 
   const queryChangeRef = useRef<(value: string) => void>(() => {});
-  const loadPresetRef = useRef<(preset: FilterPreset) => void>(() => {});
 
   const handleSuggestionAccept = useCallback((item: SuggestionItem) => {
-    // Preset items: load the preset instead of inserting text
-    if (item.category === 'preset' && item.presetId) {
-      const preset = presets.find(p => p.id === item.presetId);
-      if (preset) loadPresetRef.current(preset);
-      return;
-    }
-
     const { text: activeToken, startIndex } = getActiveToken(query, cursorPosRef.current);
     // Replace the active token with the suggestion's insertText
     const before = query.slice(0, startIndex);
@@ -299,7 +241,7 @@ export const SearchOverlay: React.FC = () => {
     // Feed the new value through the normal query change handler
     // which will handle filter extraction if the insertText ends with a space
     queryChangeRef.current(newValue);
-  }, [query, presets]);
+  }, [query]);
 
   const handleQueryChangeInner = useCallback((value: string) => {
     // PathSearch: first char is '/' or '\'
@@ -336,29 +278,6 @@ export const SearchOverlay: React.FC = () => {
 
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    // `?` trigger: show presets + hint chips
-    if (value.trimEnd().endsWith('?')) {
-      const filterText = value.replace(/\?+\s*$/, '').trim().toLowerCase();
-      const presetItems = presets.map(presetToSuggestionItem);
-      const allItems = [...presetItems, ...EMPTY_HINT_ITEMS];
-      const filtered = filterText
-        ? allItems.filter(item =>
-            item.label.toLowerCase().includes(filterText) ||
-            item.hint?.toLowerCase().includes(filterText) ||
-            item.keywords.some(k => k.includes(filterText))
-          )
-        : allItems;
-      setSuggestions(filtered);
-      setSuggestionIndex(0);
-      setShowHintBar(false);
-      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-      questionTriggerQueryRef.current = value;
-      return;
-    }
-
-    // Clear `?` trigger lock when query no longer ends with `?`
-    questionTriggerQueryRef.current = null;
 
     // Compute suggestions for the new value
     const cursorPos = value.length; // onChange always puts cursor at end
@@ -410,7 +329,7 @@ export const SearchOverlay: React.FC = () => {
 
     // For search, merge the raw text with existing filter pills
     debounceRef.current = setTimeout(() => doSearch(value, filters, folderScope, false, fileScope), DEBOUNCE_MS);
-  }, [doSearch, overlayState, folderScope, fileScope, filters, extractCompletedFilters, presets]);
+  }, [doSearch, overlayState, folderScope, fileScope, filters, extractCompletedFilters]);
 
   // Keep ref in sync so handleSuggestionAccept (defined before handleQueryChangeInner) can call it
   queryChangeRef.current = handleQueryChangeInner;
@@ -583,57 +502,6 @@ export const SearchOverlay: React.FC = () => {
     }
   }, [query, folderScope, fileScope, filters, doSearch]);
 
-  // === Filter Preset Handlers ===
-
-  const handleSavePreset = useCallback(async (name: string) => {
-    const pf: PresetFilters = { query, filters, folderScope, fileScope };
-    const preset = await window.api.savePreset(name, JSON.stringify(pf));
-    if (preset) setPresets(prev => [preset, ...prev]);
-  }, [query, filters, folderScope, fileScope]);
-
-  const handleLoadPreset = useCallback((preset: FilterPreset) => {
-    try {
-      const pf: PresetFilters = JSON.parse(preset.filters);
-      setQuery(pf.query || '');
-      setFilters(pf.filters || { text: '' });
-      setFolderScope(pf.folderScope || null);
-      setFileScope(pf.fileScope || null);
-      setSuggestions([]);
-      setShowHintBar(false);
-
-      const hasContent = pf.query || pf.folderScope || pf.fileScope ||
-        pf.filters?.docType || pf.filters?.status ||
-        pf.filters?.amountMin != null || pf.filters?.amountMax != null ||
-        pf.filters?.dateFilter;
-      if (hasContent) {
-        setOverlayState(OverlayState.Search);
-      }
-      doSearch(pf.query || '', pf.filters || { text: '' }, pf.folderScope || null, false, pf.fileScope || null);
-    } catch { /* ignore parse errors */ }
-  }, [doSearch]);
-  loadPresetRef.current = handleLoadPreset;
-
-  const handlePresetWindowlize = useCallback((presetId: string) => {
-    const preset = presets.find(p => p.id === presetId);
-    if (!preset) return;
-    try {
-      const pf: PresetFilters = JSON.parse(preset.filters);
-      const serializedState = JSON.stringify({
-        query: pf.query || '',
-        filters: pf.filters || { text: '' },
-        folderScope: pf.folderScope || null,
-        fileScope: pf.fileScope || null,
-        overlayState: OverlayState.Search,
-      });
-      window.api.windowlize(serializedState);
-    } catch { /* ignore parse errors */ }
-  }, [presets]);
-
-  const handleDeletePreset = useCallback(async (id: string) => {
-    await window.api.deletePreset(id);
-    setPresets(prev => prev.filter(p => p.id !== id));
-  }, []);
-
   const handleVaultCreated = useCallback(() => {
     goTo(OverlayState.Home);
   }, [goTo]);
@@ -650,13 +518,10 @@ export const SearchOverlay: React.FC = () => {
     setPageOffset(0);
     setHasMore(true);
     setAggregates({ totalRecords: 0, totalAmount: 0 });
-    setPresets([]);
     initialLoadDone.current = false;
     window.api.getAppConfig().then(config => {
       if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
         setOverlayState(OverlayState.NoVault);
-      } else {
-        window.api.listPresets().then(setPresets).catch(() => {});
       }
     });
   }, []);
@@ -778,9 +643,6 @@ export const SearchOverlay: React.FC = () => {
   const hasFilterPills = filters.docType || filters.status ||
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
-  // Active filters = any filter state worth saving as a preset
-  const hasActiveFilters = !!(query.trim() || folderScope || fileScope || hasFilterPills);
-
   const titleBar = isWindowlized ? (
     <div className="title-bar">
       <span className="title-bar__text">InvoiceVault</span>
@@ -832,7 +694,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} />
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -847,29 +709,24 @@ export const SearchOverlay: React.FC = () => {
     );
   }
 
-  // Compute which suggestion chips to show: active suggestions or empty-input hints (with presets)
-  const hintItems = presets.length > 0
-    ? [...presets.map(presetToSuggestionItem), ...EMPTY_HINT_ITEMS]
-    : EMPTY_HINT_ITEMS;
+  // Compute which suggestion chips to show: active suggestions or empty-input hints
   const visibleSuggestions = suggestions.length > 0
     ? suggestions
     : showHintBar && !query
-      ? hintItems
+      ? EMPTY_HINT_ITEMS
       : [];
 
   // Home and Search states share the same layout
   return (
     <div className={overlayClassName}>
       {titleBar}
-      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} hasActiveFilters={hasActiveFilters} onSavePreset={handleSavePreset} />
+      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onGearClick={!isWindowlized ? handleGearClick : undefined} onStatusDotClick={handleStatusDotClick} status={status} />
       <SuggestionList
         items={visibleSuggestions}
         selectedIndex={suggestionIndex}
         onAccept={handleSuggestionAccept}
         onHover={setSuggestionIndex}
         visible={visibleSuggestions.length > 0}
-        onDeletePreset={handleDeletePreset}
-        onCtrlClickPreset={handlePresetWindowlize}
       />
       {hasFilterPills && (
         <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} onToggleSortDirection={handleToggleSortDirection} />
@@ -905,14 +762,13 @@ export const SearchOverlay: React.FC = () => {
           isLoadingMore={isLoadingMore}
         />
       )}
-      {(hasSearched && aggregates.totalRecords > 0) || !isWindowlized ? (
+      {hasSearched && aggregates.totalRecords > 0 && (
         <StickyFooter
           stats={aggregates}
           filters={buildSearchFilters(query, filters, folderScope, fileScope)}
-          onWindowlize={!isWindowlized && hasSearched && aggregates.totalRecords > 0 ? handleWindowlize : undefined}
-          onGearClick={!isWindowlized ? handleGearClick : undefined}
+          onWindowlize={!isWindowlized ? handleWindowlize : undefined}
         />
-      ) : null}
+      )}
     </div>
   );
 };

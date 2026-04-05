@@ -2,7 +2,7 @@ import { ParsedQuery } from './parse-query';
 
 export interface SuggestionItem {
   /** Category for grouping */
-  category: 'type' | 'status' | 'sort' | 'sort-direction' | 'amount' | 'date' | 'preset';
+  category: 'type' | 'status' | 'sort' | 'sort-direction' | 'amount' | 'date';
   /** Display icon (emoji) */
   icon: string;
   /** Primary label shown to the user */
@@ -15,10 +15,6 @@ export interface SuggestionItem {
   keywords: string[];
   /** Which ParsedQuery key this would set (to check for conflicts with existing pills) */
   filterKey: keyof ParsedQuery;
-  /** For preset items: the preset ID (used for delete and Ctrl+click windowlize) */
-  presetId?: string;
-  /** For preset items: the serialized filter state (used for loading/windowlizing) */
-  presetFilters?: string;
 }
 
 /** Helper to get date strings relative to today */
