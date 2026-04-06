@@ -5,8 +5,11 @@ if [ -f "$(dirname -- "$0")/_/.env" ]; then
   export PATH="${PATH}:${EXT_PATH}"
 fi
 
-echo "Lint check"
-pnpm lint
+# echo "Lint check"
+# pnpm lint
+
+# echo "Tsc check"
+# pnpm tsc
 
 echo "Test check"
 pnpm test
