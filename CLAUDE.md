@@ -25,6 +25,17 @@ Package manager is **pnpm**.
 > pnpm add <package>         # now safe to add new packages
 > ```
 
+## Linting
+
+**ESLint v9** flat config (`eslint.config.mjs`). Bug-catching rules only, no style enforcement.
+
+```bash
+pnpm lint              # Check for lint errors
+pnpm lint:fix          # Auto-fix what ESLint can
+```
+
+Plugins: `typescript-eslint` (recommended), `eslint-plugin-react-hooks`, `@spaced-out/eslint-plugin-i18n`.
+
 ## Styling
 
 **Tailwind CSS v3** — all component styling uses utility classes inline in JSX `className` props. No component-level CSS files.

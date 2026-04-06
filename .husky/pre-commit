@@ -5,6 +5,8 @@ if [ -f "$(dirname -- "$0")/_/.env" ]; then
   export PATH="${PATH}:${EXT_PATH}"
 fi
 
-echo "TypeScript check"
+echo "Lint check"
+pnpm lint
 
+echo "Test check"
 pnpm test
