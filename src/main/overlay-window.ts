@@ -268,6 +268,9 @@ export class OverlayWindow {
       send('review');
       sendFileStatus([data.fileId], FileStatus.Review);
     });
+    eventBus.on('je:status-changed', (data) => {
+      this.broadcastToAll('je-status-changed', data);
+    });
   }
 
   registerIpcHandlers(): void {
@@ -764,14 +767,38 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('generate-journal-entries', async (_event, recordId: string) => {
+    ipcMain.handle('reclassify-record', async (_event, recordId: string) => {
       try {
-        if (!this.callbacks) return { count: 0 };
-        const count = await this.callbacks.onGenerateJE(recordId);
-        return { count };
+        if (!this.callbacks) return;
+        const { updateJeStatus } = require('../core/db/records');
+        updateJeStatus([recordId], 'pending');
+        eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
+        // Fire and forget — status updates come via events
+        this.callbacks.onGenerateJE(recordId).catch((err: Error) => {
+          console.error('[JournalEntry] Reclassify failed:', err);
+        });
       } catch (err) {
-        console.error('[JournalEntry] Generate entries failed:', err);
-        return { count: 0 };
+        console.error('[JournalEntry] Reclassify record failed:', err);
+      }
+    });
+
+    ipcMain.handle('get-je-queue-items', async () => {
+      try {
+        const { getJeQueueItems } = require('../core/db/records');
+        return getJeQueueItems();
+      } catch (err) {
+        console.error('[JournalEntry] Get JE queue items failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-je-error-items', async () => {
+      try {
+        const { getJeErrorItems } = require('../core/db/records');
+        return getJeErrorItems();
+      } catch (err) {
+        console.error('[JournalEntry] Get JE error items failed:', err);
+        return [];
       }
     });
 

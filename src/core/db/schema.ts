@@ -194,4 +194,10 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_je_record_id ON journal_entries(record_id);
   CREATE INDEX IF NOT EXISTS idx_je_line_item_id ON journal_entries(line_item_id);
   `,
+
+  // Migration 008: JE classification status on records
+  `
+  ALTER TABLE records ADD COLUMN je_status TEXT;
+  CREATE INDEX IF NOT EXISTS idx_records_je_status ON records(je_status);
+  `,
 ];

@@ -66,9 +66,17 @@ const api: InvoiceVaultAPI = {
   getJournalEntries: (recordId: string) => ipcRenderer.invoke('get-journal-entries', recordId),
   saveJournalEntry: (input: JournalEntryInput) => ipcRenderer.invoke('save-journal-entry', input),
   deleteJournalEntry: (id: string) => ipcRenderer.invoke('delete-journal-entry', id),
-  generateJournalEntries: (recordId: string) => ipcRenderer.invoke('generate-journal-entries', recordId),
+  reclassifyRecord: (recordId: string) => ipcRenderer.invoke('reclassify-record', recordId),
   getJEInstructions: () => ipcRenderer.invoke('get-je-instructions'),
   saveJEInstructions: (content: string) => ipcRenderer.invoke('save-je-instructions', content),
+  // JE classification status
+  getJeQueueItems: () => ipcRenderer.invoke('get-je-queue-items'),
+  getJeErrorItems: () => ipcRenderer.invoke('get-je-error-items'),
+  onJeStatusChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: { recordIds: string[]; status: string }) => callback(data as any);
+    ipcRenderer.on('je-status-changed', listener);
+    return () => ipcRenderer.removeListener('je-status-changed', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

@@ -306,6 +306,14 @@ async function startVault(vaultPath: string): Promise<void> {
   eventBus.on('extraction:completed', async (data) => {
     if (!jeGenerator) return;
     try {
+      // Mark records as pending for JE classification
+      const { getRecordsByFileId, updateJeStatus } = require('./core/db/records');
+      const records = getRecordsByFileId(data.fileId);
+      if (records.length > 0) {
+        const ids = records.map((r: any) => r.id);
+        updateJeStatus(ids, 'pending');
+        eventBus.emit('je:status-changed', { recordIds: ids, status: 'pending' });
+      }
       await jeGenerator.generateForFile(data.fileId);
     } catch (err) {
       console.error('[JEGenerator] Auto-generation failed:', err);

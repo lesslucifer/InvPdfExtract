@@ -2260,3 +2260,44 @@ tr.line-item-mismatch {
   margin-left: auto;
 }
 
+/* JE classification status dot */
+.je-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: middle;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.je-status-dot--pending {
+  background: var(--warning, #f59e0b);
+  animation: je-dot-pulse 1.5s ease-in-out infinite;
+}
+
+.je-status-dot--processing {
+  background: var(--accent, #3b82f6);
+  animation: je-dot-pulse 1s ease-in-out infinite;
+}
+
+.je-status-dot--done {
+  background: var(--success, #22c55e);
+}
+
+.je-status-dot--error {
+  background: var(--error, #ef4444);
+}
+
+@keyframes je-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* JE items in processing status panel */
+.processing-status-row--je .processing-status-label--je {
+  color: var(--accent, #3b82f6);
+  font-style: italic;
+}
+

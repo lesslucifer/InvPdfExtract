@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo, JournalEntry } from '../shared/types';
+import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo, JournalEntry, JEClassificationStatus } from '../shared/types';
 import { EditableField } from './EditableField';
 import { EditableCell } from './EditableCell';
 import { JeCell } from './JeCell';
@@ -20,7 +20,7 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     tong_tien_truoc_thue: result.tong_tien_truoc_thue,
   });
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
-  const [jeLoading, setJeLoading] = useState(false);
+  const [jeStatusRaw, setJeStatusRaw] = useState<JEClassificationStatus | null>(result.je_status);
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
 
@@ -139,15 +139,26 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     }
   };
 
-  const handleGenerateJE = async () => {
-    setJeLoading(true);
-    try {
-      await window.api.generateJournalEntries(result.id);
-      loadJournalEntries();
-    } finally {
-      setJeLoading(false);
-    }
+  // Derive effective status: if DB has null but JEs exist, treat as 'done'
+  const jeStatus: JEClassificationStatus | null = jeStatusRaw ?? (journalEntries.length > 0 ? 'done' : null);
+
+  const handleReclassify = () => {
+    setJeStatusRaw('pending');
+    window.api.reclassifyRecord(result.id);
   };
+
+  // Subscribe to JE status changes
+  useEffect(() => {
+    const unsubscribe = window.api.onJeStatusChanged((data) => {
+      if (data.recordIds.includes(result.id)) {
+        setJeStatusRaw(data.status);
+        if (data.status === 'done') {
+          loadJournalEntries();
+        }
+      }
+    });
+    return unsubscribe;
+  }, [result.id, loadJournalEntries]);
 
   // Lookup: line_item_id → JournalEntry (only 'line' entries)
   const jeByLineItem = useMemo(() => {
@@ -222,9 +233,15 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
               <tr>
                 <td className="detail-label">
                   TK
-                  <button className="je-generate-btn je-generate-btn-inline" disabled={jeLoading} onClick={handleGenerateJE}>
-                    {jeLoading ? '...' : 'Phan loai'}
-                  </button>
+                  {jeStatus && (
+                    <span
+                      className={`je-status-dot je-status-dot--${jeStatus}`}
+                      title={jeStatus === 'done' ? 'Classified — click to reclassify' : jeStatus === 'error' ? 'Classification failed — click to retry' : jeStatus === 'processing' ? 'Classifying...' : 'Queued for classification'}
+                      onClick={handleReclassify}
+                      role="button"
+                      tabIndex={0}
+                    />
+                  )}
                 </td>
                 <JeCell account={bankJe?.account ?? null} onSave={(account) => handleSaveJeAccount('bank', null, account)} />
               </tr>
@@ -251,9 +268,15 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
             <div className="line-items">
               <div className="line-items-header">
                 <span>Line Items</span>
-                <button className="je-generate-btn" disabled={jeLoading} onClick={handleGenerateJE}>
-                  {jeLoading ? 'Dang xu ly...' : 'Phan loai'}
-                </button>
+                {jeStatus && (
+                  <span
+                    className={`je-status-dot je-status-dot--${jeStatus}`}
+                    title={jeStatus === 'done' ? 'Classified — click to reclassify' : jeStatus === 'error' ? 'Classification failed — click to retry' : jeStatus === 'processing' ? 'Classifying...' : 'Queued for classification'}
+                    onClick={handleReclassify}
+                    role="button"
+                    tabIndex={0}
+                  />
+                )}
               </div>
               <table className="line-items-table">
                 <thead>

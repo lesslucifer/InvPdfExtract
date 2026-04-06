@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry } from '../shared/types';
+import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
 
@@ -33,67 +33,59 @@ function formatTime(iso: string): string {
 export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<TabId>('queue');
   const [queueFiles, setQueueFiles] = useState<VaultFile[]>([]);
+  const [jeQueueItems, setJeQueueItems] = useState<JeQueueItem[]>([]);
   const [processedFiles, setProcessedFiles] = useState<ProcessedFileInfo[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([]);
+  const [jeErrorItems, setJeErrorItems] = useState<JeErrorItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const loadTab = async (tab: TabId) => {
+    if (tab === 'queue') {
+      const [files, jeItems] = await Promise.all([
+        window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]),
+        window.api.getJeQueueItems(),
+      ]);
+      setQueueFiles(files);
+      setJeQueueItems(jeItems);
+    } else if (tab === 'processed') {
+      const files = await window.api.getProcessedFilesWithStats();
+      setProcessedFiles(files);
+    } else {
+      const [logs, jeErrors] = await Promise.all([
+        window.api.getErrorLogsWithPath(),
+        window.api.getJeErrorItems(),
+      ]);
+      setErrorLogs(logs);
+      setJeErrorItems(jeErrors);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    const load = async () => {
-      try {
-        if (activeTab === 'queue') {
-          const files = await window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]);
-          if (!cancelled) setQueueFiles(files);
-        } else if (activeTab === 'processed') {
-          const files = await window.api.getProcessedFilesWithStats();
-          if (!cancelled) setProcessedFiles(files);
-        } else {
-          const logs = await window.api.getErrorLogsWithPath();
-          if (!cancelled) setErrorLogs(logs);
-        }
-      } catch (err) {
-        console.error('[ProcessingStatusPanel] Load failed:', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
+    loadTab(activeTab)
+      .catch(err => console.error('[ProcessingStatusPanel] Load failed:', err))
+      .finally(() => { if (!cancelled) setLoading(false); });
 
-    load();
     return () => { cancelled = true; };
   }, [activeTab]);
 
   // Subscribe to real-time updates to refresh the active tab
   useEffect(() => {
-    const unsubscribe = window.api.onFileStatusChanged(async () => {
-      try {
-        if (activeTab === 'queue') {
-          const files = await window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]);
-          setQueueFiles(files);
-        } else if (activeTab === 'processed') {
-          const files = await window.api.getProcessedFilesWithStats();
-          setProcessedFiles(files);
-        } else {
-          const logs = await window.api.getErrorLogsWithPath();
-          setErrorLogs(logs);
-        }
-      } catch { /* ignore */ }
+    const unsubFile = window.api.onFileStatusChanged(async () => {
+      try { await loadTab(activeTab); } catch { /* ignore */ }
     });
-    return unsubscribe;
+    const unsubJe = window.api.onJeStatusChanged(async () => {
+      try { await loadTab(activeTab); } catch { /* ignore */ }
+    });
+    return () => { unsubFile(); unsubJe(); };
   }, [activeTab]);
 
-  const reloadQueue = async () => {
-    try {
-      const files = await window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]);
-      setQueueFiles(files);
-    } catch { /* ignore */ }
-  };
-
   const tabs: { id: TabId; label: string; count: number }[] = [
-    { id: 'queue', label: 'Queue', count: queueFiles.length },
+    { id: 'queue', label: 'Queue', count: queueFiles.length + jeQueueItems.length },
     { id: 'processed', label: 'Processed', count: processedFiles.length },
-    { id: 'errors', label: 'Errors', count: errorLogs.length },
+    { id: 'errors', label: 'Errors', count: errorLogs.length + jeErrorItems.length },
   ];
 
   return (
@@ -122,18 +114,18 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
         {loading ? (
           <div className="settings-loading">Loading...</div>
         ) : activeTab === 'queue' ? (
-          <QueueTab files={queueFiles} onRefresh={reloadQueue} />
+          <QueueTab files={queueFiles} jeItems={jeQueueItems} onRefresh={() => loadTab('queue')} />
         ) : activeTab === 'processed' ? (
           <ProcessedTab files={processedFiles} />
         ) : (
-          <ErrorsTab logs={errorLogs} />
+          <ErrorsTab logs={errorLogs} jeErrors={jeErrorItems} />
         )}
       </div>
     </div>
   );
 };
 
-const QueueTab: React.FC<{ files: VaultFile[]; onRefresh: () => Promise<void> }> = ({ files, onRefresh }) => {
+const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[]; onRefresh: () => Promise<void> }> = ({ files, jeItems, onRefresh }) => {
   const pendingFiles = files.filter(f => f.status === FileStatus.Pending);
   const { copiedId, copy } = useCopyFeedback();
 
@@ -155,8 +147,8 @@ const QueueTab: React.FC<{ files: VaultFile[]; onRefresh: () => Promise<void> }>
     await onRefresh();
   };
 
-  if (files.length === 0) {
-    return <div className="processing-status-empty">No files in queue</div>;
+  if (files.length === 0 && jeItems.length === 0) {
+    return <div className="processing-status-empty">No items in queue</div>;
   }
   return (
     <>
@@ -200,6 +192,18 @@ const QueueTab: React.FC<{ files: VaultFile[]; onRefresh: () => Promise<void> }>
                 <Icons.close size={ICON_SIZE.SM} />
               </button>
             )}
+          </li>
+        ))}
+        {jeItems.map(item => (
+          <li key={`je-${item.record_id}`} className="processing-status-row processing-status-row--je">
+            <span className={`je-status-dot je-status-dot--${item.je_status}`} />
+            <span className="processing-status-path" title={item.relative_path}>
+              {item.description || item.relative_path}
+            </span>
+            <span className="processing-status-label processing-status-label--je">
+              {item.je_status === 'processing' ? 'Classifying' : 'Classification pending'}
+            </span>
+            <span className="processing-status-time">{formatTime(item.created_at)}</span>
           </li>
         ))}
       </ul>
@@ -259,7 +263,7 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
   );
 };
 
-const ErrorsTab: React.FC<{ logs: ErrorLogEntry[] }> = ({ logs }) => {
+const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = ({ logs, jeErrors }) => {
   const { copiedId, copy } = useCopyFeedback();
 
   const formatEntry = (log: ErrorLogEntry) =>
@@ -270,7 +274,7 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[] }> = ({ logs }) => {
     copy('__all__', text);
   };
 
-  if (logs.length === 0) {
+  if (logs.length === 0 && jeErrors.length === 0) {
     return <div className="processing-status-empty">No errors</div>;
   }
   return (
@@ -303,6 +307,18 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[] }> = ({ logs }) => {
             >
               {copiedId === log.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
             </button>
+          </li>
+        ))}
+        {jeErrors.map(item => (
+          <li key={`je-err-${item.record_id}`} className="processing-status-row processing-status-row--error processing-status-row--je">
+            <span className="je-status-dot je-status-dot--error" />
+            <div className="processing-status-error-info">
+              <span className="processing-status-path" title={item.relative_path}>
+                {item.description || item.relative_path}
+              </span>
+              <span className="processing-status-error-msg">Classification failed</span>
+            </div>
+            <span className="processing-status-time">{formatTime(item.updated_at)}</span>
           </li>
         ))}
       </ul>

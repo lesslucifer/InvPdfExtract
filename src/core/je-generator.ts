@@ -1,5 +1,5 @@
 import { getDatabase } from './db/database';
-import { getLineItemsByRecord, getRecordsByFileId } from './db/records';
+import { getLineItemsByRecord, getRecordsByFileId, updateJeStatus } from './db/records';
 import {
   insertJournalEntry,
   deleteJournalEntriesByRecord,
@@ -33,6 +33,9 @@ export class JEGenerator {
     if (this.processing.has(recordId)) return 0;
     this.processing.add(recordId);
 
+    updateJeStatus([recordId], 'processing');
+    eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'processing' });
+
     try {
       const unmatched = this.classifyRecord(recordId);
       if (unmatched.length > 0) {
@@ -41,8 +44,15 @@ export class JEGenerator {
       // Auto-generate tax + settlement after all line items are classified
       this.generateAutoEntries(recordId);
       const entries = getJournalEntriesByRecord(recordId);
+
+      updateJeStatus([recordId], 'done');
+      eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'done' });
       eventBus.emit('je:generated', { recordId, count: entries.length, source: 'ai' });
       return entries.length;
+    } catch (err) {
+      updateJeStatus([recordId], 'error');
+      eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'error' });
+      throw err;
     } finally {
       this.processing.delete(recordId);
     }
@@ -63,14 +73,21 @@ export class JEGenerator {
   async generateBatch(recordIds: string[]): Promise<number> {
     const allUnmatched: UnclassifiedItem[] = [];
     let totalCount = 0;
+    const activeIds = recordIds.filter(id => !this.processing.has(id));
+    if (activeIds.length === 0) return 0;
 
-    for (const recordId of recordIds) {
-      if (this.processing.has(recordId)) continue;
+    // Mark all as processing
+    updateJeStatus(activeIds, 'processing');
+    eventBus.emit('je:status-changed', { recordIds: activeIds, status: 'processing' });
+
+    for (const recordId of activeIds) {
       this.processing.add(recordId);
       try {
         const unmatched = this.classifyRecord(recordId);
         allUnmatched.push(...unmatched);
-      } finally {
+      } catch (err) {
+        updateJeStatus([recordId], 'error');
+        eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'error' });
         this.processing.delete(recordId);
       }
     }
@@ -84,11 +101,22 @@ export class JEGenerator {
     }
 
     // Generate auto entries and count
-    for (const recordId of recordIds) {
-      this.generateAutoEntries(recordId);
-      const entries = getJournalEntriesByRecord(recordId);
-      totalCount += entries.length;
-      eventBus.emit('je:generated', { recordId, count: entries.length, source: 'ai' });
+    for (const recordId of activeIds) {
+      if (!this.processing.has(recordId)) continue; // skip errored
+      try {
+        this.generateAutoEntries(recordId);
+        const entries = getJournalEntriesByRecord(recordId);
+        totalCount += entries.length;
+
+        updateJeStatus([recordId], 'done');
+        eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'done' });
+        eventBus.emit('je:generated', { recordId, count: entries.length, source: 'ai' });
+      } catch (err) {
+        updateJeStatus([recordId], 'error');
+        eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'error' });
+      } finally {
+        this.processing.delete(recordId);
+      }
     }
 
     return totalCount;

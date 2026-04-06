@@ -115,6 +115,7 @@ export interface DbRecord {
   ngay: string | null;
   field_confidence: string; // JSON
   raw_extraction: string; // JSON
+  je_status: JEClassificationStatus | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -349,6 +350,7 @@ export interface SearchResult {
   ten_doi_tac: string;
   mo_ta: string;
   dia_chi_doi_tac: string;
+  je_status: JEClassificationStatus | null;
   // Line items (populated on detail expand)
   line_items?: InvoiceLineItem[];
 }
@@ -415,6 +417,7 @@ export interface PresetFilters {
 
 export type JEEntryType = 'line' | 'tax' | 'settlement' | 'bank';
 export type JESource = 'similarity' | 'ai' | 'user' | 'auto';
+export type JEClassificationStatus = 'pending' | 'processing' | 'done' | 'error';
 export type CashFlowType = 'operating' | 'investing' | 'financing';
 
 export interface JournalEntry {
@@ -444,6 +447,25 @@ export interface JEClassificationResult {
   lineItemId?: string;
   account: string;
   cashFlow?: CashFlowType;
+}
+
+// === JE Queue Types ===
+
+export interface JeQueueItem {
+  record_id: string;
+  je_status: JEClassificationStatus;
+  doc_type: DocType;
+  description: string; // so_hoa_don or mo_ta
+  relative_path: string;
+  created_at: string;
+}
+
+export interface JeErrorItem {
+  record_id: string;
+  doc_type: DocType;
+  description: string;
+  relative_path: string;
+  updated_at: string;
 }
 
 // === Preload API ===
@@ -501,9 +523,13 @@ export interface InvoiceVaultAPI {
   getJournalEntries: (recordId: string) => Promise<JournalEntry[]>;
   saveJournalEntry: (input: JournalEntryInput) => Promise<JournalEntry>;
   deleteJournalEntry: (id: string) => Promise<void>;
-  generateJournalEntries: (recordId: string) => Promise<{ count: number }>;
+  reclassifyRecord: (recordId: string) => Promise<void>;
   getJEInstructions: () => Promise<string>;
   saveJEInstructions: (content: string) => Promise<void>;
+  // JE classification status
+  getJeQueueItems: () => Promise<JeQueueItem[]>;
+  getJeErrorItems: () => Promise<JeErrorItem[]>;
+  onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEClassificationStatus }) => void) => () => void;
 }
 
 // === Event Types ===
@@ -521,5 +547,6 @@ export interface AppEvents {
   'vault:opened': { path: string };
   'je:generated': { recordId: string; count: number; source: JESource };
   'je:updated': { recordId: string };
+  'je:status-changed': { recordIds: string[]; status: JEClassificationStatus };
   'je:instructions-changed': Record<string, never>;
 }

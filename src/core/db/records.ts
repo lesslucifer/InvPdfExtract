@@ -3,7 +3,7 @@ import { getDatabase } from './database';
 import {
   ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
-  FolderInfo,
+  FolderInfo, JEClassificationStatus, JeQueueItem, JeErrorItem,
 } from '../../shared/types';
 
 // === Extraction Batches ===
@@ -51,6 +51,47 @@ export function updateRecord(
 export function getRecordsByFileId(fileId: string): DbRecord[] {
   const db = getDatabase();
   return db.prepare('SELECT * FROM records WHERE file_id = ? AND deleted_at IS NULL').all(fileId) as DbRecord[];
+}
+
+export function updateJeStatus(recordIds: string[], status: JEClassificationStatus): void {
+  const db = getDatabase();
+  const stmt = db.prepare('UPDATE records SET je_status = ?, updated_at = datetime(\'now\') WHERE id = ?');
+  const tx = db.transaction(() => {
+    for (const id of recordIds) stmt.run(status, id);
+  });
+  tx();
+}
+
+export function getJeQueueItems(): JeQueueItem[] {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT r.id AS record_id, r.je_status, r.doc_type, r.created_at,
+      COALESCE(id2.so_hoa_don, bsd.mo_ta, '') AS description,
+      f.relative_path
+    FROM records r
+    LEFT JOIN invoice_data id2 ON r.id = id2.record_id
+    LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id
+    JOIN files f ON r.file_id = f.id
+    WHERE r.je_status IN ('pending', 'processing')
+      AND r.deleted_at IS NULL
+    ORDER BY r.updated_at DESC
+  `).all() as JeQueueItem[];
+}
+
+export function getJeErrorItems(): JeErrorItem[] {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT r.id AS record_id, r.doc_type, r.updated_at,
+      COALESCE(id2.so_hoa_don, bsd.mo_ta, '') AS description,
+      f.relative_path
+    FROM records r
+    LEFT JOIN invoice_data id2 ON r.id = id2.record_id
+    LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id
+    JOIN files f ON r.file_id = f.id
+    WHERE r.je_status = 'error'
+      AND r.deleted_at IS NULL
+    ORDER BY r.updated_at DESC
+  `).all() as JeErrorItem[];
 }
 
 export function getRecordByFingerprint(fileId: string, fingerprint: string): DbRecord | undefined {
@@ -528,7 +569,7 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
   params.push(limit, offset);
 
   const sql = `
-    SELECT r.*, f.relative_path, f.status as file_status,
+    SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
       COALESCE(id2.so_hoa_don, '') as so_hoa_don,
       COALESCE(id2.tong_tien_truoc_thue, 0) as tong_tien_truoc_thue,
       COALESCE(id2.tong_tien, 0) as tong_tien,
