@@ -7,3 +7,5 @@ cache
 data
 data_backup
 .DS_Store
+**/*.env
+**/*.env.local

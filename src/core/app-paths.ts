@@ -23,7 +23,7 @@ export function getAppRoot(): string {
       const { app } = require('electron');
       if (app.isPackaged) {
         _cachedRoot = app.getAppPath();
-        return _cachedRoot;
+        return _cachedRoot ?? '';
       }
     } catch {
       // Not in main process — fall through

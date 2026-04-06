@@ -54,7 +54,7 @@ describe('getSuggestions', () => {
 
     it('shows sort suggestions for "sort:" (one per field)', () => {
       const results = getSuggestions('sort:', 5, emptyFilters);
-      expect(results).toHaveLength(6); // 6 fields: date, time, amount, path, confidence, shd
+      expect(results).toHaveLength(7); // 7 items: date, time, amount, amount-asc, path, confidence, shd
     });
 
     it('filters sort suggestions by value "sort:dat"', () => {
@@ -132,14 +132,16 @@ describe('getSuggestions', () => {
       expect(results[0].insertText).toBe('status:');
     });
 
-    it('does not suggest "amount:" for input "am" (no longer a prefix hint)', () => {
+    it('suggests "amount:" prefix hint for input "am"', () => {
       const results = getSuggestions('am', 2, emptyFilters);
-      expect(results).toHaveLength(0);
+      expect(results).toHaveLength(1);
+      expect(results[0].hint).toBe('amount:');
     });
 
-    it('does not suggest "date:" for input "da" (no longer a prefix hint)', () => {
+    it('suggests "date:" prefix hint for input "da"', () => {
       const results = getSuggestions('da', 2, emptyFilters);
-      expect(results).toHaveLength(0);
+      expect(results).toHaveLength(1);
+      expect(results[0].hint).toBe('date:');
     });
 
     it('does not suggest for single character "t"', () => {
@@ -232,14 +234,16 @@ describe('getPartialPrefixMatch', () => {
     expect(result!.prefix).toBe('sort');
   });
 
-  it('does not match "am" (amount removed from prefix hints)', () => {
+  it('matches "am" to amount prefix', () => {
     const result = getPartialPrefixMatch('am', emptyFilters);
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.prefix).toBe('amount');
   });
 
-  it('does not match "da" (date removed from prefix hints)', () => {
+  it('matches "da" to date prefix', () => {
     const result = getPartialPrefixMatch('da', emptyFilters);
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.prefix).toBe('date');
   });
 
   it('returns null for single char', () => {
