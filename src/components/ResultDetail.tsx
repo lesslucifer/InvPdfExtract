@@ -9,10 +9,9 @@ import { useProcessingStore } from '../stores';
 
 interface Props {
   result: SearchResult;
-  onFieldUpdated: () => void;
 }
 
-export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
+export const ResultDetail: React.FC<Props> = ({ result }) => {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [overrides, setOverrides] = useState<FieldOverrideInfo[]>([]);
   const [lineItemOverrides, setLineItemOverrides] = useState<Record<string, FieldOverrideInfo[]>>({});
@@ -74,31 +73,31 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
       setLocalTotals(prev => ({ ...prev, [fieldName]: numVal }));
     }
     loadOverrides();
-    onFieldUpdated();
+    // field updated — detail reloads its own data
   };
 
   const handleResolve = async (fieldName: string, action: 'keep' | 'accept') => {
     await window.api.resolveConflict(result.id, fieldName, action);
     loadOverrides();
-    onFieldUpdated();
+    // field updated — detail reloads its own data
   };
 
   const handleResolveAll = async (action: 'keep' | 'accept') => {
     await window.api.resolveAllConflicts(result.id, action);
     loadOverrides();
-    onFieldUpdated();
+    // field updated — detail reloads its own data
   };
 
   const handleLineItemSave = async (lineItemId: string, fieldName: string, userValue: string) => {
     await window.api.saveLineItemField({ lineItemId, fieldName, userValue });
     reloadLineItems();
-    onFieldUpdated();
+    // field updated — detail reloads its own data
   };
 
   const handleLineItemResolve = async (lineItemId: string, fieldName: string, action: 'keep' | 'accept') => {
     await window.api.resolveConflict(lineItemId, fieldName, action);
     loadLineItemOverrides(lineItems);
-    onFieldUpdated();
+    // field updated — detail reloads its own data
   };
 
   const getLineItemOverride = (lineItemId: string, fieldName: string): FieldOverrideInfo | undefined => {

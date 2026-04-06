@@ -155,7 +155,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       )}
       </div>
-      <StickyFooter stats={aggregates} filters={ALL_FILTERS} />
+      <StickyFooter />
     </div>
   );
 };

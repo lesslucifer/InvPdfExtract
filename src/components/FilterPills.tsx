@@ -3,12 +3,7 @@ import { ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 import { formatCurrency } from '../shared/format';
 import { Icons, DOC_TYPE_ICONS, ICON_SIZE, type IconName } from '../shared/icons';
 import { Icon } from './Icon';
-
-interface Props {
-  filters: ParsedQuery;
-  onRemoveFilter: (key: keyof ParsedQuery) => void;
-  onToggleSortDirection?: () => void;
-}
+import { useSearchStore } from '../stores';
 
 function formatAmount(n: number): string {
   return formatCurrency(n, { abbreviated: true });
@@ -80,7 +75,10 @@ function getPills(filters: ParsedQuery): PillDef[] {
   return pills;
 }
 
-export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter, onToggleSortDirection }) => {
+export const FilterPills: React.FC = () => {
+  const filters = useSearchStore(s => s.filters);
+  const removeFilter = useSearchStore(s => s.removeFilter);
+  const toggleSortDirection = useSearchStore(s => s.toggleSortDirection);
   const pills = getPills(filters);
   if (pills.length === 0) return null;
 
@@ -88,10 +86,10 @@ export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter, onToggle
     <div className="filter-pills">
       {pills.map((pill) => (
         <span key={pill.key} className="filter-pill">
-          {pill.key === 'sortField' && onToggleSortDirection ? (
+          {pill.key === 'sortField' ? (
             <button
               className="filter-pill-direction"
-              onClick={onToggleSortDirection}
+              onClick={toggleSortDirection}
               aria-label="Toggle sort direction"
               title="Toggle sort direction"
             >
@@ -103,7 +101,7 @@ export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter, onToggle
           <span className="filter-pill-label">{pill.label}</span>
           <button
             className="filter-pill-close"
-            onClick={() => onRemoveFilter(pill.key)}
+            onClick={() => removeFilter(pill.key)}
             aria-label={`Remove ${pill.label} filter`}
           >
             <Icons.close size={ICON_SIZE.XS} />

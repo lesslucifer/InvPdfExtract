@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { SearchResult, OverlayState, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
-import { parseSearchQuery, buildQueryString, ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
+import { OverlayState, SearchFilters } from '../shared/types';
+import { parseSearchQuery, ParsedQuery } from '../shared/parse-query';
 import { getSuggestions, getActiveToken } from '../shared/suggestion-engine';
 import { SuggestionItem, EMPTY_HINT_ITEMS, AMOUNT_SUGGESTION_ITEMS, getDateSuggestionItems } from '../shared/suggestion-data';
 import { SearchInput } from './SearchInput';
@@ -17,33 +17,43 @@ import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
 import { SavePresetModal } from './SavePresetModal';
 import { mergePresetState } from '../shared/merge-preset';
-import { useProcessingStore, useOverlayStore } from '../stores';
+import { useOverlayStore, useSearchStore } from '../stores';
 
 const DEBOUNCE_MS = 200;
-const PAGE_SIZE = 50;
+
+function buildSearchFilters(text: string, currentFilters: ParsedQuery, folder: string | null, file: string | null = null): SearchFilters {
+  return {
+    text: text.trim() || undefined,
+    folder: folder || undefined,
+    filePath: file || undefined,
+    docType: currentFilters.docType,
+    status: currentFilters.status,
+    mst: currentFilters.mst,
+    amountMin: currentFilters.amountMin,
+    amountMax: currentFilters.amountMax,
+    dateFilter: currentFilters.dateFilter,
+  };
+}
 
 export const SearchOverlay: React.FC = () => {
   // Navigation state from store
   const overlayState = useOverlayStore(s => s.overlayState);
   const isWindowlized = useOverlayStore(s => s.isWindowlized);
-  const { goTo, goBack, setOverlayState } = useOverlayStore.getState();
+
+  // Search state from store
+  const query = useSearchStore(s => s.query);
+  const filters = useSearchStore(s => s.filters);
+  const folderScope = useSearchStore(s => s.folderScope);
+  const fileScope = useSearchStore(s => s.fileScope);
+  const results = useSearchStore(s => s.results);
+  const selectedIndex = useSearchStore(s => s.selectedIndex);
+  const expandedId = useSearchStore(s => s.expandedId);
+  const hasSearched = useSearchStore(s => s.hasSearched);
+  const aggregates = useSearchStore(s => s.aggregates);
 
   // Initialize windowlized flag once on mount
   useEffect(() => { useOverlayStore.getState().initWindowlized(); }, []);
 
-  // Search state — query is the free text only (filters are separate)
-  const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState<ParsedQuery>({ text: '' });
-  const [folderScope, setFolderScope] = useState<string | null>(null);
-  const [fileScope, setFileScope] = useState<string | null>(null);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [aggregates, setAggregates] = useState<AggregateStats>({ totalRecords: 0, totalAmount: 0 });
-  const [pageOffset, setPageOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   // PathSearch state — the text after the leading '/'
   const [pathQuery, setPathQuery] = useState('');
   // Track the state before PathSearch was entered so Backspace-to-empty can restore it
@@ -73,22 +83,6 @@ export const SearchOverlay: React.FC = () => {
     });
   }, []);
 
-  // Watch centralized file status changes to update StatusDots in search results
-  const resultsRef = useRef(results);
-  resultsRef.current = results;
-  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
-  useEffect(() => {
-    const currentResults = resultsRef.current;
-    if (currentResults.length === 0) return;
-    const paths = [...new Set(currentResults.map(r => r.relative_path))];
-    window.api.getFileStatusesByPaths(paths).then(updatedStatuses => {
-      setResults(prev => prev.map(r => {
-        const newStatus = updatedStatuses[r.relative_path];
-        return newStatus !== undefined ? { ...r, file_status: newStatus } : r;
-      }));
-    });
-  }, [fileStatusVersion]);
-
   // Cleanup hint timer on unmount
   useEffect(() => {
     return () => {
@@ -96,66 +90,15 @@ export const SearchOverlay: React.FC = () => {
     };
   }, []);
 
-  // Build the full query string from free text + structured filters
-  const buildFullQuery = useCallback((text: string, currentFilters: ParsedQuery): string => {
-    const merged: ParsedQuery = {
-      ...currentFilters,
-      text: text.trim(),
-    };
-    return buildQueryString(merged);
-  }, []);
-
-  // Build SearchFilters object for IPC calls (aggregates, export)
-  const buildSearchFilters = useCallback((text: string, currentFilters: ParsedQuery, folder: string | null, file: string | null = null): SearchFilters => ({
-    text: text.trim() || undefined,
-    folder: folder || undefined,
-    filePath: file || undefined,
-    docType: currentFilters.docType,
-    status: currentFilters.status,
-    mst: currentFilters.mst,
-    amountMin: currentFilters.amountMin,
-    amountMax: currentFilters.amountMax,
-    dateFilter: currentFilters.dateFilter,
-  }), []);
-
-  const doSearch = useCallback(async (text: string, currentFilters: ParsedQuery, folder: string | null, append = false, file: string | null = null) => {
-    const searchQuery = buildFullQuery(text, currentFilters);
-    const sf = buildSearchFilters(text, currentFilters, folder, file);
-    const currentOffset = append ? pageOffset : 0;
-
-    if (append) {
-      if (isLoadingMore || !hasMore) return;
-      setIsLoadingMore(true);
-    }
-
-    const [res, agg] = await Promise.all([
-      window.api.search(searchQuery || '', currentOffset, file ? null : folder, file),
-      append ? Promise.resolve(aggregates) : window.api.getAggregates(sf),
-    ]);
-
-    if (append) {
-      setResults(prev => [...prev, ...res]);
-      setIsLoadingMore(false);
-    } else {
-      setResults(res);
-      setSelectedIndex(0);
-      setExpandedId(null);
-      setAggregates(agg);
-    }
-
-    setPageOffset(currentOffset + res.length);
-    setHasMore(res.length === PAGE_SIZE);
-    setHasSearched(true);
-  }, [buildFullQuery, buildSearchFilters, pageOffset, hasMore, isLoadingMore, aggregates]);
-
-  // Load all invoices on mount (replaces HomeScreen folder listing)
+  // Load all invoices on mount
   const initialLoadDone = useRef(false);
   useEffect(() => {
     if (initialLoadDone.current) return;
     if (overlayState === OverlayState.NoVault) return;
     initialLoadDone.current = true;
-    doSearch('', filters, folderScope, false, fileScope);
-  }, [overlayState]); // eslint-disable-line react-hooks/exhaustive-deps
+    const s = useSearchStore.getState();
+    s.doSearch('', s.filters, s.folderScope, false, s.fileScope);
+  }, [overlayState]);
 
   // Restore carried-over state when opened as a windowlized instance
   useEffect(() => {
@@ -164,15 +107,15 @@ export const SearchOverlay: React.FC = () => {
       if (!raw) return;
       try {
         const state = JSON.parse(raw);
-        if (state.query) setQuery(state.query);
-        if (state.filters) setFilters(state.filters);
-        if (state.folderScope) setFolderScope(state.folderScope);
-        if (state.fileScope) setFileScope(state.fileScope);
+        const ss = useSearchStore.getState();
+        if (state.query) ss.setQuery(state.query);
+        if (state.filters) ss.setFilters(state.filters);
+        if (state.folderScope) ss.setFolderScope(state.folderScope);
+        if (state.fileScope) ss.setFileScope(state.fileScope);
         if (state.overlayState && state.overlayState !== OverlayState.NoVault) {
           useOverlayStore.getState().setOverlayState(state.overlayState);
         }
-        // Trigger search with restored state
-        doSearch(
+        ss.doSearch(
           state.query || '',
           state.filters || { text: '' },
           state.folderScope || null,
@@ -184,44 +127,37 @@ export const SearchOverlay: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleWindowlize = useCallback(() => {
+    const ss = useSearchStore.getState();
     const serializedState = JSON.stringify({
-      query,
-      filters,
-      folderScope,
-      fileScope,
-      overlayState,
+      query: ss.query,
+      filters: ss.filters,
+      folderScope: ss.folderScope,
+      fileScope: ss.fileScope,
+      overlayState: useOverlayStore.getState().overlayState,
     });
     window.api.windowlize(serializedState);
-  }, [query, filters, folderScope, fileScope, overlayState]);
+  }, []);
 
-  const loadMore = useCallback(() => {
-    doSearch(query, filters, folderScope, true, fileScope);
-  }, [doSearch, query, filters, folderScope, fileScope]);
-
-  // Extract filters only from completed tokens (followed by a space).
-  // The last token — the one the user is still typing — stays as raw text.
   const extractCompletedFilters = useCallback((value: string): { extracted: ParsedQuery; remaining: string } | null => {
-    // Only attempt extraction if there's a trailing space (user finished a token)
     if (!value.endsWith(' ')) return null;
-
     const parsed = parseSearchQuery(value);
     const hasInlineFilters = parsed.docType || parsed.status || parsed.mst ||
       parsed.amountMin != null || parsed.amountMax != null || parsed.dateFilter ||
       parsed.sortField;
-
     if (!hasInlineFilters) return null;
     return { extracted: parsed, remaining: parsed.text };
   }, []);
 
   const handleCursorChange = useCallback((pos: number) => {
     cursorPosRef.current = pos;
-    // Recompute suggestions with new cursor position
-    if (overlayState !== OverlayState.PathSearch) {
-      const newSuggestions = getSuggestions(query, pos, filters);
+    const os = useOverlayStore.getState().overlayState;
+    if (os !== OverlayState.PathSearch) {
+      const ss = useSearchStore.getState();
+      const newSuggestions = getSuggestions(ss.query, pos, ss.filters);
       setSuggestions(newSuggestions);
       setSuggestionIndex(0);
     }
-  }, [query, filters, overlayState]);
+  }, []);
 
   const queryChangeRef = useRef<(value: string) => void>(() => {});
 
@@ -239,10 +175,10 @@ export const SearchOverlay: React.FC = () => {
       return;
     }
 
-    const { text: activeToken, startIndex } = getActiveToken(query, cursorPosRef.current);
-    // Replace the active token with the suggestion's insertText
-    const before = query.slice(0, startIndex);
-    const after = query.slice(startIndex + activeToken.length);
+    const currentQuery = useSearchStore.getState().query;
+    const { text: activeToken, startIndex } = getActiveToken(currentQuery, cursorPosRef.current);
+    const before = currentQuery.slice(0, startIndex);
+    const after = currentQuery.slice(startIndex + activeToken.length);
     const newValue = before + item.insertText + after;
 
     setSuggestions([]);
@@ -251,76 +187,76 @@ export const SearchOverlay: React.FC = () => {
     // Feed the new value through the normal query change handler
     // which will handle filter extraction if the insertText ends with a space
     queryChangeRef.current(newValue);
-  }, [query]);
+  }, []);
 
   const handleQueryChangeInner = useCallback((value: string) => {
+    const os = useOverlayStore.getState();
+    const ss = useSearchStore.getState();
+
     // PresetSearch: first char is '#'
-    if (value.startsWith('#') && overlayState !== OverlayState.PresetSearch) {
-      prePresetStateRef.current = overlayState;
-      setOverlayState(OverlayState.PresetSearch);
+    if (value.startsWith('#') && os.overlayState !== OverlayState.PresetSearch) {
+      prePresetStateRef.current = os.overlayState;
+      os.setOverlayState(OverlayState.PresetSearch);
       setPresetQuery(value.slice(1));
-      setQuery(value);
+      ss.setQuery(value);
       setSuggestions([]);
       return;
     }
 
     // Already in PresetSearch mode — update presetQuery
-    if (overlayState === OverlayState.PresetSearch) {
+    if (os.overlayState === OverlayState.PresetSearch) {
       if (!value) {
-        setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
+        os.setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
           ? OverlayState.Home : prePresetStateRef.current);
-        setQuery('');
+        ss.setQuery('');
         setPresetQuery('');
       } else if (!value.startsWith('#')) {
-        setOverlayState(OverlayState.Home);
-        setQuery(value);
+        os.setOverlayState(OverlayState.Home);
+        ss.setQuery(value);
         setPresetQuery('');
       } else {
         setPresetQuery(value.slice(1));
-        setQuery(value);
+        ss.setQuery(value);
       }
       return;
     }
 
     // PathSearch: first char is '/' or '\'
     if ((value.startsWith('/') || value.startsWith('\\')) &&
-        overlayState !== OverlayState.PathSearch) {
-      prePathStateRef.current = overlayState;
-      setOverlayState(OverlayState.PathSearch);
+        os.overlayState !== OverlayState.PathSearch) {
+      prePathStateRef.current = os.overlayState;
+      os.setOverlayState(OverlayState.PathSearch);
       setPathQuery(value.slice(1));
-      setQuery(value);
+      ss.setQuery(value);
       setSuggestions([]);
       return;
     }
 
     // Already in PathSearch mode — update pathQuery
-    if (overlayState === OverlayState.PathSearch) {
+    if (os.overlayState === OverlayState.PathSearch) {
       if (!value) {
-        // Backspace to empty — return to previous state
-        setOverlayState(prePathStateRef.current === OverlayState.PathSearch
-          ? OverlayState.Home
-          : prePathStateRef.current);
-        setQuery('');
+        os.setOverlayState(prePathStateRef.current === OverlayState.PathSearch
+          ? OverlayState.Home : prePathStateRef.current);
+        ss.setQuery('');
         setPathQuery('');
       } else if (!value.startsWith('/') && !value.startsWith('\\')) {
-        // User deleted the leading slash — exit PathSearch to normal flow
-        setOverlayState(OverlayState.Home);
-        setQuery(value);
+        os.setOverlayState(OverlayState.Home);
+        ss.setQuery(value);
         setPathQuery('');
       } else {
         setPathQuery(value.slice(1));
-        setQuery(value);
+        ss.setQuery(value);
       }
       return;
     }
 
-    setQuery(value);
+    ss.setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     // Compute suggestions for the new value
-    const cursorPos = value.length; // onChange always puts cursor at end
+    const cursorPos = value.length;
     cursorPosRef.current = cursorPos;
-    const newSuggestions = getSuggestions(value, cursorPos, filters);
+    const newSuggestions = getSuggestions(value, cursorPos, ss.filters);
     setSuggestions(newSuggestions);
     setSuggestionIndex(0);
 
@@ -334,10 +270,10 @@ export const SearchOverlay: React.FC = () => {
       setShowHintBar(false);
     }
 
-    // Try to extract completed filter tokens (only when user presses space after a token)
+    // Try to extract completed filter tokens
     const extraction = extractCompletedFilters(value);
     if (extraction) {
-      const newFilters: ParsedQuery = { ...filters, text: '' };
+      const newFilters: ParsedQuery = { ...ss.filters, text: '' };
       const { extracted } = extraction;
       if (extracted.docType) newFilters.docType = extracted.docType;
       if (extracted.status) newFilters.status = extracted.status;
@@ -347,182 +283,68 @@ export const SearchOverlay: React.FC = () => {
       if (extracted.dateFilter) newFilters.dateFilter = extracted.dateFilter;
       if (extracted.sortField) newFilters.sortField = extracted.sortField;
       if (extracted.sortDirection) newFilters.sortDirection = extracted.sortDirection;
-      setFilters(newFilters);
-      setQuery(extraction.remaining);
-      setSuggestions([]); // clear suggestions after filter extraction
+      ss.setFilters(newFilters);
+      ss.setQuery(extraction.remaining);
+      setSuggestions([]);
 
-      if (overlayState === OverlayState.Home) setOverlayState(OverlayState.Search);
-      debounceRef.current = setTimeout(() => doSearch(extraction.remaining, newFilters, folderScope, false, fileScope), DEBOUNCE_MS);
+      if (os.overlayState === OverlayState.Home) os.setOverlayState(OverlayState.Search);
+      debounceRef.current = setTimeout(() => useSearchStore.getState().doSearch(extraction.remaining, newFilters, ss.folderScope, false, ss.fileScope), DEBOUNCE_MS);
       return;
     }
 
     // Strip trailing '?' — it's a hint trigger, not a search character
     const searchValue = value.replace(/\?+$/, '');
 
-    // No filter extraction — normal text handling
-    if (searchValue.trim() && overlayState === OverlayState.Home) {
-      setOverlayState(OverlayState.Search);
+    if (searchValue.trim() && os.overlayState === OverlayState.Home) {
+      os.setOverlayState(OverlayState.Search);
     }
-    const hasActiveFilters = filters.docType || filters.status || filters.mst ||
-      filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
-    if (!searchValue.trim() && overlayState === OverlayState.Search && !folderScope && !fileScope && !hasActiveFilters) {
-      setOverlayState(OverlayState.Home);
-      doSearch('', filters, null);
+    const hasActiveFilters = ss.filters.docType || ss.filters.status || ss.filters.mst ||
+      ss.filters.amountMin != null || ss.filters.amountMax != null || ss.filters.dateFilter;
+    if (!searchValue.trim() && os.overlayState === OverlayState.Search && !ss.folderScope && !ss.fileScope && !hasActiveFilters) {
+      os.setOverlayState(OverlayState.Home);
+      ss.doSearch('', ss.filters, null);
       return;
     }
 
-    // For search, merge the raw text with existing filter pills
-    debounceRef.current = setTimeout(() => doSearch(searchValue, filters, folderScope, false, fileScope), DEBOUNCE_MS);
-  }, [doSearch, overlayState, folderScope, fileScope, filters, extractCompletedFilters]);
+    debounceRef.current = setTimeout(() => useSearchStore.getState().doSearch(searchValue, ss.filters, ss.folderScope, false, ss.fileScope), DEBOUNCE_MS);
+  }, [extractCompletedFilters]);
 
   // Keep ref in sync so handleSuggestionAccept (defined before handleQueryChangeInner) can call it
   queryChangeRef.current = handleQueryChangeInner;
   const handleQueryChange = handleQueryChangeInner;
 
-  const handleRemoveFilter = useCallback((key: keyof ParsedQuery) => {
-    const newFilters = { ...filters };
-    delete newFilters[key];
-    // Amount min/max are always paired — clear both together
-    if (key === 'amountMin' || key === 'amountMax') {
-      delete newFilters.amountMin;
-      delete newFilters.amountMax;
-    }
-    // Sort field/direction are paired
-    if (key === 'sortField' || key === 'sortDirection') {
-      delete newFilters.sortField;
-      delete newFilters.sortDirection;
-    }
-    newFilters.text = '';
-    setFilters(newFilters);
-
-    // Check if anything is left to search
-    const hasRemaining = query.trim() || folderScope || fileScope || newFilters.docType ||
-      newFilters.status || newFilters.mst || newFilters.amountMin != null || newFilters.amountMax != null ||
-      newFilters.dateFilter || newFilters.sortField;
-
-    if (!hasRemaining) {
-      setOverlayState(OverlayState.Home);
-      doSearch('', { text: '' }, null);
-    } else {
-      doSearch(query, newFilters, folderScope, false, fileScope);
-    }
-  }, [filters, query, folderScope, fileScope, doSearch]);
-
-  const handleToggleSortDirection = useCallback(() => {
-    if (!filters.sortField) return;
-    const currentDir = filters.sortDirection || SORT_DEFAULT_DIRECTIONS[filters.sortField];
-    const newDir = currentDir === 'asc' ? 'desc' : 'asc';
-    const newFilters = { ...filters, sortDirection: newDir as ParsedQuery['sortDirection'] };
-    setFilters(newFilters);
-    doSearch(query, newFilters, folderScope, false, fileScope);
-  }, [filters, query, folderScope, fileScope, doSearch]);
-
   const handlePathSearchSelectFolder = useCallback((relativePath: string) => {
-    setFolderScope(relativePath);
-    setFileScope(null);
-    setQuery('');
+    const ss = useSearchStore.getState();
+    ss.setFolderScope(relativePath);
+    ss.setFileScope(null);
+    ss.setQuery('');
     setPathQuery('');
-    setOverlayState(OverlayState.Search);
-    doSearch('', filters, relativePath);
-  }, [doSearch, filters]);
+    useOverlayStore.getState().setOverlayState(OverlayState.Search);
+    ss.doSearch('', ss.filters, relativePath);
+  }, []);
 
   const handlePathSearchSelectFile = useCallback((relativePath: string) => {
-    // Set file scope — derive parent folder as the folder scope
+    const ss = useSearchStore.getState();
     const parts = relativePath.split('/');
     parts.pop();
     const parentFolder = parts.join('/');
-    setFileScope(relativePath);
-    setFolderScope(parentFolder || null);
-    setQuery('');
+    ss.setFileScope(relativePath);
+    ss.setFolderScope(parentFolder || null);
+    ss.setQuery('');
     setPathQuery('');
-    setOverlayState(OverlayState.Search);
-    doSearch('', filters, parentFolder || null, false, relativePath);
-  }, [doSearch, filters]);
-
-  const handleFolderBrowse = useCallback((folder: string) => {
-    setFolderScope(folder);
-    setFileScope(null);
-    setQuery('');
-    goTo(OverlayState.Search);
-    doSearch('', filters, folder);
-  }, [goTo, doSearch, filters]);
+    useOverlayStore.getState().setOverlayState(OverlayState.Search);
+    ss.doSearch('', ss.filters, parentFolder || null, false, relativePath);
+  }, []);
 
   const handleFolderNavigate = useCallback((folder: string) => {
-    setFolderScope(folder);
-    setFileScope(null);
-    doSearch(query, filters, folder);
-  }, [query, filters, doSearch]);
-
-  const handleClearFolderScope = useCallback(() => {
-    setFolderScope(null);
-    setFileScope(null);
-    const hasActiveFilters = filters.docType || filters.status || filters.mst ||
-      filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
-    if (!query.trim() && !hasActiveFilters) {
-      setOverlayState(OverlayState.Home);
-      doSearch('', { text: '' }, null);
-    } else {
-      doSearch(query, filters, null);
-    }
-  }, [query, filters, doSearch]);
+    const ss = useSearchStore.getState();
+    ss.setFolderScope(folder);
+    ss.setFileScope(null);
+    ss.doSearch(ss.query, ss.filters, folder);
+  }, []);
 
   const handleOpenFolder = useCallback((relativePath: string) => {
     window.api.openFolder(relativePath);
-  }, []);
-
-  const handleFileBrowse = useCallback((relativePath: string) => {
-    const parts = relativePath.split('/');
-    parts.pop();
-    const parentFolder = parts.join('/');
-    setFileScope(relativePath);
-    setFolderScope(parentFolder || null);
-    setQuery('');
-    goTo(OverlayState.Search);
-    doSearch('', filters, parentFolder || null, false, relativePath);
-  }, [goTo, doSearch, filters]);
-
-  const handleClearFileScope = useCallback(() => {
-    setFileScope(null);
-    // Keep folderScope — just widen from file to folder
-    doSearch(query, filters, folderScope, false, null);
-  }, [query, filters, folderScope, doSearch]);
-
-  const handleDateFilter = useCallback((date: string) => {
-    const newFilters = { ...filters, text: '', dateFilter: date };
-    setFilters(newFilters);
-    if (overlayState === OverlayState.Home) {
-      setOverlayState(OverlayState.Search);
-    }
-    doSearch(query, newFilters, folderScope, false, fileScope);
-  }, [filters, query, folderScope, fileScope, overlayState, doSearch]);
-
-  const handleMstFilter = useCallback((mst: string) => {
-    const newFilters = { ...filters, text: '', mst };
-    setFilters(newFilters);
-    if (overlayState === OverlayState.Home) {
-      setOverlayState(OverlayState.Search);
-    }
-    doSearch(query, newFilters, folderScope, false, fileScope);
-  }, [filters, query, folderScope, fileScope, overlayState, doSearch]);
-
-  const handleDocTypeClick = useCallback((docType: string) => {
-    // Toggle: if same type, remove it; otherwise set it
-    const newFilters = { ...filters, text: '' };
-    if (filters.docType === docType) {
-      delete newFilters.docType;
-    } else {
-      newFilters.docType = docType;
-    }
-    setFilters(newFilters);
-
-    if (overlayState === OverlayState.Home) {
-      setOverlayState(OverlayState.Search);
-    }
-    doSearch(query, newFilters, folderScope, false, fileScope);
-  }, [filters, query, folderScope, fileScope, overlayState, doSearch]);
-
-  const handleToggleExpand = useCallback((id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
   }, []);
 
   const handleOpenFile = useCallback((relativePath: string) => {
@@ -530,52 +352,27 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   const handleReprocessFile = useCallback(async (relativePath: string) => {
-    setResults(prev => prev.map(r =>
-      r.relative_path === relativePath ? { ...r, file_status: FileStatus.Pending } : r
-    ));
+    useSearchStore.getState().markFileReprocessing(relativePath);
     await window.api.reprocessFile(relativePath);
   }, []);
 
   const handleReprocessFolder = useCallback(async (folderPrefix: string) => {
-    setResults(prev => prev.map(r =>
-      r.relative_path.startsWith(folderPrefix + '/') ? { ...r, file_status: FileStatus.Pending } : r
-    ));
+    useSearchStore.getState().markFolderReprocessing(folderPrefix);
     await window.api.reprocessFolder(folderPrefix);
   }, []);
 
   const handleBreadcrumbReload = useCallback(() => {
-    if (fileScope) {
-      setResults(prev => prev.map(r =>
-        r.relative_path === fileScope ? { ...r, file_status: FileStatus.Pending } : r
-      ));
-      window.api.reprocessFile(fileScope);
-    } else if (folderScope) {
-      setResults(prev => prev.map(r =>
-        r.relative_path.startsWith(folderScope + '/') ? { ...r, file_status: FileStatus.Pending } : r
-      ));
-      window.api.reprocessFolder(folderScope);
+    const ss = useSearchStore.getState();
+    ss.markBreadcrumbReprocessing();
+    if (ss.fileScope) {
+      window.api.reprocessFile(ss.fileScope);
+    } else if (ss.folderScope) {
+      window.api.reprocessFolder(ss.folderScope);
     }
-  }, [fileScope, folderScope]);
-
-  const handleFieldUpdated = useCallback(() => {
-    // No-op: detail component reloads its own data after saves.
-    // We intentionally don't re-search here — re-searching would remove
-    // rows that no longer match filters (e.g. a fixed mismatch row
-    // disappearing from status:mismatch results).
   }, []);
 
   const handleVaultChanged = useCallback(() => {
-    setQuery('');
-    setFilters({ text: '' });
-    setFolderScope(null);
-    setFileScope(null);
-    setResults([]);
-    setSelectedIndex(0);
-    setExpandedId(null);
-    setHasSearched(false);
-    setPageOffset(0);
-    setHasMore(true);
-    setAggregates({ totalRecords: 0, totalAmount: 0 });
+    useSearchStore.getState().resetSearch();
     initialLoadDone.current = false;
     window.api.getAppConfig().then(config => {
       if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
@@ -585,36 +382,35 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   const handleGearClick = useCallback(() => {
-    goTo(OverlayState.Settings);
-  }, [goTo]);
+    useOverlayStore.getState().goTo(OverlayState.Settings);
+  }, []);
 
   const handleCheatsheetClick = useCallback(() => {
-    goTo(OverlayState.Cheatsheet);
-  }, [goTo]);
+    useOverlayStore.getState().goTo(OverlayState.Cheatsheet);
+  }, []);
 
   const handleStatusDotClick = useCallback(() => {
-    goTo(OverlayState.ProcessingStatus);
-  }, [goTo]);
+    useOverlayStore.getState().goTo(OverlayState.ProcessingStatus);
+  }, []);
 
-  // Preset handlers
   const handleLoadPreset = useCallback((filtersJson: string) => {
     try {
-      // Strip the '#...' query — merge uses the real query before PresetSearch was entered
-      const cleanQuery = query.startsWith('#') ? '' : query;
+      const ss = useSearchStore.getState();
+      const cleanQuery = ss.query.startsWith('#') ? '' : ss.query;
       const result = mergePresetState(
-        { currentQuery: cleanQuery, currentFilters: filters, currentFolderScope: folderScope, currentFileScope: fileScope },
+        { currentQuery: cleanQuery, currentFilters: ss.filters, currentFolderScope: ss.folderScope, currentFileScope: ss.fileScope },
         filtersJson,
       );
 
-      setQuery(result.query);
-      setFilters(result.filters);
-      setFolderScope(result.folderScope);
-      setFileScope(result.fileScope);
-      setOverlayState(OverlayState.Search);
+      ss.setQuery(result.query);
+      ss.setFilters(result.filters);
+      ss.setFolderScope(result.folderScope);
+      ss.setFileScope(result.fileScope);
+      useOverlayStore.getState().setOverlayState(OverlayState.Search);
       setPresetQuery('');
-      doSearch(result.query, result.filters, result.folderScope, false, result.fileScope);
+      ss.doSearch(result.query, result.filters, result.folderScope, false, result.fileScope);
     } catch { /* ignore parse errors */ }
-  }, [query, filters, folderScope, fileScope, doSearch]);
+  }, []);
 
   const handleDeletePreset = useCallback(async (id: string) => {
     await window.api.deletePreset(id);
@@ -635,20 +431,24 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   const handleSavePreset = useCallback(async (name: string) => {
-    const filtersJson = JSON.stringify({ query, filters, folderScope, fileScope });
+    const ss = useSearchStore.getState();
+    const filtersJson = JSON.stringify({ query: ss.query, filters: ss.filters, folderScope: ss.folderScope, fileScope: ss.fileScope });
     await window.api.savePreset(name, filtersJson);
     setShowSaveModal(false);
-  }, [query, filters, folderScope, fileScope]);
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const os = useOverlayStore.getState();
+      const ss = useSearchStore.getState();
+
       // Ctrl+D / Cmd+D: save preset
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
         if (showSaveModal) return;
-        const hasActive = query.trim() || folderScope || fileScope || filters.docType || filters.status || filters.mst ||
-          filters.amountMin != null || filters.amountMax != null || filters.dateFilter;
+        const hasActive = ss.query.trim() || ss.folderScope || ss.fileScope || ss.filters.docType || ss.filters.status || ss.filters.mst ||
+          ss.filters.amountMin != null || ss.filters.amountMax != null || ss.filters.dateFilter;
         if (hasActive) {
           setShowSaveModal(true);
         }
@@ -693,64 +493,59 @@ export const SearchOverlay: React.FC = () => {
 
       switch (e.key) {
         case 'ArrowDown':
-          // PathResultsList and PresetList manage their own keyboard nav
-          if (overlayState === OverlayState.Search || overlayState === OverlayState.Home) {
+          if (os.overlayState === OverlayState.Search || os.overlayState === OverlayState.Home) {
             e.preventDefault();
-            setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
+            ss.setSelectedIndex(Math.min(ss.selectedIndex + 1, ss.results.length - 1));
           }
           break;
         case 'ArrowUp':
-          if (overlayState === OverlayState.Search || overlayState === OverlayState.Home) {
+          if (os.overlayState === OverlayState.Search || os.overlayState === OverlayState.Home) {
             e.preventDefault();
-            setSelectedIndex((prev) => Math.max(prev - 1, 0));
+            ss.setSelectedIndex(Math.max(ss.selectedIndex - 1, 0));
           }
           break;
         case 'Enter':
-          if ((overlayState === OverlayState.Search || overlayState === OverlayState.Home) && results[selectedIndex]) {
+          if ((os.overlayState === OverlayState.Search || os.overlayState === OverlayState.Home) && ss.results[ss.selectedIndex]) {
             e.preventDefault();
-            handleToggleExpand(results[selectedIndex].id);
+            ss.toggleExpand(ss.results[ss.selectedIndex].id);
           }
           break;
         case 'Escape':
           e.preventDefault();
-          // Escape cascade
-          if (overlayState === OverlayState.PresetSearch) {
-            // PresetSearch Esc → back to previous state
-            setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
+          if (os.overlayState === OverlayState.PresetSearch) {
+            os.setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
               ? OverlayState.Home : prePresetStateRef.current);
-            setQuery('');
+            ss.setQuery('');
             setPresetQuery('');
-          } else if (overlayState === OverlayState.PathSearch) {
-            // PathSearch Esc → full reset to Home
-            setOverlayState(OverlayState.Home);
-            setQuery('');
+          } else if (os.overlayState === OverlayState.PathSearch) {
+            os.setOverlayState(OverlayState.Home);
+            ss.setQuery('');
             setPathQuery('');
-            setFolderScope(null);
-            setFileScope(null);
-            setFilters({ text: '' });
-          } else if (overlayState === OverlayState.Settings ||
-                     overlayState === OverlayState.Cheatsheet ||
-                     overlayState === OverlayState.ProcessingStatus) {
-            useOverlayStore.getState().goBack();
-          } else if (expandedId) {
-            setExpandedId(null);
-          } else if (query) {
+            ss.setFolderScope(null);
+            ss.setFileScope(null);
+            ss.setFilters({ text: '' } as ParsedQuery);
+          } else if (os.overlayState === OverlayState.Settings ||
+                     os.overlayState === OverlayState.Cheatsheet ||
+                     os.overlayState === OverlayState.ProcessingStatus) {
+            os.goBack();
+          } else if (ss.expandedId) {
+            ss.setExpandedId(null);
+          } else if (ss.query) {
             handleQueryChange('');
-          } else if (filters.docType || filters.status || filters.mst || filters.amountMin != null ||
-                     filters.amountMax != null || filters.dateFilter) {
-            // Clear all filter pills
-            setFilters({ text: '' });
-            if (!folderScope && !fileScope) {
-              setOverlayState(OverlayState.Home);
-              doSearch('', { text: '' }, null);
+          } else if (ss.filters.docType || ss.filters.status || ss.filters.mst || ss.filters.amountMin != null ||
+                     ss.filters.amountMax != null || ss.filters.dateFilter) {
+            ss.setFilters({ text: '' } as ParsedQuery);
+            if (!ss.folderScope && !ss.fileScope) {
+              os.setOverlayState(OverlayState.Home);
+              ss.doSearch('', { text: '' } as ParsedQuery, null);
             } else {
-              doSearch('', { text: '' }, folderScope, false, fileScope);
+              ss.doSearch('', { text: '' } as ParsedQuery, ss.folderScope, false, ss.fileScope);
             }
-          } else if (fileScope) {
-            handleClearFileScope();
-          } else if (folderScope) {
-            handleClearFolderScope();
-          } else if (!isWindowlized) {
+          } else if (ss.fileScope) {
+            ss.clearFileScope();
+          } else if (ss.folderScope) {
+            ss.clearFolderScope();
+          } else if (!os.isWindowlized) {
             window.api.hideOverlay();
           }
           break;
@@ -759,9 +554,7 @@ export const SearchOverlay: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
-      folderScope, fileScope, filters, handleQueryChange, handleClearFolderScope, handleClearFileScope, doSearch, isWindowlized,
-      suggestions, suggestionIndex, handleSuggestionAccept, showSaveModal]);
+  }, [suggestions, suggestionIndex, handleSuggestionAccept, showSaveModal, handleQueryChange]);
 
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&
@@ -882,46 +675,26 @@ export const SearchOverlay: React.FC = () => {
         visible={visibleSuggestions.length > 0}
       />
       {hasFilterPills && (
-        <FilterPills filters={filters} onRemoveFilter={handleRemoveFilter} onToggleSortDirection={handleToggleSortDirection} />
+        <FilterPills />
       )}
       {(folderScope || fileScope) && (
         <BreadcrumbBar
-          folder={folderScope}
-          file={fileScope}
           onNavigate={handleFolderNavigate}
           onOpenFolder={() => folderScope && handleOpenFolder(folderScope)}
-          onClear={handleClearFolderScope}
-          onClearFile={handleClearFileScope}
           onReload={handleBreadcrumbReload}
         />
       )}
       {hasSearched && (
         <ResultList
-          results={results}
-          selectedIndex={selectedIndex}
-          expandedId={expandedId}
-          onSelect={setSelectedIndex}
-          onToggleExpand={handleToggleExpand}
           onOpenFile={handleOpenFile}
-          onFieldUpdated={handleFieldUpdated}
-          onFolderClick={handleFolderBrowse}
-          onFileClick={handleFileBrowse}
-          onDocTypeClick={handleDocTypeClick}
           onOpenFolder={handleOpenFolder}
           onReprocessFile={handleReprocessFile}
           onReprocessFolder={handleReprocessFolder}
-          onMstFilter={handleMstFilter}
-          onDateFilter={handleDateFilter}
-          onLoadMore={loadMore}
-          hasMore={hasMore}
-          isLoadingMore={isLoadingMore}
         />
       )}
       {hasSearched && aggregates.totalRecords > 0 && (
         <StickyFooter
           ref={footerRef}
-          stats={aggregates}
-          filters={buildSearchFilters(query, filters, folderScope, fileScope)}
           onWindowlize={!isWindowlized ? handleWindowlize : undefined}
           onCheatsheetClick={!isWindowlized ? handleCheatsheetClick : undefined}
           onSettingsClick={!isWindowlized ? handleGearClick : undefined}

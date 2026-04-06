@@ -28,8 +28,16 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
       set({ status });
     });
 
-    const unsubFile = window.api.onFileStatusChanged((_data: { fileIds: string[]; status: FileStatus }) => {
+    const unsubFile = window.api.onFileStatusChanged(async (_data: { fileIds: string[]; status: FileStatus }) => {
       set((s) => ({ fileStatusVersion: s.fileStatusVersion + 1 }));
+      // Cross-store: update search results' file_status
+      const { useSearchStore } = await import('./searchStore');
+      const results = useSearchStore.getState().results;
+      if (results.length > 0) {
+        const paths = [...new Set(results.map(r => r.relative_path))];
+        const updatedStatuses = await window.api.getFileStatusesByPaths(paths);
+        useSearchStore.getState().updateFileStatuses(updatedStatuses);
+      }
     });
 
     const unsubJe = window.api.onJeStatusChanged((data: { recordIds: string[]; status: JEClassificationStatus }) => {

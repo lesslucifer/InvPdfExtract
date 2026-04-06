@@ -3,21 +3,17 @@ import { SearchResult, DocType } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { formatCurrency } from '../shared/format';
 import { DOC_TYPE_ICONS, ICON_SIZE } from '../shared/icons';
+import { useSearchStore } from '../stores';
 
 interface Props {
   result: SearchResult;
   isSelected: boolean;
   isExpanded: boolean;
   onClick: () => void;
-  onFolderClick?: (folder: string) => void;
-  onFileClick?: (relativePath: string) => void;
-  onDocTypeClick?: (docType: string) => void;
   onOpenFile?: (relativePath: string) => void;
   onOpenFolder?: (folder: string) => void;
   onReprocessFile?: (relativePath: string) => void;
   onReprocessFolder?: (folder: string) => void;
-  onMstFilter?: (mst: string) => void;
-  onDateFilter?: (date: string) => void;
 }
 
 function confidenceClass(confidence: number): string {
@@ -55,7 +51,7 @@ function splitPath(relativePath: string): { folder: string; folderFull: string; 
 const FOLDER_MAX_LEN = 30;
 const FILENAME_MAX_LEN = 35;
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onFolderClick, onFileClick, onDocTypeClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder, onMstFilter, onDateFilter }) => {
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder }) => {
   const meta = DOC_TYPE_ICONS[result.doc_type] || DOC_TYPE_ICONS['unknown'];
   const isBank = result.doc_type === DocType.BankStatement;
 
@@ -77,9 +73,9 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
     >
       <div className="result-row-main">
         <span
-          className={`result-icon ${onDocTypeClick ? 'result-icon-clickable' : ''}`}
+          className="result-icon result-icon-clickable"
           title={meta.label}
-          onClick={onDocTypeClick ? (e) => { e.stopPropagation(); onDocTypeClick(result.doc_type); } : undefined}
+          onClick={(e) => { e.stopPropagation(); useSearchStore.getState().applyDocTypeFilter(result.doc_type); }}
         >
           <meta.icon size={ICON_SIZE.LG} />
         </span>
@@ -87,31 +83,30 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           <div className="result-primary">
             <span className="result-label">{primaryLabel}</span>
             {result.mst && <span
-              className={`result-mst${onMstFilter ? ' result-mst-filterable' : ''}`}
-              title={onMstFilter ? 'Ctrl+Click to filter by this MST' : undefined}
-              onClick={onMstFilter ? (e) => {
+              className="result-mst result-mst-filterable"
+              title="Ctrl+Click to filter by this MST"
+              onClick={(e) => {
                 if (e.ctrlKey || e.metaKey) {
                   e.stopPropagation();
-                  onMstFilter(result.mst);
+                  useSearchStore.getState().applyMstFilter(result.mst);
                 }
-              } : undefined}
+              }}
             >MST: {result.mst}</span>}
           </div>
           <div className="result-secondary">
             {counterparty && <span className="result-counterparty">{counterparty}</span>}
             {result.ngay && <span
-              className={`result-date${onDateFilter ? ' result-date-filterable' : ''}`}
-              title={onDateFilter ? '⌘+Click: filter by date · ⌥+Click: filter by month' : undefined}
-              onClick={onDateFilter ? (e) => {
-                // Ctrl/Cmd+Click → filter by exact date, Alt/Opt+Click → filter by month
+              className="result-date result-date-filterable"
+              title="⌘+Click: filter by date · ⌥+Click: filter by month"
+              onClick={(e) => {
                 if (e.altKey) {
                   e.stopPropagation();
-                  onDateFilter(result.ngay?.slice(0, 7) || ''); // YYYY-MM
+                  useSearchStore.getState().applyDateFilter(result.ngay?.slice(0, 7) || '');
                 } else if (e.ctrlKey || e.metaKey) {
                   e.stopPropagation();
-                  onDateFilter(result.ngay || '');
+                  useSearchStore.getState().applyDateFilter(result.ngay || '');
                 }
-              } : undefined}
+              }}
             >{result.ngay}</span>}
           </div>
         </div>
@@ -132,43 +127,39 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
       <div className="result-file" title={result.relative_path}>
         {folder && (
           <span
-            className={`result-file-folder${onFolderClick ? ' result-file-clickable' : ''}`}
+            className="result-file-folder result-file-clickable"
             title={folderFull}
-            onClick={onFolderClick ? (e) => {
+            onClick={(e) => {
               e.stopPropagation();
               if ((e.metaKey || e.ctrlKey) && onOpenFolder) {
                 onOpenFolder(folderFull);
               } else if (e.altKey && onReprocessFolder) {
                 onReprocessFolder(folderFull);
               } else {
-                onFolderClick(folderFull);
+                useSearchStore.getState().browseFolder(folderFull);
               }
-            } : undefined}
+            }}
           >
             {middleEllipsis(folder, FOLDER_MAX_LEN)}/
           </span>
         )}
         {result.file_status && <StatusDot status={result.file_status} />}
-        {onFileClick ? (
-          <span
-            className="result-file-name result-file-clickable"
-            title={`Scope to ${filename}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if ((e.metaKey || e.ctrlKey) && onOpenFile) {
-                onOpenFile(result.relative_path);
-              } else if (e.altKey && onReprocessFile) {
-                onReprocessFile(result.relative_path);
-              } else {
-                onFileClick(result.relative_path);
-              }
-            }}
-          >
-            {middleEllipsis(filename, FILENAME_MAX_LEN)}
-          </span>
-        ) : (
-          <span className="result-file-name">{middleEllipsis(filename, FILENAME_MAX_LEN)}</span>
-        )}
+        <span
+          className="result-file-name result-file-clickable"
+          title={`Scope to ${filename}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if ((e.metaKey || e.ctrlKey) && onOpenFile) {
+              onOpenFile(result.relative_path);
+            } else if (e.altKey && onReprocessFile) {
+              onReprocessFile(result.relative_path);
+            } else {
+              useSearchStore.getState().browseFile(result.relative_path);
+            }
+          }}
+        >
+          {middleEllipsis(filename, FILENAME_MAX_LEN)}
+        </span>
       </div>
     </div>
   );

@@ -1,13 +1,10 @@
 import React from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useSearchStore } from '../stores';
 
 interface Props {
-  folder: string | null;
-  file?: string | null;
   onNavigate: (folder: string) => void;
   onOpenFolder: () => void;
-  onClear: () => void;
-  onClearFile?: () => void;
   onReload?: () => void;
 }
 
@@ -29,7 +26,12 @@ function extractFileName(filePath: string): string {
   return parts[parts.length - 1] || filePath;
 }
 
-export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpenFolder, onClear, onClearFile, onReload }) => {
+export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onReload }) => {
+  const folder = useSearchStore(s => s.folderScope);
+  const file = useSearchStore(s => s.fileScope);
+  const clearFolderScope = useSearchStore(s => s.clearFolderScope);
+  const clearFileScope = useSearchStore(s => s.clearFileScope);
+
   const segments = folder ? splitSegments(folder) : [];
   const fileName = file ? extractFileName(file) : null;
 
@@ -54,16 +56,14 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
           <span className="breadcrumb-file" title={file!}>
             <Icons.file size={ICON_SIZE.SM} /> {fileName}
           </span>
-          {onClearFile && (
-            <button
-              className="breadcrumb-file-clear"
-              onClick={onClearFile}
-              title="Clear file scope (show all records in folder)"
-              aria-label="Clear file scope"
-            >
-              <Icons.close size={ICON_SIZE.XS} />
-            </button>
-          )}
+          <button
+            className="breadcrumb-file-clear"
+            onClick={clearFileScope}
+            title="Clear file scope (show all records in folder)"
+            aria-label="Clear file scope"
+          >
+            <Icons.close size={ICON_SIZE.XS} />
+          </button>
         </>
       )}
       <div className="breadcrumb-actions">
@@ -89,7 +89,7 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
         )}
         <button
           className="breadcrumb-action-btn"
-          onClick={onClear}
+          onClick={clearFolderScope}
           title="Clear all scope"
           aria-label="Clear all scope"
         >

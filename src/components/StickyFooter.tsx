@@ -1,21 +1,37 @@
 import React, { useState, useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { AggregateStats, SearchFilters } from '../shared/types';
+import { SearchFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useSearchStore } from '../stores';
 
 export interface StickyFooterHandle {
   triggerExport: () => void;
 }
 
 interface Props {
-  stats: AggregateStats;
-  filters: SearchFilters;
   onWindowlize?: () => void;
   onCheatsheetClick?: () => void;
   onSettingsClick?: () => void;
 }
 
-export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ stats, filters, onWindowlize, onCheatsheetClick, onSettingsClick }, ref) => {
+export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowlize, onCheatsheetClick, onSettingsClick }, ref) => {
+  const stats = useSearchStore(s => s.aggregates);
+  const storeFilters = useSearchStore(s => s.filters);
+  const query = useSearchStore(s => s.query);
+  const folderScope = useSearchStore(s => s.folderScope);
+  const fileScope = useSearchStore(s => s.fileScope);
+
+  const filters: SearchFilters = {
+    text: query.trim() || undefined,
+    folder: folderScope || undefined,
+    filePath: fileScope || undefined,
+    docType: storeFilters.docType,
+    status: storeFilters.status,
+    mst: storeFilters.mst,
+    amountMin: storeFilters.amountMin,
+    amountMax: storeFilters.amountMax,
+    dateFilter: storeFilters.dateFilter,
+  };
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<{ message: string; filePath: string } | null>(null);
 
