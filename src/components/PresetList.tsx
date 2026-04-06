@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FilterPreset, PresetFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
 import { DOC_TYPE_ICONS, Icons, ICON_SIZE } from '../shared/icons';
+import { usePresets } from '../lib/queries';
 
 function formatAmount(n: number): string {
   return formatCurrency(n, { abbreviated: true });
@@ -64,12 +65,8 @@ interface Props {
 }
 
 export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePreset, onWindowlizePreset }) => {
-  const [presets, setPresets] = useState<FilterPreset[]>([]);
+  const { data: presets = [] } = usePresets();
   const [selectedIndex, setSelectedIndex] = useState(0);
-
-  useEffect(() => {
-    window.api.listPresets().then(setPresets).catch(() => setPresets([]));
-  }, []);
 
   const filtered = query
     ? presets.filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
@@ -86,8 +83,8 @@ export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePrese
 
   const handleDelete = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setPresets(prev => prev.filter(p => p.id !== id));
     onDeletePreset(id);
+    usePresets.invalidate();
   }, [onDeletePreset]);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { AppConfig } from '../shared/types';
+import React, { useState, useCallback } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useOverlayStore } from '../stores';
+import { useAppConfig, useCliStatus } from '../lib/queries';
 
 interface Props {
   onVaultChanged?: () => void;
@@ -9,33 +9,23 @@ interface Props {
 
 export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const goBack = useOverlayStore(s => s.goBack);
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [cliStatus, setCliStatus] = useState<{ available: boolean; version?: string } | null>(null);
+  const { data: config = null } = useAppConfig();
+  const { data: cliStatus = null } = useCliStatus();
   const [confirmReprocess, setConfirmReprocess] = useState(false);
   const [reprocessResult, setReprocessResult] = useState<string | null>(null);
   const [switchConfirm, setSwitchConfirm] = useState<string | null>(null);
   const [switchNotification, setSwitchNotification] = useState<string | null>(null);
   const [clearConfirmVault, setClearConfirmVault] = useState<string | null>(null);
 
-  useEffect(() => {
-    window.api.getAppConfig().then(setConfig);
-    window.api.checkClaudeCli().then(setCliStatus);
-  }, []);
-
-  const refreshConfig = useCallback(async () => {
-    const c = await window.api.getAppConfig();
-    setConfig(c);
-  }, []);
-
   const handleAddVault = useCallback(async () => {
     const folderPath = await window.api.pickFolder();
     if (!folderPath) return;
     const result = await window.api.initVault(folderPath);
     if (result.success) {
-      await refreshConfig();
+      useAppConfig.invalidate();
       onVaultChanged?.();
     }
-  }, [refreshConfig, onVaultChanged]);
+  }, [onVaultChanged]);
 
   const handleSwitchVault = useCallback(async (vaultPath: string) => {
     if (switchConfirm !== vaultPath) {
@@ -45,12 +35,12 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
     setSwitchConfirm(null);
     const result = await window.api.switchVault(vaultPath);
     if (result.success) {
-      await refreshConfig();
+      useAppConfig.invalidate();
       onVaultChanged?.();
       setSwitchNotification(vaultPath);
       setTimeout(() => setSwitchNotification(null), 4000);
     }
-  }, [switchConfirm, refreshConfig, onVaultChanged]);
+  }, [switchConfirm, onVaultChanged]);
 
   const handleDisconnectVault = useCallback(async (vaultPath: string, e: React.MouseEvent) => {
     const isClear = e.metaKey || e.ctrlKey;
@@ -66,9 +56,9 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
       // Normal click: just disconnect
       await window.api.removeVault(vaultPath);
     }
-    await refreshConfig();
+    useAppConfig.invalidate();
     onVaultChanged?.();
-  }, [clearConfirmVault, refreshConfig, onVaultChanged]);
+  }, [clearConfirmVault, onVaultChanged]);
 
   const handleOpenVault = useCallback((vaultPath: string) => {
     // Open the vault root (pass empty string since open-folder joins with vaultPath)
