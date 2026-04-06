@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { OverlayState, SearchFilters } from '../shared/types';
+import { OverlayState } from '../shared/types';
 import { parseSearchQuery, ParsedQuery } from '../shared/parse-query';
 import { getSuggestions, getActiveToken } from '../shared/suggestion-engine';
 import { SuggestionItem, EMPTY_HINT_ITEMS, AMOUNT_SUGGESTION_ITEMS, getDateSuggestionItems } from '../shared/suggestion-data';
@@ -17,23 +17,9 @@ import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
 import { SavePresetModal } from './SavePresetModal';
 import { mergePresetState } from '../shared/merge-preset';
-import { useOverlayStore, useSearchStore } from '../stores';
+import { useOverlayStore, useSearchStore, usePathSearchStore, usePresetStore } from '../stores';
 
 const DEBOUNCE_MS = 200;
-
-function buildSearchFilters(text: string, currentFilters: ParsedQuery, folder: string | null, file: string | null = null): SearchFilters {
-  return {
-    text: text.trim() || undefined,
-    folder: folder || undefined,
-    filePath: file || undefined,
-    docType: currentFilters.docType,
-    status: currentFilters.status,
-    mst: currentFilters.mst,
-    amountMin: currentFilters.amountMin,
-    amountMax: currentFilters.amountMax,
-    dateFilter: currentFilters.dateFilter,
-  };
-}
 
 export const SearchOverlay: React.FC = () => {
   // Navigation state from store
@@ -54,15 +40,11 @@ export const SearchOverlay: React.FC = () => {
   // Initialize windowlized flag once on mount
   useEffect(() => { useOverlayStore.getState().initWindowlized(); }, []);
 
-  // PathSearch state — the text after the leading '/'
-  const [pathQuery, setPathQuery] = useState('');
-  // Track the state before PathSearch was entered so Backspace-to-empty can restore it
-  const prePathStateRef = useRef<OverlayState>(OverlayState.Home);
-  // PresetSearch state — the text after the leading '#'
-  const [presetQuery, setPresetQuery] = useState('');
-  const prePresetStateRef = useRef<OverlayState>(OverlayState.Home);
-  // Save preset modal
-  const [showSaveModal, setShowSaveModal] = useState(false);
+  // PathSearch state from store
+  const pathQuery = usePathSearchStore(s => s.pathQuery);
+  // PresetSearch state from store
+  const presetQuery = usePresetStore(s => s.presetQuery);
+  const showSaveModal = usePresetStore(s => s.showSaveModal);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const footerRef = useRef<StickyFooterHandle>(null);
 
@@ -192,12 +174,14 @@ export const SearchOverlay: React.FC = () => {
   const handleQueryChangeInner = useCallback((value: string) => {
     const os = useOverlayStore.getState();
     const ss = useSearchStore.getState();
+    const ps = usePresetStore.getState();
+    const pss = usePathSearchStore.getState();
 
     // PresetSearch: first char is '#'
     if (value.startsWith('#') && os.overlayState !== OverlayState.PresetSearch) {
-      prePresetStateRef.current = os.overlayState;
+      ps.setPrePresetState(os.overlayState);
       os.setOverlayState(OverlayState.PresetSearch);
-      setPresetQuery(value.slice(1));
+      ps.setPresetQuery(value.slice(1));
       ss.setQuery(value);
       setSuggestions([]);
       return;
@@ -206,16 +190,16 @@ export const SearchOverlay: React.FC = () => {
     // Already in PresetSearch mode — update presetQuery
     if (os.overlayState === OverlayState.PresetSearch) {
       if (!value) {
-        os.setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
-          ? OverlayState.Home : prePresetStateRef.current);
+        os.setOverlayState(ps.prePresetState === OverlayState.PresetSearch
+          ? OverlayState.Home : ps.prePresetState);
         ss.setQuery('');
-        setPresetQuery('');
+        ps.setPresetQuery('');
       } else if (!value.startsWith('#')) {
         os.setOverlayState(OverlayState.Home);
         ss.setQuery(value);
-        setPresetQuery('');
+        ps.setPresetQuery('');
       } else {
-        setPresetQuery(value.slice(1));
+        ps.setPresetQuery(value.slice(1));
         ss.setQuery(value);
       }
       return;
@@ -224,9 +208,9 @@ export const SearchOverlay: React.FC = () => {
     // PathSearch: first char is '/' or '\'
     if ((value.startsWith('/') || value.startsWith('\\')) &&
         os.overlayState !== OverlayState.PathSearch) {
-      prePathStateRef.current = os.overlayState;
+      pss.setPrePathState(os.overlayState);
       os.setOverlayState(OverlayState.PathSearch);
-      setPathQuery(value.slice(1));
+      pss.setPathQuery(value.slice(1));
       ss.setQuery(value);
       setSuggestions([]);
       return;
@@ -235,16 +219,16 @@ export const SearchOverlay: React.FC = () => {
     // Already in PathSearch mode — update pathQuery
     if (os.overlayState === OverlayState.PathSearch) {
       if (!value) {
-        os.setOverlayState(prePathStateRef.current === OverlayState.PathSearch
-          ? OverlayState.Home : prePathStateRef.current);
+        os.setOverlayState(pss.prePathState === OverlayState.PathSearch
+          ? OverlayState.Home : pss.prePathState);
         ss.setQuery('');
-        setPathQuery('');
+        pss.setPathQuery('');
       } else if (!value.startsWith('/') && !value.startsWith('\\')) {
         os.setOverlayState(OverlayState.Home);
         ss.setQuery(value);
-        setPathQuery('');
+        pss.setPathQuery('');
       } else {
-        setPathQuery(value.slice(1));
+        pss.setPathQuery(value.slice(1));
         ss.setQuery(value);
       }
       return;
@@ -318,7 +302,7 @@ export const SearchOverlay: React.FC = () => {
     ss.setFolderScope(relativePath);
     ss.setFileScope(null);
     ss.setQuery('');
-    setPathQuery('');
+    usePathSearchStore.getState().setPathQuery('');
     useOverlayStore.getState().setOverlayState(OverlayState.Search);
     ss.doSearch('', ss.filters, relativePath);
   }, []);
@@ -331,7 +315,7 @@ export const SearchOverlay: React.FC = () => {
     ss.setFileScope(relativePath);
     ss.setFolderScope(parentFolder || null);
     ss.setQuery('');
-    setPathQuery('');
+    usePathSearchStore.getState().setPathQuery('');
     useOverlayStore.getState().setOverlayState(OverlayState.Search);
     ss.doSearch('', ss.filters, parentFolder || null, false, relativePath);
   }, []);
@@ -407,7 +391,7 @@ export const SearchOverlay: React.FC = () => {
       ss.setFolderScope(result.folderScope);
       ss.setFileScope(result.fileScope);
       useOverlayStore.getState().setOverlayState(OverlayState.Search);
-      setPresetQuery('');
+      usePresetStore.getState().setPresetQuery('');
       ss.doSearch(result.query, result.filters, result.folderScope, false, result.fileScope);
     } catch { /* ignore parse errors */ }
   }, []);
@@ -434,7 +418,7 @@ export const SearchOverlay: React.FC = () => {
     const ss = useSearchStore.getState();
     const filtersJson = JSON.stringify({ query: ss.query, filters: ss.filters, folderScope: ss.folderScope, fileScope: ss.fileScope });
     await window.api.savePreset(name, filtersJson);
-    setShowSaveModal(false);
+    usePresetStore.getState().setShowSaveModal(false);
   }, []);
 
   // Keyboard navigation
@@ -446,11 +430,11 @@ export const SearchOverlay: React.FC = () => {
       // Ctrl+D / Cmd+D: save preset
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        if (showSaveModal) return;
+        if (usePresetStore.getState().showSaveModal) return;
         const hasActive = ss.query.trim() || ss.folderScope || ss.fileScope || ss.filters.docType || ss.filters.status || ss.filters.mst ||
           ss.filters.amountMin != null || ss.filters.amountMax != null || ss.filters.dateFilter;
         if (hasActive) {
-          setShowSaveModal(true);
+          usePresetStore.getState().setShowSaveModal(true);
         }
         return;
       }
@@ -462,8 +446,7 @@ export const SearchOverlay: React.FC = () => {
         return;
       }
 
-      // When save modal is open, block all other keyboard handling
-      if (showSaveModal) return;
+      if (usePresetStore.getState().showSaveModal) return;
 
       // When suggestions are visible, they capture navigation keys
       if (suggestions.length > 0) {
@@ -513,14 +496,15 @@ export const SearchOverlay: React.FC = () => {
         case 'Escape':
           e.preventDefault();
           if (os.overlayState === OverlayState.PresetSearch) {
-            os.setOverlayState(prePresetStateRef.current === OverlayState.PresetSearch
-              ? OverlayState.Home : prePresetStateRef.current);
+            const ps = usePresetStore.getState();
+            os.setOverlayState(ps.prePresetState === OverlayState.PresetSearch
+              ? OverlayState.Home : ps.prePresetState);
             ss.setQuery('');
-            setPresetQuery('');
+            ps.setPresetQuery('');
           } else if (os.overlayState === OverlayState.PathSearch) {
             os.setOverlayState(OverlayState.Home);
             ss.setQuery('');
-            setPathQuery('');
+            usePathSearchStore.getState().setPathQuery('');
             ss.setFolderScope(null);
             ss.setFileScope(null);
             ss.setFilters({ text: '' } as ParsedQuery);
@@ -554,7 +538,7 @@ export const SearchOverlay: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [suggestions, suggestionIndex, handleSuggestionAccept, showSaveModal, handleQueryChange]);
+  }, [suggestions, suggestionIndex, handleSuggestionAccept, handleQueryChange]);
 
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&
@@ -650,7 +634,7 @@ export const SearchOverlay: React.FC = () => {
           onDeletePreset={handleDeletePreset}
           onWindowlizePreset={handleWindowlizePreset}
         />
-        <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => setShowSaveModal(false)} />
+        <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => usePresetStore.getState().setShowSaveModal(false)} />
       </div>
     );
   }
@@ -700,7 +684,7 @@ export const SearchOverlay: React.FC = () => {
           onSettingsClick={!isWindowlized ? handleGearClick : undefined}
         />
       )}
-      <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => setShowSaveModal(false)} />
+      <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => usePresetStore.getState().setShowSaveModal(false)} />
     </div>
   );
 };

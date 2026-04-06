@@ -104,6 +104,7 @@ Webpack replaces `__dirname` with `"/"` in the bundled output. This means any co
 - All IPC event subscriptions (`onStatusUpdate`, `onFileStatusChanged`, `onJeStatusChanged`) live in `processingStore` only — never subscribe in components.
 - Components react to IPC events via store selectors (`fileStatusVersion`, `lastJeUpdate`), not direct listeners.
 - Use `immer` middleware only for stores with complex nested state updates (e.g. `searchStore`).
+- For imperative handlers (keyboard, timers), use `getState()` — avoids stale closures and dependency arrays.
 
 ## SQLite Schema
 
