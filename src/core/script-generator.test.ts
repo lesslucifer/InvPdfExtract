@@ -14,18 +14,18 @@ function makeSampleMetadata(): SpreadsheetMetadata {
     sheets: [
       {
         name: 'Invoices',
-        headers: ['STT', 'Số HĐ', 'Ngày lập', 'MST', 'Tổng tiền'],
+        headers: ['STT', 'Số HĐ', 'Ngày lập', 'TaxID', 'Tổng tiền'],
         rowCount: 10,
         colCount: 5,
         columnTypes: [
           { header: 'STT', inferredType: 'number', sampleValues: [1, 2], emptyRate: 0 },
           { header: 'Số HĐ', inferredType: 'string', sampleValues: ['HD001'], emptyRate: 0 },
           { header: 'Ngày lập', inferredType: 'date', sampleValues: ['01/01/2026'], emptyRate: 0 },
-          { header: 'MST', inferredType: 'string', sampleValues: ['0305008980'], emptyRate: 0 },
+          { header: 'TaxID', inferredType: 'string', sampleValues: ['0305008980'], emptyRate: 0 },
           { header: 'Tổng tiền', inferredType: 'number', sampleValues: [1000000], emptyRate: 0 },
         ],
         sampleRows: [
-          { STT: 1, 'Số HĐ': 'HD001', 'Ngày lập': '01/01/2026', MST: '0305008980', 'Tổng tiền': 1000000 },
+          { STT: 1, 'Số HĐ': 'HD001', 'Ngày lập': '01/01/2026', TaxID: '0305008980', 'Tổng tiền': 1000000 },
         ],
       },
     ],
@@ -59,7 +59,7 @@ const result = {
     confidence: 1.0,
     field_confidence: {},
     doc_date: r['Ngày lập'] || null,
-    data: { invoice_number: r['Số HĐ'], total_amount: r['Tổng tiền'], tax_id: r['MST'] },
+    data: { invoice_number: r['Số HĐ'], total_amount: r['Tổng tiền'], tax_id: r['TaxID'] },
     line_items: []
   }))
 };

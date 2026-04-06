@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
 import { StickyFooter } from './StickyFooter';
@@ -34,7 +35,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   if (homeLoading) {
     return (
       <div className="flex flex-col flex-1 min-h-0">
-        <div className="px-8 py-8 text-center text-text-muted">Loading...</div>
+        <div className="px-8 py-8 text-center text-text-muted">{`${t('loading', 'Loading')}...`}</div>
       </div>
     );
   }
@@ -52,7 +53,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <div className="flex flex-col flex-1 min-h-0">
         <div className="flex-1 overflow-y-auto py-2">
           <div className="px-6 py-8 text-center">
-            <p className="text-text-muted text-3.25">No records yet. Add files to your vault to get started.</p>
+            <p className="text-text-muted text-3.25">{`${t('no_records_yet_add_files_to_your_vault_to_get_started', 'No records yet. Add files to your vault to get started')}.`}</p>
           </div>
         </div>
       </div>
@@ -64,7 +65,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <div className="flex-1 overflow-y-auto py-2">
         {(hasRecent || supplementFolders.length > 0) && (
           <div className="py-1">
-            <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] px-4 py-1.5">Recent folders</div>
+            <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] px-4 py-1.5">{t('recent_folders', 'Recent folders')}</div>
             {recentFolders.map(folder => (
               <FolderRow
                 key={folder.path}
@@ -93,7 +94,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {hasTop && (
           <div className="py-1">
             <div className="flex items-center justify-between px-4">
-              <span className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] py-1.5">All folders</span>
+              <span className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] py-1.5">{t('all_folders', 'All folders')}</span>
               <button
                 className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-secondary"
                 onClick={() => onOpenFolder('')}
@@ -169,7 +170,7 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
         <span className="inline-flex items-center shrink-0 w-5 text-center"><Icons.folder size={ICON_SIZE.MD} /></span>
         {folderStatus && <StatusIcon status={folderStatus} />}
         <span className="flex-1 text-3.25 text-text overflow-hidden text-ellipsis whitespace-nowrap min-w-0">{folder.path}/</span>
-        <span className="text-2.75 text-text-muted whitespace-nowrap shrink-0">{folder.recordCount} rec</span>
+        <span className="text-2.75 text-text-muted whitespace-nowrap shrink-0">{folder.recordCount}{` ${t('rec', 'rec')}`}</span>
         <div className="flex gap-1 shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
           {onReprocess && (
             <button
@@ -193,9 +194,9 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
       </div>
       {confirmPending && (
         <div className="flex items-center gap-2 px-3 py-1 bg-bg-secondary border-t border-border text-3 text-text-secondary" onClick={(e) => e.stopPropagation()}>
-          <span>Reprocess all files in <strong className="text-text">{folder.path}</strong>?</span>
-          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-accent text-white hover:brightness-110" onClick={handleConfirm}>Yes</button>
-          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:text-text" onClick={handleCancel}>Cancel</button>
+          <span>{`${t('reprocess_all_files_in', 'Reprocess all files in')} `}<strong className="text-text">{folder.path}</strong>?</span>
+          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-accent text-white hover:brightness-110" onClick={handleConfirm}>{t('yes', 'Yes')}</button>
+          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:text-text" onClick={handleCancel}>{t('cancel', 'Cancel')}</button>
         </div>
       )}
     </>

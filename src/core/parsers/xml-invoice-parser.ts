@@ -28,7 +28,7 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
 
   const soHoaDon = getTextContent(ttchung, 'SHDon');
   const ngayLap = getTextContent(ttchung, 'NLap');
-  const mst = nban ? getTextContent(nban, 'MST') : null;
+  const taxId = nban ? getTextContent(nban, 'MST') : null;
   const tenDoiTac = nban ? getTextContent(nban, 'Ten') : null;
   const diaChiDoiTac = nban ? getTextContent(nban, 'DChi') : null;
 
@@ -44,7 +44,7 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
     invoice_number: soHoaDon ?? undefined,
     total_before_tax: tongTienTruocThue ?? undefined,
     total_amount: tongTien ?? undefined,
-    tax_id: mst ?? undefined,
+    tax_id: taxId ?? undefined,
     counterparty_name: tenDoiTac ?? undefined,
     counterparty_address: diaChiDoiTac ?? undefined,
   };

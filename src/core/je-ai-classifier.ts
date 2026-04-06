@@ -56,7 +56,7 @@ export async function classifyWithAI(
     if (item.totalWithTax != null) parts.push(`${item.totalWithTax.toLocaleString()} VND`);
     if (item.taxRate != null) parts.push(`tax ${item.taxRate}%`);
     if (item.counterpartyName) parts.push(`counterparty: ${item.counterpartyName}`);
-    if (item.taxId) parts.push(`MST: ${item.taxId}`);
+    if (item.taxId) parts.push(`TaxID: ${item.taxId}`);
     return parts.join(' ');
   });
 
@@ -96,7 +96,7 @@ Return a JSON array with one entry per item.`;
  * prose, or other wrapping.
  */
 function parseJEResponse(raw: string): any {
-  let cleaned = raw.replace(/^```\w*\n?/gm, '').replace(/\n?```$/gm, '').trim();
+  const cleaned = raw.replace(/^```\w*\n?/gm, '').replace(/\n?```$/gm, '').trim();
 
   try {
     return JSON.parse(cleaned);

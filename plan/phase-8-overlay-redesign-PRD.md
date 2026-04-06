@@ -109,7 +109,7 @@ Overlay opens (via hotkey) and search input is empty.
 
 #### 4.1 Search Input
 - Auto-focused on overlay show.
-- Placeholder: `"Search invoices, bank statements, MST..."`
+- Placeholder: `"Search invoices, bank statements, TaxID..."`
 - Clear button (×) appears when non-empty.
 - Typing transitions to **State 3 (Search/Browse)**.
 
@@ -174,11 +174,11 @@ Performance: single indexed query, negligible cost.
 │  📁 2024/ > Q1/ > invoices/     [📂] [✕]        │
 │  📤 Invoice Out ✕  │  📅 2024-03 ✕              │
 │ ─────────────────────────────────────────────── │
-│  📤 Inv #001  MST:123456  ABC Corp    1,200,000  │
+│  📤 Inv #001  TaxID:123456  ABC Corp    1,200,000  │
 │     2024/Q1/invoices/scan001.pdf                 │
-│  📤 Inv #002  MST:789012  ABC Corp      800,000  │
+│  📤 Inv #002  TaxID:789012  ABC Corp      800,000  │
 │     2024/Q1/invoices/scan002.pdf                 │
-│  📥 Inv #003  MST:345678  XYZ Ltd     3,500,000  │
+│  📥 Inv #003  TaxID:345678  XYZ Ltd     3,500,000  │
 │     2024/Q1/invoices/ncc-xyz.pdf                 │
 │ ─────────────────────────────────────────────── │
 │  24 records │ ₫128,500,000 total │ [Export CSV ↓] │

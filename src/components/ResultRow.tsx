@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React from 'react';
 import { SearchResult, DocType } from '../shared/types';
 import { StatusIcon } from './StatusIcon';
@@ -57,8 +58,8 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
   const isBank = result.doc_type === DocType.BankStatement;
 
   const primaryLabel = isBank
-    ? result.bank_name || 'Bank Statement'
-    : result.invoice_number || 'Invoice';
+    ? result.bank_name || t('bank_statement', 'Bank Statement')
+    : result.invoice_number || t('invoice', 'Invoice');
 
   const amount = isBank ? result.amount : result.total_amount;
   const counterparty = result.counterparty_name;
@@ -86,14 +87,14 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             {result.tax_id && (
               <span
                 className="text-2.75 text-text-secondary whitespace-nowrap cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
-                title="Ctrl+Click to filter by this MST"
+                title="Ctrl+Click to filter by this TaxID"
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     e.stopPropagation();
                     useSearchStore.getState().applyMstFilter(result.tax_id);
                   }
                 }}
-              >MST: {result.tax_id}</span>
+              >{`${t('taxId', 'TaxID')}: `}{result.tax_id}</span>
             )}
           </div>
           <div className="flex gap-3 mt-0.5 text-3 text-text-secondary">

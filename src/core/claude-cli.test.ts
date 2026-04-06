@@ -65,15 +65,15 @@ describe('ClaudeCodeRunner', () => {
           doc_type: 'invoice_out',
           records: [{
             confidence: 0.9,
-            field_confidence: { so_hoa_don: 0.95, mst: 0.88 },
+            field_confidence: { so_hoa_don: 0.95, taxId: 0.88 },
             ngay: '2026-01-01',
-            data: { so_hoa_don: '001', mst: '0305008980' },
+            data: { so_hoa_don: '001', taxId: '0305008980' },
           }],
         }],
       });
       const raw = 'Some preamble ' + json;
       const result = runner.parseResponse(raw);
-      expect(result.results[0].records[0].data).toEqual({ so_hoa_don: '001', mst: '0305008980' });
+      expect(result.results[0].records[0].data).toEqual({ so_hoa_don: '001', taxId: '0305008980' });
     });
 
     it('throws on truncated output with truncation hint', () => {
@@ -119,7 +119,7 @@ describe('ClaudeCodeRunner', () => {
     });
 
     it('handles real-world case: Vietnamese preamble + truncated JSON', () => {
-      const preamble = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ) — classified as `invoice_out` since it\'s issued by the seller (CÔNG TY TNHH GINKGO, MST 0305008980). All amounts are 0, and the buyer field contains an address rather than a company name (indicating internal transfer). The tax rate is "—" (not applicable).\n\n';
+      const preamble = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ) — classified as `invoice_out` since it\'s issued by the seller (CÔNG TY TNHH GINKGO, TaxID 0305008980). All amounts are 0, and the buyer field contains an address rather than a company name (indicating internal transfer). The tax rate is "—" (not applicable).\n\n';
       const truncatedJson = '{"results":[{"relative_path":"xlsx/hoadon_sold_2026-03-22.xlsx","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
       const raw = preamble + truncatedJson;
 
@@ -346,7 +346,7 @@ describe('extractJSON', () => {
   });
 
   it('handles Vietnamese/Unicode preamble', () => {
-    const preamble = 'Đây là hóa đơn GTGT (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ) của CÔNG TY TNHH GINKGO, MST 0305008980. ';
+    const preamble = 'Đây là hóa đơn GTGT (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ) của CÔNG TY TNHH GINKGO, TaxID 0305008980. ';
     const result = extractJSON(preamble + VALID_JSON);
     expect(result).toBe(VALID_JSON);
   });
@@ -431,7 +431,7 @@ describe('repairTruncatedJSON', () => {
   });
 
   it('repairs deeply nested truncation', () => {
-    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.9,"field_confidence":{"so_hoa_don":0.95,"mst":0.88},"ngay":"2026-01-01","data":{"so_hoa_don":"001","mst":"030500';
+    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.9,"field_confidence":{"so_hoa_don":0.95,"taxId":0.88},"ngay":"2026-01-01","data":{"so_hoa_don":"001","taxId":"030500';
     const repaired = repairTruncatedJSON(truncated);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);

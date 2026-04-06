@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useRef, useEffect } from 'react';
 import { FieldOverrideInfo, OverrideStatus } from '../shared/types';
 import { Icons, ICON_SIZE } from '../shared/icons';
@@ -85,10 +86,10 @@ export const EditableCell: React.FC<Props> = ({
       )}
       {isConflict && !editing && onResolve && (
         <div className="absolute top-full left-0 z-10 bg-bg-secondary border border-border rounded px-1.5 py-1 text-2.5 whitespace-nowrap shadow-dropdown">
-          <div className="text-confidence-medium italic mb-[3px]">AI: {override!.ai_value_latest}</div>
+          <div className="text-confidence-medium italic mb-[3px]">{`${t('ai', 'AI')}: `}{override!.ai_value_latest}</div>
           <div className="flex gap-1">
-            <button className="border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => onResolve(lineItemId, fieldName, 'keep')}>Keep</button>
-            <button className="border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => onResolve(lineItemId, fieldName, 'accept')}>Accept</button>
+            <button className="border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => onResolve(lineItemId, fieldName, 'keep')}>{t('keep', 'Keep')}</button>
+            <button className="border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => onResolve(lineItemId, fieldName, 'accept')}>{t('accept', 'Accept')}</button>
           </div>
         </div>
       )}

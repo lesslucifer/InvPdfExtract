@@ -5,7 +5,7 @@ import { DEFAULT_FILTER_CONFIG } from '../../shared/constants';
 describe('parseTriageResponse', () => {
   it('parses valid JSON array', () => {
     const raw = JSON.stringify([
-      { index: 0, classification: 'invoice', confidence: 0.9, reason: 'Contains MST and invoice number' },
+      { index: 0, classification: 'invoice', confidence: 0.9, reason: 'Contains TaxID and invoice number' },
       { index: 1, classification: 'irrelevant', confidence: 0.8, reason: 'Marketing brochure' },
     ]);
 

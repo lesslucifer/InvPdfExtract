@@ -39,7 +39,7 @@ describe('createKeywordMatcher', () => {
   const matcher = createKeywordMatcher(BUILTIN_KEYWORDS);
 
   it('Vietnamese invoice text scores high (> 0.8)', () => {
-    const text = 'hoa don GTGT so hoa don MST nha cung cap tong tien truoc thue';
+    const text = 'hoa don GTGT so hoa don TaxID nha cung cap tong tien truoc thue';
     const { score } = matcher(text);
     expect(score).toBeGreaterThan(0.8);
   });
@@ -84,7 +84,7 @@ describe('createKeywordMatcher', () => {
   });
 
   it('score is clamped to max 1.0', () => {
-    const text = Array(20).fill('hoa don GTGT invoice VAT MST sao ke ngan hang ke toan').join(' ');
+    const text = Array(20).fill('hoa don GTGT invoice VAT TaxID sao ke ngan hang ke toan').join(' ');
     const { score } = matcher(text);
     expect(score).toBeLessThanOrEqual(1.0);
   });

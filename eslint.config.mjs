@@ -44,7 +44,7 @@ export default tseslint.config(
       "@spaced-out/i18n/no-static-labels": "error",
       "@spaced-out/i18n/no-react-i18next-import": "off",
       "@spaced-out/i18n/missing-translation": "off",
-      "@spaced-out/i18n/invalid-translation-key-format": "off",
+      "@spaced-out/i18n/invalid-translation-key-format": "off", // disabled: plugin enforces fallback-derived casing, but we use lowercase snake_case keys
       "@spaced-out/i18n/no-dynamic-labels": "off",
       "@spaced-out/i18n/i18n-enforce-makeKey-wrapper": "off",
     },

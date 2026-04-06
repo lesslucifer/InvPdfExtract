@@ -38,7 +38,7 @@ export function mergePresetState(current: MergeInput, presetJson: string): Merge
   if (merged.amountMin == null && presetFilters.amountMin != null) merged.amountMin = presetFilters.amountMin;
   if (merged.amountMax == null && presetFilters.amountMax != null) merged.amountMax = presetFilters.amountMax;
   if (!merged.dateFilter && presetFilters.dateFilter) merged.dateFilter = presetFilters.dateFilter;
-  if (!merged.mst && presetFilters.mst) merged.mst = presetFilters.mst;
+  if (!merged.taxId && presetFilters.taxId) merged.taxId = presetFilters.taxId;
   if (!merged.sortField && presetFilters.sortField) {
     merged.sortField = presetFilters.sortField;
     merged.sortDirection = presetFilters.sortDirection;

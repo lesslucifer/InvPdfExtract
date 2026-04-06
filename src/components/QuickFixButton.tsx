@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState } from 'react';
 import { formatCurrency } from '../shared/format';
 
@@ -28,15 +29,11 @@ export const QuickFixButton: React.FC<Props> = ({ suggestedValue, label, onApply
       <button
         className="bg-accent text-white border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer hover:opacity-85"
         onClick={() => { onApply(String(suggestedValue)); setState('idle'); }}
-      >
-        Apply
-      </button>
+      >{t('apply', 'Apply')}</button>
       <button
         className="bg-bg-hover text-text-secondary border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer hover:bg-border"
         onClick={() => setState('idle')}
-      >
-        Cancel
-      </button>
+      >{t('cancel', 'Cancel')}</button>
     </span>
   );
 };

@@ -2,6 +2,7 @@ import { Notification } from 'electron';
 import { eventBus } from '../core/event-bus';
 import { getFileById } from '../core/db/files';
 import { APP_NAME } from '../shared/constants';
+import { t } from '../lib/i18n';
 
 export class NotificationManager {
   init(): void {
@@ -11,8 +12,8 @@ export class NotificationManager {
       const pct = Math.round(confidence * 100);
 
       this.show(
-        'Extraction Complete',
-        `${recordCount} record(s) extracted from ${filename} (confidence: ${pct}%)`
+        t('extraction_complete', 'Extraction Complete'),
+        `${recordCount} ${t('records_extracted_from', 'record(s) extracted from')} ${filename} (${t('confidence', 'confidence')}: ${pct}%)`
       );
     });
 
@@ -21,8 +22,8 @@ export class NotificationManager {
       const filename = file?.relative_path || 'unknown';
 
       this.show(
-        'Extraction Error',
-        `Failed to process ${filename}: ${error}`
+        t('extraction_error', 'Extraction Error'),
+        `${t('failed_to_process', 'Failed to process')} ${filename}: ${error}`
       );
     });
 
@@ -31,15 +32,15 @@ export class NotificationManager {
       const filename = file?.relative_path || 'unknown';
 
       this.show(
-        'Review Needed',
-        `${recordCount} record(s) in ${filename} need review (low confidence)`
+        t('review_needed', 'Review Needed'),
+        `${recordCount} ${t('records_in', 'record(s) in')} ${filename} ${t('need_review_low_confidence', 'need review (low confidence)')}`
       );
     });
 
     eventBus.on('file:deleted', ({ relativePath }) => {
       this.show(
-        'File Removed',
-        `${relativePath} removed — records archived`
+        t('file_removed', 'File Removed'),
+        `${relativePath} ${t('removed_records_archived', 'removed — records archived')}`
       );
     });
 
@@ -48,15 +49,15 @@ export class NotificationManager {
       const filename = file?.relative_path || 'unknown';
 
       this.show(
-        'Field Conflicts',
-        `${conflictCount} field conflict(s) after re-processing ${filename}`
+        t('field_conflicts', 'Field Conflicts'),
+        `${conflictCount} ${t('field_conflicts_after_reprocessing', 'field conflict(s) after re-processing')} ${filename}`
       );
     });
 
     eventBus.on('vault:initialized', ({ path }) => {
       this.show(
-        'Vault Initialized',
-        `New vault created at ${path}`
+        t('vault_initialized', 'Vault Initialized'),
+        `${t('new_vault_created_at', 'New vault created at')} ${path}`
       );
     });
   }

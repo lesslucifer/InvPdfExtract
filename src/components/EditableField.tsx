@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useRef, useEffect } from 'react';
 import { FieldOverrideInfo, OverrideStatus } from '../shared/types';
 import { formatCurrency } from '../shared/format';
@@ -91,11 +92,11 @@ export const EditableField: React.FC<Props> = ({
         {isConflict && !editing && onResolve && (
           <div className="mt-1">
             <div className="text-2.75 mb-1">
-              <span className="text-confidence-medium italic">AI suggests: {override!.ai_value_latest}</span>
+              <span className="text-confidence-medium italic">{`${t('ai_suggests', 'AI suggests')}: `}{override!.ai_value_latest}</span>
             </div>
             <div className="flex gap-1.5">
-              <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => onResolve('keep')}>Keep mine</button>
-              <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => onResolve('accept')}>Accept AI</button>
+              <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => onResolve('keep')}>{t('keep_mine', 'Keep mine')}</button>
+              <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => onResolve('accept')}>{t('accept_ai', 'Accept AI')}</button>
             </div>
           </div>
         )}

@@ -8,7 +8,7 @@ export const BUILTIN_KEYWORDS: FilterKeyword[] = [
   { term: 'GTGT', weight: 0.9, category: 'invoice' },
   { term: 'hoa don dau ra', weight: 0.9, category: 'invoice' },
   { term: 'hoa don dau vao', weight: 0.9, category: 'invoice' },
-  { term: 'MST', weight: 0.7, category: 'invoice' },
+  { term: 'TaxID', weight: 0.7, category: 'invoice' },
   { term: 'ma so thue', weight: 0.85, category: 'invoice' },
   { term: 'so hoa don', weight: 0.85, category: 'invoice' },
   { term: 'tong tien', weight: 0.6, category: 'general_accounting' },

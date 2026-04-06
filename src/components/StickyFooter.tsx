@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { SearchFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
@@ -29,7 +30,7 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
     filePath: fileScope || undefined,
     docType: storeFilters.docType,
     status: storeFilters.status,
-    mst: storeFilters.mst,
+    taxId: storeFilters.taxId,
     amountMin: storeFilters.amountMin,
     amountMax: storeFilters.amountMax,
     dateFilter: storeFilters.dateFilter,
@@ -76,7 +77,7 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
   return (
     <div className="flex items-center justify-between px-3 py-1.5 border-t border-border h-9 box-border shrink-0">
       <div className="flex items-center gap-1 text-3 text-text-muted">
-        <span className="font-medium text-text-secondary">{stats.totalRecords} records</span>
+        <span className="font-medium text-text-secondary">{stats.totalRecords}{` ${t('records', 'records')}`}</span>
         {stats.totalAmount > 0 && (
           <>
             <span className="w-[1px] h-3 bg-border mx-1" />
@@ -91,7 +92,7 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
             <button
               className="bg-transparent border border-border rounded px-2 py-[2px] text-2.75 text-accent cursor-pointer hover:bg-bg-hover"
               onClick={handleOpenExportFile}
-            >Open</button>
+            >{t('open', 'Open')}</button>
           </div>
         ) : (
           <button
@@ -101,7 +102,7 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
             aria-label="Export XLSX"
             title="Export XLSX (Ctrl+S)"
           >
-            {exporting ? 'Exporting...' : <Icons.download size={ICON_SIZE.SM} />}
+            {exporting ? `${t('exporting', 'Exporting')}...` : <Icons.download size={ICON_SIZE.SM} />}
           </button>
         )}
         {onWindowlize && (

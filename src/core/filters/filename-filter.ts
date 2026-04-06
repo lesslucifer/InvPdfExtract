@@ -41,7 +41,7 @@ export function filenameFilter(
     'saoke', 'sao_ke', 'statement', 'bank',
     'bangke', 'bang_ke', 'receipt', 'payment',
     'GTGT', 'gtgt', 'thue', 'tax', 'vat',
-    'MST', 'mst', 'chungtu', 'chung_tu',
+    'TaxID', 'taxId', 'chungtu', 'chung_tu',
     'phieuthu', 'phieu_thu', 'phieuchi', 'phieu_chi',
   ];
   for (const kw of filenameKeywords) {

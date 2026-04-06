@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useOverlayStore } from '../stores';
@@ -21,54 +22,54 @@ export const CheatsheetPanel: React.FC = () => {
         >
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
-        <span className="text-3.5 font-semibold">Cheatsheet</span>
+        <span className="text-3.5 font-semibold">{t('cheatsheet', 'Cheatsheet')}</span>
       </div>
 
       <div className="flex gap-3 px-4 py-2.5 justify-center">
-        <div className="text-2.75 text-text flex items-center gap-1.5"><kbd className={kbdClass}>/</kbd> browse files</div>
-        <div className="text-2.75 text-text flex items-center gap-1.5"><kbd className={kbdClass}>#</kbd> search presets</div>
-        <div className="text-2.75 text-text flex items-center gap-1.5"><kbd className={kbdClass}>?</kbd> filter hints</div>
+        <div className="text-2.75 text-text flex items-center gap-1.5"><kbd className={kbdClass}>/</kbd>{` ${t('browse_files', 'browse files')}`}</div>
+        <div className="text-2.75 text-text flex items-center gap-1.5"><kbd className={kbdClass}>#</kbd>{` ${t('search_presets', 'search presets')}`}</div>
+        <div className="text-2.75 text-text flex items-center gap-1.5"><kbd className={kbdClass}>?</kbd>{` ${t('filter_hints', 'filter hints')}`}</div>
       </div>
 
       <div className={dividerClass} />
 
       <div className="px-4 py-2.5">
-        <div className={sectionLabelClass}>Search Filters</div>
+        <div className={sectionLabelClass}>{t('search_filters', 'Search Filters')}</div>
         <div className="flex flex-col gap-1.5 cheatsheet-compact">
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
-            <span className={groupLabelClass}>Type</span>
-            <code>type:bank</code> <code>type:out</code> <code>type:in</code>
+            <span className={groupLabelClass}>{t('type', 'Type')}</span>
+            <code>{t('typebank', 'type:bank')}</code> <code>{t('typeout', 'type:out')}</code> <code>{t('typein', 'type:in')}</code>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
-            <span className={groupLabelClass}>Amount</span>
-            <code>&gt;5tr</code> <code>&lt;100k</code> <code>5tr-10tr</code>
-            <span className="cheatsheet-note text-2.5 text-text-secondary">k=1K &middot; tr/m=1M &middot; t/b=1B</span>
+            <span className={groupLabelClass}>{t('amount', 'Amount')}</span>
+            <code>{`>5${t('tr', 'tr')}`}</code> <code>{`<100${t('k', 'k')}`}</code> <code>{`5${t('tr10tr', 'tr-10tr')}`}</code>
+            <span className="cheatsheet-note text-2.5 text-text-secondary">{t('k1k_trm1m_tb1b', 'k=1K · tr/m=1M · t/b=1B')}</span>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
-            <span className={groupLabelClass}>Date</span>
+            <span className={groupLabelClass}>{t('date', 'Date')}</span>
             <code>2024-03</code> <code>2024-03-15</code>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
-            <span className={groupLabelClass}>MST</span>
-            <code>mst:0123456789</code>
+            <span className={groupLabelClass}>{t('taxId', 'TaxID')}</span>
+            <code>{`${t('taxId', 'taxId')}:0123456789`}</code>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
-            <span className={groupLabelClass}>Status</span>
-            <code>status:conflict</code> <code>status:review</code> <code>status:mismatch</code>
+            <span className={groupLabelClass}>{t('status', 'Status')}</span>
+            <code>{t('statusconflict', 'status:conflict')}</code> <code>{t('statusreview', 'status:review')}</code> <code>{t('statusmismatch', 'status:mismatch')}</code>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
-            <span className={groupLabelClass}>Sort</span>
-            <code>sort:date</code> <code>sort:amount</code> <code>sort:path</code> <code>sort:time</code> <code>sort:confidence</code> <code>sort:shd</code>
-            <span className="cheatsheet-note text-2.5 text-text-secondary">Add <code>-asc</code> or <code>-desc</code></span>
+            <span className={groupLabelClass}>{t('sort', 'Sort')}</span>
+            <code>{t('sortdate', 'sort:date')}</code> <code>{t('sortamount', 'sort:amount')}</code> <code>{t('sortpath', 'sort:path')}</code> <code>{t('sorttime', 'sort:time')}</code> <code>{t('sortconfidence', 'sort:confidence')}</code> <code>{t('sortshd', 'sort:shd')}</code>
+            <span className="cheatsheet-note text-2.5 text-text-secondary">{`${t('add', 'Add')} `}<code>{`-${t('asc', 'asc')}`}</code>{` ${t('or', 'or')} `}<code>{`-${t('desc', 'desc')}`}</code></span>
           </div>
         </div>
-        <div className="mt-2 text-2.75 text-text-secondary italic">Space after a filter converts it to a pill.</div>
+        <div className="mt-2 text-2.75 text-text-secondary italic">{`${t('space_after_a_filter_converts_it_to_a_pill', 'Space after a filter converts it to a pill')}.`}</div>
       </div>
 
       <div className={dividerClass} />
 
       <div className="px-4 py-2.5">
-        <div className={sectionLabelClass}>Keyboard Shortcuts</div>
+        <div className={sectionLabelClass}>{t('keyboard_shortcuts', 'Keyboard Shortcuts')}</div>
         <div className="flex flex-col gap-[5px]">
           {[
             { keys: ['⌘D'], desc: 'Save search as preset' },
@@ -89,22 +90,22 @@ export const CheatsheetPanel: React.FC = () => {
       <div className={dividerClass} />
 
       <div className="px-4 py-2.5">
-        <div className={sectionLabelClass}>Click Actions</div>
+        <div className={sectionLabelClass}>{t('click_actions', 'Click Actions')}</div>
         <div className="flex flex-col gap-2">
           <div className="flex gap-2 text-2.75 items-baseline">
-            <span className={clickModifierClass}>Click</span>
-            <span className="text-text">doc type icon <em className="text-text-secondary not-italic">(toggle filter)</em></span>
+            <span className={clickModifierClass}>{t('click', 'Click')}</span>
+            <span className="text-text">{`${t('doc_type_icon', 'doc type icon')} `}<em className="text-text-secondary not-italic">{`(${t('toggle_filter', 'toggle filter')})`}</em></span>
           </div>
           <div className="flex gap-2 text-2.75 items-baseline">
-            <span className={clickModifierClass}><kbd className={clickKbdClass}>⌘</kbd>+Click</span>
-            <span className="text-text">date <em className="text-text-secondary not-italic">(filter by date)</em>, MST <em className="text-text-secondary not-italic">(filter by tax code)</em>, folder <em className="text-text-secondary not-italic">(open in Finder)</em>, filename <em className="text-text-secondary not-italic">(open file)</em>, preset <em className="text-text-secondary not-italic">(open as window)</em></span>
+            <span className={clickModifierClass}><kbd className={clickKbdClass}>⌘</kbd>{`+${t('click', 'Click')}`}</span>
+            <span className="text-text">{`${t('date', 'date')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_date', 'filter by date')})`}</em>{`, ${t('taxId', 'TaxID')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_tax_code', 'filter by tax code')})`}</em>{`, ${t('folder', 'folder')} `}<em className="text-text-secondary not-italic">{`(${t('open_in_finder', 'open in Finder')})`}</em>{`, ${t('filename', 'filename')} `}<em className="text-text-secondary not-italic">{`(${t('open_file', 'open file')})`}</em>{`, ${t('preset', 'preset')} `}<em className="text-text-secondary not-italic">{`(${t('open_as_window', 'open as window')})`}</em></span>
           </div>
           <div className="flex gap-2 text-2.75 items-baseline">
-            <span className={clickModifierClass}><kbd className={clickKbdClass}>⌥</kbd>+Click</span>
-            <span className="text-text">date <em className="text-text-secondary not-italic">(filter by month)</em>, folder <em className="text-text-secondary not-italic">(reprocess folder)</em>, filename <em className="text-text-secondary not-italic">(reprocess file)</em></span>
+            <span className={clickModifierClass}><kbd className={clickKbdClass}>⌥</kbd>{`+${t('click', 'Click')}`}</span>
+            <span className="text-text">{`${t('date', 'date')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_month', 'filter by month')})`}</em>{`, ${t('folder', 'folder')} `}<em className="text-text-secondary not-italic">{`(${t('reprocess_folder', 'reprocess folder')})`}</em>{`, ${t('filename', 'filename')} `}<em className="text-text-secondary not-italic">{`(${t('reprocess_file', 'reprocess file')})`}</em></span>
           </div>
         </div>
-        <div className="mt-2 text-2.75 text-text-secondary italic">Same modifiers apply in path browser: click = set scope, ⌘ = open in Finder, ⌥ = reprocess</div>
+        <div className="mt-2 text-2.75 text-text-secondary italic">{t('same_modifiers_apply_in_path_browser_click_set_scope_open_in_finder_reprocess', 'Same modifiers apply in path browser: click = set scope, ⌘ = open in Finder, ⌥ = reprocess')}</div>
       </div>
     </div>
   );

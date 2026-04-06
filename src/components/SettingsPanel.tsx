@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useCallback } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useOverlayStore } from '../stores';
@@ -72,7 +73,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
       return;
     }
     const result = await window.api.reprocessAll();
-    setReprocessResult(`Reset ${result.count} files to pending.`);
+    setReprocessResult(`${result.count} ${t('files_reset_to_pending', 'files reset to pending')}.`);
     setConfirmReprocess(false);
   }, [confirmReprocess]);
 
@@ -83,7 +84,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   if (!config) {
     return (
       <div className="flex flex-col flex-1 overflow-y-auto">
-        <div className="px-8 py-8 text-center text-text-muted">Loading...</div>
+        <div className="px-8 py-8 text-center text-text-muted">{`${t('loading', 'Loading')}...`}</div>
       </div>
     );
   }
@@ -100,30 +101,29 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
         >
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
-        <span className="text-3.5 font-semibold">Settings</span>
+        <span className="text-3.5 font-semibold">{t('settings', 'Settings')}</span>
       </div>
 
       {switchNotification && (
-        <div className="mx-4 mb-2 px-3 py-2 rounded-md text-3 bg-confidence-high/15 text-confidence-high border border-confidence-high/30 animate-settings-notification-fade">
-          Switched to <strong className="font-semibold break-all">{switchNotification}</strong>
+        <div className="mx-4 mb-2 px-3 py-2 rounded-md text-3 bg-confidence-high/15 text-confidence-high border border-confidence-high/30 animate-settings-notification-fade">{`${t('switched_to', 'Switched to')} `}<strong className="font-semibold break-all">{switchNotification}</strong>
         </div>
       )}
 
       {config.lastVaultPath && (
         <div className="px-4 py-2.5">
-          <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">Current Vault</div>
+          <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('current_vault', 'Current Vault')}</div>
           <div className="flex items-center justify-between gap-2 py-1.5">
             <span className="text-3 text-confidence-high overflow-hidden text-ellipsis whitespace-nowrap min-w-0 flex-1" title={config.lastVaultPath}>
               {config.lastVaultPath}
             </span>
             <div className="flex gap-1.5 shrink-0">
-              <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title="Open in file manager">Open</button>
+              <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title="Open in file manager">{t('open', 'Open')}</button>
               <button
                 className={clearConfirmVault === config.lastVaultPath ? confirmBtnClass : dangerBtnClass}
                 onClick={(e) => handleDisconnectVault(config.lastVaultPath!, e)}
                 title={clearConfirmVault === config.lastVaultPath ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
               >
-                {clearConfirmVault === config.lastVaultPath ? 'Confirm Clear?' : <Icons.close size={ICON_SIZE.SM} />}
+                {clearConfirmVault === config.lastVaultPath ? `${t('confirm_clear', 'Confirm Clear')}?` : <Icons.close size={ICON_SIZE.SM} />}
               </button>
             </div>
           </div>
@@ -132,7 +132,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
 
       {otherVaults.length > 0 && (
         <div className="px-4 py-2.5">
-          <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">Other Vaults</div>
+          <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('other_vaults', 'Other Vaults')}</div>
           {otherVaults.map(vp => (
             <div key={vp} className="flex items-center justify-between gap-2 py-1.5">
               <span className="text-3 text-text overflow-hidden text-ellipsis whitespace-nowrap min-w-0 flex-1" title={vp}>{vp}</span>
@@ -142,14 +142,14 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
                   onClick={() => handleSwitchVault(vp)}
                   title={switchConfirm === vp ? 'Click again to confirm switch' : 'Switch to this vault'}
                 >
-                  {switchConfirm === vp ? 'Confirm?' : <Icons.arrowLeftRight size={ICON_SIZE.SM} />}
+                  {switchConfirm === vp ? `${t('confirm', 'Confirm')}?` : <Icons.arrowLeftRight size={ICON_SIZE.SM} />}
                 </button>
                 <button
                   className={clearConfirmVault === vp ? confirmBtnClass : dangerBtnClass}
                   onClick={(e) => handleDisconnectVault(vp, e)}
                   title={clearConfirmVault === vp ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
                 >
-                  {clearConfirmVault === vp ? 'Confirm Clear?' : <Icons.close size={ICON_SIZE.SM} />}
+                  {clearConfirmVault === vp ? `${t('confirm_clear', 'Confirm Clear')}?` : <Icons.close size={ICON_SIZE.SM} />}
                 </button>
               </div>
             </div>
@@ -158,7 +158,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
       )}
 
       <div className="px-4 py-2.5">
-        <button className={settingsBtnClass} onClick={handleAddVault}>+ Add Vault</button>
+        <button className={settingsBtnClass} onClick={handleAddVault}>{`+ ${t('add_vault', 'Add Vault')}`}</button>
       </div>
 
       <div className="h-[1px] bg-border mx-4 my-1" />
@@ -168,28 +168,26 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
           className={confirmReprocess ? confirmBtnClass : settingsBtnClass}
           onClick={handleReprocessAll}
         >
-          {confirmReprocess ? 'Confirm Reprocess?' : 'Reprocess All Files'}
+          {confirmReprocess ? `${t('confirm_reprocess', 'Confirm Reprocess')}?` : t('reprocess_all_files', 'Reprocess All Files')}
         </button>
         {reprocessResult && <div className="text-3 text-text-secondary mt-1.5">{reprocessResult}</div>}
       </div>
 
       <div className="px-4 py-2.5">
-        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">Claude CLI</div>
+        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('claude_cli', 'Claude CLI')}</div>
         <div className="text-3 text-text-secondary">
           {cliStatus === null
-            ? 'Checking...'
+            ? `${t('checking', 'Checking')}...`
             : cliStatus.available
-              ? `Found (${cliStatus.version || 'unknown version'})`
-              : "Not found — install Claude Code CLI and ensure it's in your PATH."}
+              ? `${t('found', 'Found')} (${cliStatus.version || t('unknown_version', 'unknown version')})`
+              : `${t('not_found_install_claude_code_cli_and_ensure_its_in_your_path', 'Not found — install Claude Code CLI and ensure it\'s in your PATH')}.`}
         </div>
       </div>
 
       <div className="h-[1px] bg-border mx-4 my-1" />
 
       <div className="px-4 py-2.5">
-        <button className={dangerBtnClass} onClick={handleQuit}>
-          Quit InvoiceVault
-        </button>
+        <button className={dangerBtnClass} onClick={handleQuit}>{t('quit_invoicevault', 'Quit InvoiceVault')}</button>
       </div>
     </div>
   );

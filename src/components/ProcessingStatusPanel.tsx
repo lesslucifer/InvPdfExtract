@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState } from 'react';
 import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem } from '../shared/types';
 import { StatusIcon } from './StatusIcon';
@@ -66,10 +67,10 @@ export const ProcessingStatusPanel: React.FC = () => {
     || (activeTab === 'skipped' && skippedLoading);
 
   const tabs: { id: TabId; label: string; count: number }[] = [
-    { id: 'queue', label: 'Queue', count: queueFiles.length + jeQueueItems.length },
-    { id: 'processed', label: 'Processed', count: processedFiles.length },
-    { id: 'errors', label: 'Errors', count: errorLogs.length + jeErrorItems.length },
-    { id: 'skipped', label: 'Skipped', count: skippedFiles.length },
+    { id: 'queue', label: t('queue', 'Queue'), count: queueFiles.length + jeQueueItems.length },
+    { id: 'processed', label: t('processed', 'Processed'), count: processedFiles.length },
+    { id: 'errors', label: t('errors', 'Errors'), count: errorLogs.length + jeErrorItems.length },
+    { id: 'skipped', label: t('skipped', 'Skipped'), count: skippedFiles.length },
   ];
 
   return (
@@ -78,7 +79,7 @@ export const ProcessingStatusPanel: React.FC = () => {
         <button className={backBtnClass} onClick={goBack} aria-label="Back">
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
-        <span className="text-3.5 font-semibold">Processing Status</span>
+        <span className="text-3.5 font-semibold">{t('processing_status', 'Processing Status')}</span>
       </div>
 
       <div className="flex gap-0 border-b border-border px-4">
@@ -100,7 +101,7 @@ export const ProcessingStatusPanel: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto min-h-0">
         {loading ? (
-          <div className="px-8 py-8 text-center text-text-muted">Loading...</div>
+          <div className="px-8 py-8 text-center text-text-muted">{`${t('loading', 'Loading')}...`}</div>
         ) : activeTab === 'queue' ? (
           <QueueTab files={queueFiles} jeItems={jeQueueItems} />
         ) : activeTab === 'processed' ? (
@@ -133,7 +134,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
   };
 
   if (files.length === 0 && jeItems.length === 0) {
-    return <div className="px-8 py-8 text-center text-text-muted text-3">No items in queue</div>;
+    return <div className="px-8 py-8 text-center text-text-muted text-3">{t('no_items_in_queue', 'No items in queue')}</div>;
   }
   return (
     <>
@@ -142,12 +143,11 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
           <button
             className="bg-transparent border border-border rounded text-text-muted text-2.75 px-2 py-[2px] cursor-pointer hover:bg-confidence-low hover:text-white hover:border-confidence-low"
             onClick={() => clearPending.mutate()}
-          >
-            Clear all pending ({pendingFiles.length})
+          >{`${t('clear_all_pending', 'Clear all pending')} (`}{pendingFiles.length})
           </button>
         )}
         <button className={copyAllBtnClass(copiedId === '__all__')} onClick={handleCopyAll}>
-          {copiedId === '__all__' ? 'Copied!' : 'Copy all'}
+          {copiedId === '__all__' ? `${t('copied', 'Copied')}!` : t('copy_all', 'Copy all')}
         </button>
       </div>
       <ul className="list-none m-0 p-0">
@@ -158,7 +158,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
               {file.relative_path}
             </span>
             <span className="text-2.75 text-text-muted shrink-0">
-              {file.status === FileStatus.Processing ? 'Processing' : 'Pending'}
+              {file.status === FileStatus.Processing ? t('processing', 'Processing') : t('pending', 'Pending')}
             </span>
             <span className="text-2.5 text-text-muted shrink-0">{formatTime(file.created_at)}</span>
             <button
@@ -186,7 +186,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
               {item.description || item.relative_path}
             </span>
             <span className="text-2.75 text-accent shrink-0">
-              {item.je_status === 'processing' ? 'Classifying' : 'Classification pending'}
+              {item.je_status === 'processing' ? t('classifying', 'Classifying') : t('classification_pending', 'Classification pending')}
             </span>
             <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.created_at)}</span>
           </li>
@@ -208,13 +208,13 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
   };
 
   if (files.length === 0) {
-    return <div className="px-8 py-8 text-center text-text-muted text-3">No processed files</div>;
+    return <div className="px-8 py-8 text-center text-text-muted text-3">{t('no_processed_files', 'No processed files')}</div>;
   }
   return (
     <>
       <div className="flex justify-end px-4 py-1 border-b border-border">
         <button className={copyAllBtnClass(copiedId === '__all__')} onClick={handleCopyAll}>
-          {copiedId === '__all__' ? 'Copied!' : 'Copy all'}
+          {copiedId === '__all__' ? `${t('copied', 'Copied')}!` : t('copy_all', 'Copy all')}
         </button>
       </div>
       <ul className="list-none m-0 p-0">
@@ -226,7 +226,7 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
               <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
                 {file.relative_path}
               </span>
-              <span className="text-2.75 text-text-secondary shrink-0">{file.record_count} rec</span>
+              <span className="text-2.75 text-text-secondary shrink-0">{file.record_count}{` ${t('rec', 'rec')}`}</span>
               <span className={`text-2.75 font-medium shrink-0 px-[5px] py-[1px] rounded ${CONFIDENCE_ROW_CLASSES[confKey]}`}>
                 {Math.round(file.overall_confidence * 100)}%
               </span>
@@ -248,7 +248,7 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
 
 const SkippedTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
   if (files.length === 0) {
-    return <div className="px-8 py-8 text-center text-text-muted text-3">No skipped files</div>;
+    return <div className="px-8 py-8 text-center text-text-muted text-3">{t('no_skipped_files', 'No skipped files')}</div>;
   }
   return (
     <ul className="list-none m-0 p-0">
@@ -265,8 +265,7 @@ const SkippedTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
               </span>
             )}
             {file.filter_score != null && (
-              <span className="text-2.5 text-text-muted">
-                Score: {Math.round(file.filter_score * 100)}% · Layer {file.filter_layer}
+              <span className="text-2.5 text-text-muted">{`${t('score', 'Score')}: `}{Math.round(file.filter_score * 100)}{`% · ${t('layer', 'Layer')} `}{file.filter_layer}
               </span>
             )}
           </div>
@@ -274,9 +273,7 @@ const SkippedTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
             className="bg-transparent border border-border rounded text-text-muted text-2.75 px-2 py-[2px] cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-[opacity,background,color,border-color] hover:bg-bg-hover hover:text-text"
             onClick={() => window.api.reprocessFile(file.relative_path)}
             title="Force reprocess this file"
-          >
-            Reprocess
-          </button>
+          >{t('reprocess', 'Reprocess')}</button>
         </li>
       ))}
     </ul>
@@ -295,13 +292,13 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
   };
 
   if (logs.length === 0 && jeErrors.length === 0) {
-    return <div className="px-8 py-8 text-center text-text-muted text-3">No errors</div>;
+    return <div className="px-8 py-8 text-center text-text-muted text-3">{t('no_errors', 'No errors')}</div>;
   }
   return (
     <>
       <div className="flex justify-end px-4 py-1 border-b border-border">
         <button className={copyAllBtnClass(copiedId === '__all__')} onClick={handleCopyAll}>
-          {copiedId === '__all__' ? 'Copied!' : 'Copy all'}
+          {copiedId === '__all__' ? `${t('copied', 'Copied')}!` : t('copy_all', 'Copy all')}
         </button>
       </div>
       <ul className="list-none m-0 p-0">
@@ -310,7 +307,7 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
             <StatusIcon status={FileStatus.Error} />
             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
               <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={log.relative_path || 'Unknown file'}>
-                {log.relative_path || 'Unknown file'}
+                {log.relative_path || t('unknown_file', 'Unknown file')}
               </span>
               <span className="text-2.75 text-confidence-low overflow-hidden text-ellipsis whitespace-nowrap" title={log.message}>
                 {log.message}
@@ -333,7 +330,7 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
               <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={item.relative_path}>
                 {item.description || item.relative_path}
               </span>
-              <span className="text-2.75 text-confidence-low">Classification failed</span>
+              <span className="text-2.75 text-confidence-low">{t('classification_failed', 'Classification failed')}</span>
             </div>
             <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.updated_at)}</span>
           </li>

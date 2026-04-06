@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Props {
@@ -35,7 +36,7 @@ export const SavePresetModal: React.FC<Props> = ({ visible, onSave, onCancel }) 
         onClick={e => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <div className="text-3.5 font-semibold text-text mb-3">Save Filter Preset</div>
+        <div className="text-3.5 font-semibold text-text mb-3">{t('save_filter_preset', 'Save Filter Preset')}</div>
         <input
           ref={inputRef}
           className="w-full px-2.5 py-2 text-3.25 border border-border rounded-md bg-bg text-text outline-none focus:border-accent placeholder:text-text-muted"
@@ -48,12 +49,12 @@ export const SavePresetModal: React.FC<Props> = ({ visible, onSave, onCancel }) 
           <button
             className="px-3.5 py-1.5 text-3 border-none rounded-md cursor-pointer transition-colors bg-bg-hover text-text-secondary hover:bg-border"
             onClick={onCancel}
-          >Cancel</button>
+          >{t('cancel', 'Cancel')}</button>
           <button
             className="px-3.5 py-1.5 text-3 border-none rounded-md cursor-pointer bg-accent text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-default"
             onClick={() => name.trim() && onSave(name.trim())}
             disabled={!name.trim()}
-          >Save</button>
+          >{t('save', 'Save')}</button>
         </div>
       </div>
     </div>

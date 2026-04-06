@@ -19,7 +19,7 @@
 ### 2.2 Extraction prompt engineering
 - Create `.invoicevault/extraction-prompt.md` template covering:
   - Document classification rules (bank_statement, invoice_out, invoice_in)
-  - Vietnamese-specific field extraction (hóa đơn GTGT, MST, etc.)
+  - Vietnamese-specific field extraction (hóa đơn GTGT, TaxID, etc.)
   - Output JSON contract matching PRD §10.4
   - Per-field confidence scoring instructions
   - Fingerprint computation rules per doc_type (PRD §3)
@@ -61,7 +61,7 @@
 ## Acceptance Criteria
 - [ ] `ClaudeCodeRunner` spawns `claude --print` and returns parsed JSON
 - [ ] A Vietnamese hóa đơn GTGT PDF is correctly classified as `invoice_out` or `invoice_in`
-- [ ] Extracted fields (số hóa đơn, MST, tổng tiền, ngày, line items) are stored in correct tables
+- [ ] Extracted fields (số hóa đơn, TaxID, tổng tiền, ngày, line items) are stored in correct tables
 - [ ] Fingerprints are computed and stored
 - [ ] Re-extracting the same file updates existing records (not duplicates)
 - [ ] Low-confidence records get status `review`

@@ -67,7 +67,7 @@ export interface SearchFilters {
   filePath?: string;
   docType?: string;
   status?: string;
-  mst?: string;
+  taxId?: string;
   amountMin?: number;
   amountMax?: number;
   dateFilter?: string;

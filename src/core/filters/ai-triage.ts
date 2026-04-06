@@ -27,7 +27,7 @@ Respond with ONLY a JSON array. Each element must have:
 - "reason": brief explanation (max 20 words)
 
 Example response:
-[{"index": 0, "classification": "invoice", "confidence": 0.9, "reason": "Contains MST, invoice number, and VAT fields"}]`;
+[{"index": 0, "classification": "invoice", "confidence": 0.9, "reason": "Contains TaxID, invoice number, and VAT fields"}]`;
 
 export async function aiTriageBatch(
   inputs: TriageInput[],

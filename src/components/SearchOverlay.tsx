@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { OverlayState } from '../shared/types';
 import { parseSearchQuery, ParsedQuery } from '../shared/parse-query';
@@ -123,7 +124,7 @@ export const SearchOverlay: React.FC = () => {
   const extractCompletedFilters = useCallback((value: string): { extracted: ParsedQuery; remaining: string } | null => {
     if (!value.endsWith(' ')) return null;
     const parsed = parseSearchQuery(value);
-    const hasInlineFilters = parsed.docType || parsed.status || parsed.mst ||
+    const hasInlineFilters = parsed.docType || parsed.status || parsed.taxId ||
       parsed.amountMin != null || parsed.amountMax != null || parsed.dateFilter ||
       parsed.sortField;
     if (!hasInlineFilters) return null;
@@ -261,7 +262,7 @@ export const SearchOverlay: React.FC = () => {
       const { extracted } = extraction;
       if (extracted.docType) newFilters.docType = extracted.docType;
       if (extracted.status) newFilters.status = extracted.status;
-      if (extracted.mst) newFilters.mst = extracted.mst;
+      if (extracted.taxId) newFilters.taxId = extracted.taxId;
       if (extracted.amountMin != null) newFilters.amountMin = extracted.amountMin;
       if (extracted.amountMax != null) newFilters.amountMax = extracted.amountMax;
       if (extracted.dateFilter) newFilters.dateFilter = extracted.dateFilter;
@@ -282,7 +283,7 @@ export const SearchOverlay: React.FC = () => {
     if (searchValue.trim() && os.overlayState === OverlayState.Home) {
       os.setOverlayState(OverlayState.Search);
     }
-    const hasActiveFilters = ss.filters.docType || ss.filters.status || ss.filters.mst ||
+    const hasActiveFilters = ss.filters.docType || ss.filters.status || ss.filters.taxId ||
       ss.filters.amountMin != null || ss.filters.amountMax != null || ss.filters.dateFilter;
     if (!searchValue.trim() && os.overlayState === OverlayState.Search && !ss.folderScope && !ss.fileScope && !hasActiveFilters) {
       os.setOverlayState(OverlayState.Home);
@@ -431,7 +432,7 @@ export const SearchOverlay: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
         if (usePresetStore.getState().showSaveModal) return;
-        const hasActive = ss.query.trim() || ss.folderScope || ss.fileScope || ss.filters.docType || ss.filters.status || ss.filters.mst ||
+        const hasActive = ss.query.trim() || ss.folderScope || ss.fileScope || ss.filters.docType || ss.filters.status || ss.filters.taxId ||
           ss.filters.amountMin != null || ss.filters.amountMax != null || ss.filters.dateFilter;
         if (hasActive) {
           usePresetStore.getState().setShowSaveModal(true);
@@ -516,7 +517,7 @@ export const SearchOverlay: React.FC = () => {
             ss.setExpandedId(null);
           } else if (ss.query) {
             handleQueryChange('');
-          } else if (ss.filters.docType || ss.filters.status || ss.filters.mst || ss.filters.amountMin != null ||
+          } else if (ss.filters.docType || ss.filters.status || ss.filters.taxId || ss.filters.amountMin != null ||
                      ss.filters.amountMax != null || ss.filters.dateFilter) {
             ss.setFilters({ text: '' } as ParsedQuery);
             if (!ss.folderScope && !ss.fileScope) {
@@ -543,12 +544,12 @@ export const SearchOverlay: React.FC = () => {
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&
     !(filters.sortField === 'time' && (!filters.sortDirection || filters.sortDirection === 'desc'));
-  const hasFilterPills = filters.docType || filters.status || filters.mst ||
+  const hasFilterPills = filters.docType || filters.status || filters.taxId ||
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
   const titleBar = isWindowlized ? (
     <div className="title-bar flex items-center justify-between px-3 h-8 text-text-secondary text-3 select-none shrink-0 border-b border-border">
-      <span className="text-text font-medium text-3">InvoiceVault</span>
+      <span className="text-text font-medium text-3">{t('invoicevault', 'InvoiceVault')}</span>
       <button
         className="title-bar__close bg-transparent border-none text-text-muted cursor-pointer w-6 h-6 inline-flex items-center justify-center rounded hover:bg-bg-hover hover:text-text"
         onClick={() => window.api.closeWindow()}

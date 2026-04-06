@@ -53,7 +53,7 @@ export const MIGRATIONS: string[] = [
     record_id TEXT PRIMARY KEY REFERENCES records(id),
     so_hoa_don TEXT,
     tong_tien REAL,
-    mst TEXT,
+    taxId TEXT,
     ten_doi_tac TEXT,
     dia_chi_doi_tac TEXT
   );
@@ -127,7 +127,7 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_records_doc_type ON records(doc_type);
   CREATE INDEX IF NOT EXISTS idx_records_ngay ON records(ngay);
   CREATE INDEX IF NOT EXISTS idx_invoice_data_so_hoa_don ON invoice_data(so_hoa_don);
-  CREATE INDEX IF NOT EXISTS idx_invoice_data_mst ON invoice_data(mst);
+  CREATE INDEX IF NOT EXISTS idx_invoice_data_mst ON invoice_data(taxId);
   CREATE INDEX IF NOT EXISTS idx_invoice_line_items_record_id ON invoice_line_items(record_id);
   CREATE INDEX IF NOT EXISTS idx_bank_statement_data_stk ON bank_statement_data(stk);
   CREATE INDEX IF NOT EXISTS idx_field_overrides_record_id ON field_overrides(record_id);
@@ -141,7 +141,7 @@ export const MIGRATIONS: string[] = [
   `
   CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
     so_hoa_don,
-    mst,
+    taxId,
     ten_doi_tac,
     dia_chi_doi_tac,
     mo_ta,
@@ -214,7 +214,7 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE invoice_data RENAME COLUMN so_hoa_don TO invoice_number;
   ALTER TABLE invoice_data RENAME COLUMN tong_tien_truoc_thue TO total_before_tax;
   ALTER TABLE invoice_data RENAME COLUMN tong_tien TO total_amount;
-  ALTER TABLE invoice_data RENAME COLUMN mst TO tax_id;
+  ALTER TABLE invoice_data RENAME COLUMN taxId TO tax_id;
   ALTER TABLE invoice_data RENAME COLUMN ten_doi_tac TO counterparty_name;
   ALTER TABLE invoice_data RENAME COLUMN dia_chi_doi_tac TO counterparty_address;
 
@@ -237,7 +237,7 @@ export const MIGRATIONS: string[] = [
   UPDATE field_overrides SET field_name = 'invoice_number' WHERE field_name = 'so_hoa_don';
   UPDATE field_overrides SET field_name = 'total_before_tax' WHERE field_name = 'tong_tien_truoc_thue';
   UPDATE field_overrides SET field_name = 'total_amount' WHERE field_name = 'tong_tien';
-  UPDATE field_overrides SET field_name = 'tax_id' WHERE field_name = 'mst';
+  UPDATE field_overrides SET field_name = 'tax_id' WHERE field_name = 'taxId';
   UPDATE field_overrides SET field_name = 'counterparty_name' WHERE field_name = 'ten_doi_tac';
   UPDATE field_overrides SET field_name = 'counterparty_address' WHERE field_name = 'dia_chi_doi_tac';
   UPDATE field_overrides SET field_name = 'bank_name' WHERE field_name = 'ten_ngan_hang';

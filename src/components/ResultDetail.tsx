@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { t } from '../lib/i18n';
+import React, { useEffect, useState, useMemo } from 'react';
 import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo, JournalEntry, JEClassificationStatus } from '../shared/types';
 import { EditableField } from './EditableField';
 import { EditableCell } from './EditableCell';
@@ -110,6 +111,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
     }
   };
 
+  // eslint-disable-next-line @spaced-out/i18n/no-static-labels
   const jeStatus: JEClassificationStatus | null = jeStatusRaw ?? (journalEntries.length > 0 ? 'done' : null);
 
   const handleReclassify = () => {
@@ -174,9 +176,9 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
     <div className="px-4 pb-3 pl-[50px] bg-bg-secondary border-b border-border animate-detail-in">
       {hasConflicts && (
         <div className="flex items-center gap-2 py-1.5 mb-1.5 border-b border-border text-3">
-          <span className="text-confidence-medium font-semibold">Conflicts detected:</span>
-          <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => handleResolveAll('keep')}>Keep all mine</button>
-          <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => handleResolveAll('accept')}>Accept all AI</button>
+          <span className="text-confidence-medium font-semibold">{`${t('conflicts_detected', 'Conflicts detected')}:`}</span>
+          <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => handleResolveAll('keep')}>{t('keep_all_mine', 'Keep all mine')}</button>
+          <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => handleResolveAll('accept')}>{t('accept_all_ai', 'Accept all AI')}</button>
         </div>
       )}
 
@@ -188,10 +190,10 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
             <EditableField label="Amount" value={String(result.amount || '')} fieldName="amount" tableName="bank_statement_data" recordId={result.id} override={getOverride('amount')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'amount', v)} onResolve={(a) => handleResolve('amount', a)} />
             <EditableField label="Counterparty" value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="bank_statement_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('bank_statement_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
             <EditableField label="Description" value={result.description || ''} fieldName="description" tableName="bank_statement_data" recordId={result.id} override={getOverride('description')} onSave={(v) => handleSave('bank_statement_data', 'description', v)} onResolve={(a) => handleResolve('description', a)} />
-            <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
+            <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">{t('date', 'Date')}</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
             <tr>
               <td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">
-                TK
+                {t('tk', 'TK')}
                 {jeStatus && renderJeIcon(jeStatus)}
               </td>
               <JeCell account={bankJe?.account ?? null} onSave={(account) => handleSaveJeAccount('bank', null, account)} />
@@ -205,44 +207,42 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
           <table className="w-full border-collapse">
             <tbody>
               <EditableField label="Invoice #" value={result.invoice_number || ''} fieldName="invoice_number" tableName="invoice_data" recordId={result.id} override={getOverride('invoice_number')} onSave={(v) => handleSave('invoice_data', 'invoice_number', v)} onResolve={(a) => handleResolve('invoice_number', a)} />
-              <EditableField label="MST" value={result.tax_id || ''} fieldName="tax_id" tableName="invoice_data" recordId={result.id} override={getOverride('tax_id')} onSave={(v) => handleSave('invoice_data', 'tax_id', v)} onResolve={(a) => handleResolve('tax_id', a)} />
+              <EditableField label="TaxID" value={result.tax_id || ''} fieldName="tax_id" tableName="invoice_data" recordId={result.id} override={getOverride('tax_id')} onSave={(v) => handleSave('invoice_data', 'tax_id', v)} onResolve={(a) => handleResolve('tax_id', a)} />
               <EditableField label="Before-tax Total" value={String(localTotals.total_before_tax || '')} fieldName="total_before_tax" tableName="invoice_data" recordId={result.id} override={getOverride('total_before_tax')} inputType="number" derivedValue={beforeTaxTotalMismatch.hasMismatch ? beforeTaxTotalMismatch.sum : null} showMismatchIcon={beforeTaxTotalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_before_tax', v)} onResolve={(a) => handleResolve('total_before_tax', a)} />
               <EditableField label="Total (incl. tax)" value={String(localTotals.total_amount || '')} fieldName="total_amount" tableName="invoice_data" recordId={result.id} override={getOverride('total_amount')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_amount', v)} onResolve={(a) => handleResolve('total_amount', a)} />
               <EditableField label="Counterparty" value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('invoice_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
               <EditableField label="Address" value={result.counterparty_address || ''} fieldName="counterparty_address" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_address')} onSave={(v) => handleSave('invoice_data', 'counterparty_address', v)} onResolve={(a) => handleResolve('counterparty_address', a)} />
-              <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
+              <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">{t('date', 'Date')}</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
             </tbody>
           </table>
 
           {lineItems.length > 0 && (
             <div className="mt-2">
               <div className="flex items-center justify-between font-semibold text-3 mb-1 text-text-secondary">
-                <span>Line Items</span>
+                <span>{t('line_items', 'Line Items')}</span>
                 {jeStatus && renderJeIcon(jeStatus)}
               </div>
               <table className="w-full border-collapse text-2.75">
                 <thead>
                   <tr>
                     <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">#</th>
-                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Description</th>
-                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Qty</th>
-                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Price</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{t('description', 'Description')}</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{t('qty', 'Qty')}</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{t('price', 'Price')}</th>
                     <th
                       className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.beforeTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
                       onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('subtotal'); }}
                       title={hasColumnIssues.beforeTax ? '⌘+click to fix column' : undefined}
-                    >
-                      Before tax{hasColumnIssues.beforeTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
+                    >{t('before_tax', 'Before tax')}{hasColumnIssues.beforeTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
                     </th>
-                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Tax %</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{`${t('tax', 'Tax')} %`}</th>
                     <th
                       className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.afterTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
                       onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('total_with_tax'); }}
                       title={hasColumnIssues.afterTax ? '⌘+click to fix column' : undefined}
-                    >
-                      After tax{hasColumnIssues.afterTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
+                    >{t('after_tax', 'After tax')}{hasColumnIssues.afterTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
                     </th>
-                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">TK</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{t('tk', 'TK')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -270,16 +270,14 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
 
               <div className="mt-1.5 py-1">
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
-                  <span className="min-w-[80px] text-text-secondary">Thue GTGT</span>
-                  <span className="flex items-center gap-0.5 text-text-secondary">
-                    TK <JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
+                  <span className="min-w-[80px] text-text-secondary">{t('thue_gtgt', 'Thue GTGT')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
                   </span>
                   <span className="text-text ml-auto">{derivedTaxAmount > 0 ? formatCurrency(derivedTaxAmount) : '–'}</span>
                 </div>
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
-                  <span className="min-w-[80px] text-text-secondary">Thanh toan</span>
-                  <span className="flex items-center gap-0.5 text-text-secondary">
-                    TK <JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
+                  <span className="min-w-[80px] text-text-secondary">{t('thanh_toan', 'Thanh toan')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
                   </span>
                   <span className="text-text ml-auto">{localTotals.total_amount ? formatCurrency(localTotals.total_amount) : '–'}</span>
                 </div>

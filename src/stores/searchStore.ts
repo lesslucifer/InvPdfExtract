@@ -43,7 +43,7 @@ interface SearchStore {
   removeFilter: (key: keyof ParsedQuery) => void;
   toggleSortDirection: () => void;
   applyDocTypeFilter: (docType: string) => void;
-  applyMstFilter: (mst: string) => void;
+  applyMstFilter: (taxId: string) => void;
   applyDateFilter: (date: string) => void;
 
   // Scope manipulation
@@ -68,7 +68,7 @@ function buildSearchFilters(text: string, filters: ParsedQuery, folder: string |
     filePath: file || undefined,
     docType: filters.docType,
     status: filters.status,
-    mst: filters.mst,
+    taxId: filters.taxId,
     amountMin: filters.amountMin,
     amountMax: filters.amountMax,
     dateFilter: filters.dateFilter,
@@ -174,7 +174,7 @@ export const useSearchStore = create<SearchStore>()(
       set({ filters: newFilters });
 
       const hasRemaining = state.query.trim() || state.folderScope || state.fileScope ||
-        newFilters.docType || newFilters.status || newFilters.mst ||
+        newFilters.docType || newFilters.status || newFilters.taxId ||
         newFilters.amountMin != null || newFilters.amountMax != null ||
         newFilters.dateFilter || newFilters.sortField;
 
@@ -212,9 +212,9 @@ export const useSearchStore = create<SearchStore>()(
       get().doSearch(state.query, newFilters, state.folderScope, false, state.fileScope);
     },
 
-    applyMstFilter: (mst) => {
+    applyMstFilter: (taxId) => {
       const state = get();
-      const newFilters = { ...state.filters, text: '', mst };
+      const newFilters = { ...state.filters, text: '', taxId };
       set({ filters: newFilters });
       const overlayState = useOverlayStore.getState().overlayState;
       if (overlayState === OverlayState.Home) {
@@ -254,7 +254,7 @@ export const useSearchStore = create<SearchStore>()(
     clearFolderScope: () => {
       const state = get();
       set({ folderScope: null, fileScope: null });
-      const hasActiveFilters = state.filters.docType || state.filters.status || state.filters.mst ||
+      const hasActiveFilters = state.filters.docType || state.filters.status || state.filters.taxId ||
         state.filters.amountMin != null || state.filters.amountMax != null || state.filters.dateFilter;
       if (!state.query.trim() && !hasActiveFilters) {
         useOverlayStore.getState().setOverlayState(OverlayState.Home);

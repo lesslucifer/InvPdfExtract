@@ -140,7 +140,7 @@ Chainable transforms: `.params()` (remap params), `.extend()` (add computed fiel
 | sao ke ngan hang | bank statement |
 | hoa don dau ra | output/sales invoice |
 | hoa don dau vao | input/purchase invoice |
-| MST (ma so thue) | tax identification number |
+| TaxID (ma so thue) | tax identification number |
 | so hoa don | invoice number |
 | tong tien | total amount |
 | bang ke | summary/list |

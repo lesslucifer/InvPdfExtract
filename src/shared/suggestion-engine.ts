@@ -41,7 +41,7 @@ function isFilterActive(filterKey: keyof ParsedQuery, filters: ParsedQuery): boo
     case 'dateFilter': return !!filters.dateFilter;
     case 'amountMin': return filters.amountMin != null;
     case 'amountMax': return filters.amountMax != null;
-    case 'mst': return !!filters.mst;
+    case 'taxId': return !!filters.taxId;
     default: return false;
   }
 }

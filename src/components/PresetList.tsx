@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FilterPreset, PresetFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
@@ -51,9 +52,9 @@ export function buildPresetSummary(filtersJson: string): string {
       parts.push(`"${state.query.trim()}"`);
     }
 
-    return parts.join(' · ') || 'No filters';
+    return parts.join(' · ') || t('no_filters', 'No filters');
   } catch {
-    return 'Invalid preset';
+    return t('invalid_preset', 'Invalid preset');
   }
 }
 
@@ -114,7 +115,7 @@ export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePrese
   if (filtered.length === 0) {
     return (
       <div className="px-4 py-6 text-center text-3.25 text-text-muted">
-        {query ? 'No matching presets' : 'No saved presets'}
+        {query ? t('no_matching_presets', 'No matching presets') : t('no_saved_presets', 'No saved presets')}
       </div>
     );
   }

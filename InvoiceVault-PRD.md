@@ -158,7 +158,7 @@ InvoiceVault supports 3 document types for MVP, with more planned. Two of these 
 | Date | `ngay` | DATE | ✅ |
 | Số hóa đơn | `so_hoa_don` | TEXT | ✅ |
 | Tổng tiền | `tong_tien` | REAL | ✅ |
-| MST | `mst` | TEXT | ✅ |
+| TaxID | `taxId` | TEXT | ✅ |
 | Địa chỉ KH | `dia_chi_kh` | TEXT | Recommended |
 | Tên KH | `ten_kh` | TEXT | Recommended |
 
@@ -172,7 +172,7 @@ InvoiceVault supports 3 document types for MVP, with more planned. Two of these 
 | Tax rate | `thue_suat` | REAL | ✅ |
 | Thành tiền | `thanh_tien` | REAL | ✅ |
 
-**Fingerprint (invoice-level):** `SHA-256(normalize(so_hoa_don) + "|" + normalize(mst) + "|" + normalize(ngay))`
+**Fingerprint (invoice-level):** `SHA-256(normalize(so_hoa_don) + "|" + normalize(taxId) + "|" + normalize(ngay))`
 
 **Validation rules:**
 - Số hóa đơn **must be sequential** — flag gaps or out-of-order
@@ -198,13 +198,13 @@ InvoiceVault supports 3 document types for MVP, with more planned. Two of these 
 | Date | `ngay` | DATE | ✅ |
 | Số hóa đơn | `so_hoa_don` | TEXT | ✅ |
 | Tổng tiền | `tong_tien` | REAL | ✅ |
-| MST | `mst` | TEXT | ✅ |
+| TaxID | `taxId` | TEXT | ✅ |
 | Địa chỉ NCC | `dia_chi_ncc` | TEXT | Recommended |
 | Tên NCC | `ten_ncc` | TEXT | Recommended |
 
 **Line item fields (chi tiết):** Same as Type 2.
 
-**Fingerprint (invoice-level):** `SHA-256(normalize(so_hoa_don) + "|" + normalize(mst) + "|" + normalize(ngay))`
+**Fingerprint (invoice-level):** `SHA-256(normalize(so_hoa_don) + "|" + normalize(taxId) + "|" + normalize(ngay))`
 
 **Validation rules:**
 - Sequential order **not required**
@@ -323,7 +323,7 @@ The search box is a **smart unified input** that handles multiple query types:
 |---|---|---|
 | Free text | `ABC company` | Searches across all text fields |
 | Invoice number | `HD-001` | Matches `so_hoa_don` |
-| Tax code (MST) | `0101234567` | Matches `mst`, `mst_nguoi_ban`, `mst_nguoi_mua` |
+| Tax code (TaxID) | `0101234567` | Matches `taxId`, `mst_nguoi_ban`, `mst_nguoi_mua` |
 | Date | `15/03/2024` or `2024-03` | Matches date fields, supports month/year |
 | Amount | `>10000000` or `5tr-10tr` | Range queries on amount fields |
 | Document type | `type:bank` or `type:hdra` | Filters by document type |
@@ -599,7 +599,7 @@ File event detected
 | record_id | TEXT | FK → records.id (1:1) |
 | so_hoa_don | TEXT | Invoice number |
 | tong_tien | REAL | Total amount |
-| mst | TEXT | Tax code (MST) |
+| taxId | TEXT | Tax code (TaxID) |
 | ten_doi_tac | TEXT | KH name (đầu ra) or NCC name (đầu vào) |
 | dia_chi_doi_tac | TEXT | KH address (đầu ra) or NCC address (đầu vào) |
 
@@ -676,7 +676,7 @@ CREATE INDEX idx_records_file_id ON records(file_id);
 CREATE INDEX idx_records_doc_type ON records(doc_type);
 CREATE INDEX idx_records_ngay ON records(ngay);
 CREATE INDEX idx_invoice_data_so_hoa_don ON invoice_data(so_hoa_don);
-CREATE INDEX idx_invoice_data_mst ON invoice_data(mst);
+CREATE INDEX idx_invoice_data_mst ON invoice_data(taxId);
 CREATE INDEX idx_invoice_line_items_record_id ON invoice_line_items(record_id);
 CREATE INDEX idx_bank_statement_data_stk ON bank_statement_data(stk);
 CREATE INDEX idx_field_overrides_record_id ON field_overrides(record_id);
@@ -693,7 +693,7 @@ SQLite FTS5 virtual table for the smart search overlay:
 ```sql
 CREATE VIRTUAL TABLE records_fts USING fts5(
   so_hoa_don,
-  mst,
+  taxId,
   ten_doi_tac,
   dia_chi_doi_tac,
   mo_ta,
@@ -891,7 +891,7 @@ This system learns over time: after processing a few Vietcombank statements, all
             "ngay": "2024-03-01",
             "so_hoa_don": "HD-001",
             "tong_tien": 11000000,
-            "mst": "0101234567",
+            "taxId": "0101234567",
             "ten_doi_tac": "Công ty CP XYZ",
             "dia_chi_doi_tac": "123 Nguyễn Huệ, Q1, HCM"
           },
@@ -1051,7 +1051,7 @@ See §6 and §7 for full details. Summary:
 - Additional document types beyond the initial 5
 - Integration with Vietnamese accounting software (MISA, Fast Accounting)
 - Duplicate detection across files (same invoice in PDF + xlsx bảng kê)
-- MST validation against government tax portal API
+- TaxID validation against government tax portal API
 - Cross-document validation (bảng kê totals vs. chi tiết totals across files)
 - Reporting and analytics dashboard
 

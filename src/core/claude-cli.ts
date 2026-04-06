@@ -83,7 +83,7 @@ export function repairTruncatedJSON(raw: string): string | null {
   const firstBrace = raw.indexOf('{');
   if (firstBrace === -1) return null;
 
-  let text = raw.substring(firstBrace);
+  const text = raw.substring(firstBrace);
   const stack: ('{' | '[')[] = [];
   let inString = false;
   let escaped = false;

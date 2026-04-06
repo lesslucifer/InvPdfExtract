@@ -268,7 +268,7 @@ export const BUILTIN_KEYWORDS: FilterKeyword[] = [
   { term: 'GTGT', weight: 0.9, category: 'invoice' },
   { term: 'hoa don dau ra', weight: 0.9, category: 'invoice' },
   { term: 'hoa don dau vao', weight: 0.9, category: 'invoice' },
-  { term: 'MST', weight: 0.7, category: 'invoice' },
+  { term: 'TaxID', weight: 0.7, category: 'invoice' },
   { term: 'ma so thue', weight: 0.85, category: 'invoice' },
   { term: 'so hoa don', weight: 0.85, category: 'invoice' },
   { term: 'tong tien', weight: 0.6, category: 'general_accounting' },
@@ -514,7 +514,7 @@ export function filenameFilter(
     'saoke', 'sao_ke', 'statement', 'bank',
     'bangke', 'bang_ke', 'receipt', 'payment',
     'GTGT', 'gtgt', 'thue', 'tax', 'vat',
-    'MST', 'mst', 'chungtu', 'chung_tu',
+    'TaxID', 'taxId', 'chungtu', 'chung_tu',
     'phieuthu', 'phieu_thu', 'phieuchi', 'phieu_chi',
   ];
   for (const kw of filenameKeywords) {
@@ -792,7 +792,7 @@ Respond with ONLY a JSON array. Each element must have:
 - "reason": brief explanation (max 20 words)
 
 Example response:
-[{"index": 0, "classification": "invoice", "confidence": 0.9, "reason": "Contains MST, invoice number, and VAT fields"}]`;
+[{"index": 0, "classification": "invoice", "confidence": 0.9, "reason": "Contains TaxID, invoice number, and VAT fields"}]`;
 
 /**
  * Run AI triage on a batch of uncertain files.
@@ -1291,7 +1291,7 @@ Test: "getMergedKeywords adds new custom keywords"
   Assert: merged includes 'custom_term', total count = BUILTIN + 1
 
 Test: "createKeywordMatcher scores Vietnamese invoice text highly"
-  Input: "Hoa don GTGT so 0012345 - MST 0312345678"
+  Input: "Hoa don GTGT so 0012345 - TaxID 0312345678"
   Assert: score > 0.8
 
 Test: "createKeywordMatcher scores English invoice text reasonably"
@@ -1359,8 +1359,8 @@ Test: "contentSniffer handles extraction failure gracefully"
   Assert: result.decision is 'uncertain', does not throw
 
 Test: "extractSpreadsheetText extracts sheet names and headers"
-  Input: xlsx file with sheet "Hoa Don" and headers ["MST", "So HD"]
-  Assert: returned text contains "Hoa Don", "MST", "So HD"
+  Input: xlsx file with sheet "Hoa Don" and headers ["TaxID", "So HD"]
+  Assert: returned text contains "Hoa Don", "TaxID", "So HD"
 
 Test: "extractXmlText extracts element names and text content"
   Input: XML with <HoaDon><SoHD>001</SoHD></HoaDon>
@@ -1377,7 +1377,7 @@ Test: "contentSniffer combines Layer 1 and Layer 2 scores correctly"
 
 ```
 Test: "parseTriageResponse parses valid JSON array"
-  Input: '[{"index": 0, "classification": "invoice", "confidence": 0.9, "reason": "Has MST"}]'
+  Input: '[{"index": 0, "classification": "invoice", "confidence": 0.9, "reason": "Has TaxID"}]'
   Assert: result[0].classification === 'invoice'
 
 Test: "parseTriageResponse handles markdown-wrapped JSON"

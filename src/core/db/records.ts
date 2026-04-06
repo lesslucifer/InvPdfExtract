@@ -507,9 +507,9 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     params.push(`${parsed.dateFilter}%`);
   }
 
-  if (parsed.mst) {
+  if (parsed.taxId) {
     conditions.push('id2.tax_id = ?');
-    params.push(parsed.mst);
+    params.push(parsed.taxId);
   }
 
   return { conditions, params };
@@ -521,7 +521,7 @@ function filtersToParsed(filters: SearchFilters): ParsedQuery {
     text: filters.text || '',
     docType: filters.docType,
     status: filters.status,
-    mst: filters.mst,
+    taxId: filters.taxId,
     folder: filters.folder,
     filePath: filters.filePath,
     amountMin: filters.amountMin,

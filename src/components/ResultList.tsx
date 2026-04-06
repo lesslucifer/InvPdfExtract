@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useRef, useEffect } from 'react';
 import { ResultRow } from './ResultRow';
 import { ResultDetail } from './ResultDetail';
@@ -46,7 +47,7 @@ export const ResultList: React.FC<Props> = ({
   }, []);
 
   if (results.length === 0) {
-    return <div className="px-6 py-6 text-center text-text-muted">No results found</div>;
+    return <div className="px-6 py-6 text-center text-text-muted">{t('no_results_found', 'No results found')}</div>;
   }
 
   return (
@@ -72,7 +73,7 @@ export const ResultList: React.FC<Props> = ({
         </div>
       ))}
       {isLoadingMore && (
-        <div className="text-center px-3 py-3 text-text-muted text-3.25">Loading more...</div>
+        <div className="text-center px-3 py-3 text-text-muted text-3.25">{`${t('loading_more', 'Loading more')}...`}</div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { getDatabase } from './db/database';
 import { DocType } from '../shared/types';
 import * as XLSX from 'xlsx';
+import { t } from '../lib/i18n';
 
 export interface ExportOptions {
   filter?: string;
@@ -68,7 +69,7 @@ export function exportToCsv(data: ExportData): Map<string, string> {
 
   // Bank statements CSV
   if (data.bankStatements.length > 0) {
-    const headers = ['Ngày', 'Ngân hàng', 'STK', 'Mô tả', 'Số tiền', 'Đối tác', 'Confidence', 'File'];
+    const headers = [t('ngay', 'Ngày'), t('ngan_hang', 'Ngân hàng'), t('stk', 'STK'), t('mo_ta', 'Mô tả'), t('so_tien', 'Số tiền'), t('doi_tac', 'Đối tác'), t('confidence', 'Confidence'), t('file', 'File')];
     const rows = data.bankStatements.map(r => [
       r.doc_date, r.bank_name, r.account_number, r.description, r.amount, r.counterparty_name, r.confidence, r.relative_path,
     ]);
@@ -77,7 +78,7 @@ export function exportToCsv(data: ExportData): Map<string, string> {
 
   // Invoice headers CSV
   if (data.invoiceHeaders.length > 0) {
-    const headers = ['Loại', 'Ngày', 'Số HĐ', 'Tổng tiền trước thuế', 'Tổng tiền', 'MST', 'Đối tác', 'Địa chỉ', 'Confidence', 'File'];
+    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('so_hd', 'Số HĐ'), t('tong_tien_truoc_thue', 'Tổng tiền trước thuế'), t('tong_tien', 'Tổng tiền'), t('taxId', 'TaxID'), t('doi_tac', 'Đối tác'), t('dia_chi', 'Địa chỉ'), t('confidence', 'Confidence'), t('file', 'File')];
     const rows = data.invoiceHeaders.map(r => [
       r.doc_type, r.doc_date, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);
@@ -86,7 +87,7 @@ export function exportToCsv(data: ExportData): Map<string, string> {
 
   // Line items CSV
   if (data.invoiceLineItems.length > 0) {
-    const headers = ['Loại', 'Ngày', 'Số HĐ', '#', 'Mô tả', 'Đơn giá', 'Số lượng', 'Thuế suất', 'Thành tiền trước thuế', 'Thành tiền'];
+    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('so_hd', 'Số HĐ'), t('#', '#'), t('mo_ta', 'Mô tả'), t('don_gia', 'Đơn giá'), t('so_luong', 'Số lượng'), t('thue_suat', 'Thuế suất'), t('thanh_tien_truoc_thue', 'Thành tiền trước thuế'), t('thanh_tien', 'Thành tiền')];
     const rows = data.invoiceLineItems.map(r => [
       r.doc_type, r.doc_date, r.invoice_number, r.line_number, r.description, r.unit_price, r.quantity, r.tax_rate, r.subtotal, r.total_with_tax,
     ]);
@@ -130,7 +131,7 @@ export function exportToXlsx(data: ExportData): Buffer {
   }
 
   if (data.invoiceHeaders.length > 0) {
-    const headers = ['Loai', 'Ngay', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'MST', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
+    const headers = ['Loai', 'Ngay', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'TaxID', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
     const rows = data.invoiceHeaders.map(r => [
       r.doc_type, r.doc_date, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);

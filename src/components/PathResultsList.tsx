@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
 import { StatusIcon } from './StatusIcon';
@@ -147,7 +148,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   if (items.length === 0) {
     return (
       <div className="px-4 py-6 text-center text-3.25 text-text-muted">
-        {query ? 'No matches' : 'No folders found'}
+        {query ? t('no_matches', 'No matches') : t('no_folders_found', 'No folders found')}
       </div>
     );
   }
@@ -184,9 +185,9 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
       </ul>
       {confirmPath && (
         <div className="flex items-center gap-2 px-3 py-1 bg-bg-secondary border-t border-border text-3 text-text-secondary" onClick={(e) => e.stopPropagation()}>
-          <span>Reprocess all files in <strong className="text-text">{confirmPath}</strong>?</span>
-          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-accent text-white hover:brightness-110" onClick={handleConfirm}>Yes</button>
-          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:text-text" onClick={handleCancel}>Cancel</button>
+          <span>{`${t('reprocess_all_files_in', 'Reprocess all files in')} `}<strong className="text-text">{confirmPath}</strong>?</span>
+          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-accent text-white hover:brightness-110" onClick={handleConfirm}>{t('yes', 'Yes')}</button>
+          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:text-text" onClick={handleCancel}>{t('cancel', 'Cancel')}</button>
         </div>
       )}
     </>

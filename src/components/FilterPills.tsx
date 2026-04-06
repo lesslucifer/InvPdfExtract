@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../lib/i18n';
 import { ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 import { formatCurrency } from '../shared/format';
 import { Icons, DOC_TYPE_ICONS, ICON_SIZE, type IconName } from '../shared/icons';
@@ -35,8 +36,8 @@ function getPills(filters: ParsedQuery): PillDef[] {
     pills.push({ key: 'status', icon, label });
   }
 
-  if (filters.mst) {
-    pills.push({ key: 'mst', icon: 'fingerprint', label: `MST: ${filters.mst}` });
+  if (filters.taxId) {
+    pills.push({ key: 'taxId', icon: 'fingerprint', label: `TaxID: ${filters.taxId}` });
   }
 
   if (filters.amountMin != null && filters.amountMax != null) {
@@ -60,7 +61,7 @@ function getPills(filters: ParsedQuery): PillDef[] {
       (!filters.sortDirection || filters.sortDirection === 'desc');
     if (!isDefault) {
       const sortLabels: Record<string, string> = {
-        time: 'Processed', date: 'Date', path: 'Path', amount: 'Amount', confidence: 'Confidence', shd: 'Invoice #',
+        time: t('processed', 'Processed'), date: t('date', 'Date'), path: t('path', 'Path'), amount: t('amount', 'Amount'), confidence: t('confidence', 'Confidence'), shd: t('invoice_#', 'Invoice #'),
       };
       const dir = filters.sortDirection || SORT_DEFAULT_DIRECTIONS[filters.sortField];
       const icon: IconName = dir === 'asc' ? 'arrowUp' : 'arrowDown';

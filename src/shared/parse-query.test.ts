@@ -131,13 +131,13 @@ describe('parseSearchQuery', () => {
     });
   });
 
-  describe('mst filters', () => {
-    it('parses mst:<value>', () => {
-      expect(parseSearchQuery('mst:0123456789').mst).toBe('0123456789');
+  describe('taxId filters', () => {
+    it('parses taxId:<value>', () => {
+      expect(parseSearchQuery('taxId:0123456789').taxId).toBe('0123456789');
     });
 
     it('preserves original case', () => {
-      expect(parseSearchQuery('mst:ABC123').mst).toBe('ABC123');
+      expect(parseSearchQuery('taxId:ABC123').taxId).toBe('ABC123');
     });
   });
 
@@ -240,8 +240,8 @@ describe('buildQueryString', () => {
     expect(buildQueryString({ text: '', status: 'conflict' })).toBe('status:conflict');
   });
 
-  it('builds from mst', () => {
-    expect(buildQueryString({ text: '', mst: '0123456789' })).toBe('mst:0123456789');
+  it('builds from taxId', () => {
+    expect(buildQueryString({ text: '', taxId: '0123456789' })).toBe('taxId:0123456789');
   });
 
   it('builds from amount range (triệu shorthand)', () => {

@@ -66,4 +66,4 @@
 - [ ] Clicking a result expands it to show all fields
 - [ ] `Escape` or click-outside dismisses the overlay
 - [ ] Keyboard navigation works (arrows + Enter)
-- [ ] FTS5 searches across invoice numbers, MST, counterparty names, descriptions
+- [ ] FTS5 searches across invoice numbers, TaxID, counterparty names, descriptions

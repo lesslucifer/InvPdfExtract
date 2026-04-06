@@ -1,4 +1,5 @@
 import { DocType, ClaudeModelConfig, RelevanceFilterConfig } from './types';
+import { t } from '../lib/i18n';
 
 export const APP_NAME = 'InvoiceVault';
 
@@ -33,10 +34,10 @@ export const METADATA_SAMPLE_VALUES = 5;
 export const SCRIPT_VERIFY_MAX_RETRIES = 3;
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
-  [DocType.BankStatement]: 'Sao kê ngân hàng',
-  [DocType.InvoiceOut]: 'Hóa đơn đầu ra',
-  [DocType.InvoiceIn]: 'Hóa đơn đầu vào',
-  [DocType.Unknown]: 'Chưa phân loại',
+  [DocType.BankStatement]: t('bank_statement', 'Sao kê ngân hàng'),
+  [DocType.InvoiceOut]:    t('invoice_out', 'Hóa đơn đầu ra'),
+  [DocType.InvoiceIn]:     t('invoice_in', 'Hóa đơn đầu vào'),
+  [DocType.Unknown]:       t('unclassified', 'Chưa phân loại'),
 };
 
 export const JE_INSTRUCTIONS_FILE = 'je-instructions.txt';

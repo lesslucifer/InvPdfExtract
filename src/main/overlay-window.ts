@@ -23,6 +23,7 @@ import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { clearVaultData } from '../core/vault';
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
+import { t } from '../lib/i18n';
 
 export type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -431,7 +432,7 @@ export class OverlayWindow {
 
     ipcMain.handle('pick-folder', async () => {
       const result = await dialog.showOpenDialog({
-        title: 'Select folder',
+        title: t('select_folder', 'Select folder'),
         properties: ['openDirectory', 'createDirectory'],
       });
       if (result.canceled || result.filePaths.length === 0) return null;
@@ -707,7 +708,7 @@ export class OverlayWindow {
     ipcMain.handle('export-filtered', async (_event, filters: SearchFilters) => {
       try {
         const result = await dialog.showSaveDialog({
-          title: 'Export to XLSX',
+          title: t('export_to_xlsx', 'Export to XLSX'),
           defaultPath: 'invoicevault-export.xlsx',
           filters: [{ name: 'Excel', extensions: ['xlsx'] }],
         });
