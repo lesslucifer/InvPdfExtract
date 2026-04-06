@@ -547,10 +547,10 @@ export const SearchOverlay: React.FC = () => {
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
   const titleBar = isWindowlized ? (
-    <div className="title-bar">
-      <span className="title-bar__text">InvoiceVault</span>
+    <div className="title-bar flex items-center justify-between px-3 h-8 text-text-secondary text-3 select-none shrink-0 border-b border-border">
+      <span className="text-text font-medium text-3">InvoiceVault</span>
       <button
-        className="title-bar__close"
+        className="title-bar__close bg-transparent border-none text-text-muted cursor-pointer w-6 h-6 inline-flex items-center justify-center rounded hover:bg-bg-hover hover:text-text"
         onClick={() => window.api.closeWindow()}
         aria-label="Close window"
         title="Close window"
@@ -563,12 +563,12 @@ export const SearchOverlay: React.FC = () => {
   ) : null;
 
   // Render based on state
-  const overlayClassName = `search-overlay${isWindowlized ? ' search-overlay--windowlized' : ''}`;
+  const overlayClass = `relative bg-bg rounded-2xl shadow-overlay overflow-hidden flex flex-col ${isWindowlized ? 'max-h-screen h-screen rounded-none shadow-none [animation:none]' : 'max-h-[480px] animate-overlay-in'}`;
 
 
   if (overlayState === OverlayState.NoVault) {
     return (
-      <div className={overlayClassName}>
+      <div className={overlayClass}>
         {titleBar}
         <NoVaultScreen />
       </div>
@@ -577,7 +577,7 @@ export const SearchOverlay: React.FC = () => {
 
   if (overlayState === OverlayState.Settings) {
     return (
-      <div className={overlayClassName}>
+      <div className={overlayClass}>
         {titleBar}
         <SettingsPanel onVaultChanged={handleVaultChanged} />
       </div>
@@ -586,7 +586,7 @@ export const SearchOverlay: React.FC = () => {
 
   if (overlayState === OverlayState.Cheatsheet) {
     return (
-      <div className={overlayClassName}>
+      <div className={overlayClass}>
         {titleBar}
         <CheatsheetPanel />
       </div>
@@ -595,7 +595,7 @@ export const SearchOverlay: React.FC = () => {
 
   if (overlayState === OverlayState.ProcessingStatus) {
     return (
-      <div className={overlayClassName}>
+      <div className={overlayClass}>
         {titleBar}
         <ProcessingStatusPanel />
       </div>
@@ -605,7 +605,7 @@ export const SearchOverlay: React.FC = () => {
   // PathSearch mode
   if (overlayState === OverlayState.PathSearch) {
     return (
-      <div className={overlayClassName}>
+      <div className={overlayClass}>
         {titleBar}
         <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} />
         <PathResultsList
@@ -625,7 +625,7 @@ export const SearchOverlay: React.FC = () => {
   // PresetSearch mode
   if (overlayState === OverlayState.PresetSearch) {
     return (
-      <div className={overlayClassName}>
+      <div className={overlayClass}>
         {titleBar}
         <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} />
         <PresetList
@@ -648,7 +648,7 @@ export const SearchOverlay: React.FC = () => {
 
   // Home and Search states share the same layout
   return (
-    <div className={overlayClassName}>
+    <div className={overlayClass}>
       {titleBar}
       <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} />
       <SuggestionList

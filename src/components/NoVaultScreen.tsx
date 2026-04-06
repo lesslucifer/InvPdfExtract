@@ -9,7 +9,7 @@ export const NoVaultScreen: React.FC = () => {
   const handleChooseFolder = useCallback(async () => {
     setError(null);
     const folderPath = await window.api.pickFolder();
-    if (!folderPath) return; // User cancelled
+    if (!folderPath) return;
 
     setLoading(true);
     try {
@@ -27,21 +27,21 @@ export const NoVaultScreen: React.FC = () => {
   }, []);
 
   return (
-    <div className="no-vault-screen">
-      <div className="no-vault-content">
-        <div className="no-vault-title">InvoiceVault</div>
-        <p className="no-vault-description">
+    <div className="flex items-center justify-center px-6 py-12">
+      <div className="text-center max-w-[360px]">
+        <div className="text-5 font-bold mb-3">InvoiceVault</div>
+        <p className="text-3.25 text-text-secondary leading-[1.5] mb-5">
           Select a folder to get started.<br />
           It will be initialized as a vault and watched for invoices &amp; bank statements.
         </p>
         <button
-          className="no-vault-button"
+          className="bg-accent text-white border-none rounded-lg px-6 py-2.5 text-3.5 font-semibold cursor-pointer transition-opacity hover:opacity-85 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleChooseFolder}
           disabled={loading}
         >
           {loading ? 'Initializing...' : 'Choose Folder...'}
         </button>
-        {error && <div className="no-vault-error">{error}</div>}
+        {error && <div className="mt-3 text-confidence-low text-3">{error}</div>}
       </div>
     </div>
   );

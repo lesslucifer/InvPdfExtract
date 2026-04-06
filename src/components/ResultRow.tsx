@@ -16,23 +16,24 @@ interface Props {
   onReprocessFolder?: (folder: string) => void;
 }
 
-function confidenceClass(confidence: number): string {
-  if (confidence >= 0.9) return 'confidence-high';
-  if (confidence >= 0.7) return 'confidence-medium';
-  return 'confidence-low';
+const CONFIDENCE_CLASSES: Record<'high' | 'medium' | 'low', string> = {
+  high:   'text-confidence-high bg-confidence-high/10',
+  medium: 'text-confidence-medium bg-confidence-medium/10',
+  low:    'text-confidence-low bg-confidence-low/10',
+};
+
+function confidenceClasses(confidence: number): string {
+  if (confidence >= 0.9) return CONFIDENCE_CLASSES.high;
+  if (confidence >= 0.7) return CONFIDENCE_CLASSES.medium;
+  return CONFIDENCE_CLASSES.low;
 }
 
-/**
- * Truncate a string in the middle, preserving start and end.
- * For filenames, keeps the extension visible.
- */
 function middleEllipsis(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
-  // For filenames with extension, preserve the extension
   const dotIdx = text.lastIndexOf('.');
   if (dotIdx > 0 && text.length - dotIdx <= 6) {
     const ext = text.slice(dotIdx);
-    const nameMax = maxLen - ext.length - 3; // 3 for '...'
+    const nameMax = maxLen - ext.length - 3;
     if (nameMax < 4) return text.slice(0, maxLen - 3) + '...';
     return text.slice(0, nameMax) + '...' + ext;
   }
@@ -66,68 +67,72 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
 
   return (
     <div
-      className={`result-row ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}`}
+      className={`px-4 py-2 cursor-pointer border-b border-border transition-colors last:border-b-0 ${isSelected || isExpanded ? (isExpanded ? 'bg-bg-secondary' : 'bg-bg-hover') : 'hover:bg-bg-hover'}`}
       onClick={onClick}
       role="option"
       aria-selected={isSelected}
     >
-      <div className="result-row-main">
+      <div className="flex items-center gap-2.5">
         <span
-          className="result-icon result-icon-clickable"
+          className="inline-flex items-center justify-center shrink-0 w-5 text-center cursor-pointer transition-transform hover:scale-[1.2]"
           title={meta.label}
           onClick={(e) => { e.stopPropagation(); useSearchStore.getState().applyDocTypeFilter(result.doc_type); }}
         >
           <meta.icon size={ICON_SIZE.LG} />
         </span>
-        <div className="result-info">
-          <div className="result-primary">
-            <span className="result-label">{primaryLabel}</span>
-            {result.mst && <span
-              className="result-mst result-mst-filterable"
-              title="Ctrl+Click to filter by this MST"
-              onClick={(e) => {
-                if (e.ctrlKey || e.metaKey) {
-                  e.stopPropagation();
-                  useSearchStore.getState().applyMstFilter(result.mst);
-                }
-              }}
-            >MST: {result.mst}</span>}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className="font-semibold whitespace-nowrap overflow-hidden text-ellipsis">{primaryLabel}</span>
+            {result.mst && (
+              <span
+                className="text-2.75 text-text-secondary whitespace-nowrap cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
+                title="Ctrl+Click to filter by this MST"
+                onClick={(e) => {
+                  if (e.ctrlKey || e.metaKey) {
+                    e.stopPropagation();
+                    useSearchStore.getState().applyMstFilter(result.mst);
+                  }
+                }}
+              >MST: {result.mst}</span>
+            )}
           </div>
-          <div className="result-secondary">
-            {counterparty && <span className="result-counterparty">{counterparty}</span>}
-            {result.ngay && <span
-              className="result-date result-date-filterable"
-              title="⌘+Click: filter by date · ⌥+Click: filter by month"
-              onClick={(e) => {
-                if (e.altKey) {
-                  e.stopPropagation();
-                  useSearchStore.getState().applyDateFilter(result.ngay?.slice(0, 7) || '');
-                } else if (e.ctrlKey || e.metaKey) {
-                  e.stopPropagation();
-                  useSearchStore.getState().applyDateFilter(result.ngay || '');
-                }
-              }}
-            >{result.ngay}</span>}
+          <div className="flex gap-3 mt-0.5 text-3 text-text-secondary">
+            {counterparty && <span className="overflow-hidden text-ellipsis whitespace-nowrap">{counterparty}</span>}
+            {result.ngay && (
+              <span
+                className="cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
+                title="⌘+Click: filter by date · ⌥+Click: filter by month"
+                onClick={(e) => {
+                  if (e.altKey) {
+                    e.stopPropagation();
+                    useSearchStore.getState().applyDateFilter(result.ngay?.slice(0, 7) || '');
+                  } else if (e.ctrlKey || e.metaKey) {
+                    e.stopPropagation();
+                    useSearchStore.getState().applyDateFilter(result.ngay || '');
+                  }
+                }}
+              >{result.ngay}</span>
+            )}
           </div>
         </div>
-        <div className="result-right">
+        <div className="flex flex-col items-end gap-0.5 shrink-0">
           {amount > 0 && (
-            <span className="result-amount">
+            <span className="font-semibold tabular-nums text-3.25">
               {formatCurrency(amount)}
               {!isBank && result.line_item_sum != null && result.tong_tien > 0 && Math.abs(result.line_item_sum - result.tong_tien) > 1 && (
-                <span className="mismatch-badge" title={`Sum of items: ${formatCurrency(result.line_item_sum)}`}>!</span>
+                <span className="text-confidence-low text-2.75 font-bold ml-[3px]" title={`Sum of items: ${formatCurrency(result.line_item_sum)}`}>!</span>
               )}
             </span>
           )}
-          <span className={`result-confidence ${confidenceClass(result.confidence)}`}>
+          <span className={`text-2.75 font-medium px-1.5 py-[1px] rounded ${confidenceClasses(result.confidence)}`}>
             {Math.round(result.confidence * 100)}%
           </span>
         </div>
       </div>
-      <div className="result-file" title={result.relative_path}>
+      <div className="mt-1 text-2.75 text-text-muted whitespace-nowrap overflow-hidden text-ellipsis" title={result.relative_path}>
         {folder && (
           <span
-            className="result-file-folder result-file-clickable"
+            className="text-text-muted mr-[1px] cursor-pointer rounded-sm px-[1px] hover:text-accent hover:underline"
             title={folderFull}
             onClick={(e) => {
               e.stopPropagation();
@@ -145,7 +150,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         )}
         {result.file_status && <StatusDot status={result.file_status} />}
         <span
-          className="result-file-name result-file-clickable"
+          className="text-text-secondary cursor-pointer rounded-sm px-[1px] hover:text-accent hover:underline"
           title={`Scope to ${filename}`}
           onClick={(e) => {
             e.stopPropagation();

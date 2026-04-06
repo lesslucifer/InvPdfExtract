@@ -7,6 +7,10 @@ interface Props {
   onVaultChanged?: () => void;
 }
 
+const settingsBtnClass = 'bg-bg-secondary border border-border rounded-md px-2.5 py-1 inline-flex items-center gap-1 text-3 font-medium text-text cursor-pointer transition-colors hover:bg-bg-hover';
+const dangerBtnClass = `${settingsBtnClass} text-confidence-low hover:bg-confidence-low/10`;
+const confirmBtnClass = 'bg-confidence-medium border border-confidence-medium rounded-md px-2.5 py-1 inline-flex items-center gap-1 text-3 font-medium text-white cursor-pointer hover:opacity-85';
+
 export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const goBack = useOverlayStore(s => s.goBack);
   const { data: config = null } = useAppConfig();
@@ -45,7 +49,6 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const handleDisconnectVault = useCallback(async (vaultPath: string, e: React.MouseEvent) => {
     const isClear = e.metaKey || e.ctrlKey;
     if (isClear) {
-      // Ctrl/Cmd+click: clear vault data (with one confirmation)
       if (clearConfirmVault !== vaultPath) {
         setClearConfirmVault(vaultPath);
         return;
@@ -53,17 +56,13 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
       setClearConfirmVault(null);
       await window.api.clearVaultData(vaultPath);
     } else {
-      // Normal click: just disconnect
       await window.api.removeVault(vaultPath);
     }
     useAppConfig.invalidate();
     onVaultChanged?.();
   }, [clearConfirmVault, onVaultChanged]);
 
-  const handleOpenVault = useCallback((vaultPath: string) => {
-    // Open the vault root (pass empty string since open-folder joins with vaultPath)
-    // For non-active vaults we need the full path, but the IPC handler uses vaultPath
-    // So for the active vault, pass '' to open the root
+  const handleOpenVault = useCallback((_vaultPath: string) => {
     window.api.openFolder('');
   }, []);
 
@@ -82,39 +81,45 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   }, []);
 
   if (!config) {
-    return <div className="settings-panel"><div className="settings-loading">Loading...</div></div>;
+    return (
+      <div className="flex flex-col flex-1 overflow-y-auto">
+        <div className="px-8 py-8 text-center text-text-muted">Loading...</div>
+      </div>
+    );
   }
 
   const otherVaults = (config.vaultPaths || []).filter(p => p !== config.lastVaultPath);
 
   return (
-    <div className="settings-panel">
-      <div className="settings-header">
-        <button className="settings-back-btn" onClick={goBack} aria-label="Back">
+    <div className="flex flex-col flex-1 overflow-y-auto">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border sticky top-0 bg-bg z-[1]">
+        <button
+          className="bg-transparent border-none text-text-secondary cursor-pointer px-1.5 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-hover"
+          onClick={goBack}
+          aria-label="Back"
+        >
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
-        <span className="settings-title">Settings</span>
+        <span className="text-3.5 font-semibold">Settings</span>
       </div>
 
       {switchNotification && (
-        <div className="settings-notification settings-notification-success">
-          Switched to <strong>{switchNotification}</strong>
+        <div className="mx-4 mb-2 px-3 py-2 rounded-md text-3 bg-confidence-high/15 text-confidence-high border border-confidence-high/30 animate-settings-notification-fade">
+          Switched to <strong className="font-semibold break-all">{switchNotification}</strong>
         </div>
       )}
 
       {config.lastVaultPath && (
-        <div className="settings-section">
-          <div className="settings-section-label">Current Vault</div>
-          <div className="settings-vault-row">
-            <span className="settings-vault-path settings-vault-path-active" title={config.lastVaultPath}>
+        <div className="px-4 py-2.5">
+          <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">Current Vault</div>
+          <div className="flex items-center justify-between gap-2 py-1.5">
+            <span className="text-3 text-confidence-high overflow-hidden text-ellipsis whitespace-nowrap min-w-0 flex-1" title={config.lastVaultPath}>
               {config.lastVaultPath}
             </span>
-            <div className="settings-vault-actions">
-              <button className="settings-icon-btn" onClick={() => handleOpenVault(config.lastVaultPath!)} title="Open in file manager">
-                Open
-              </button>
+            <div className="flex gap-1.5 shrink-0">
+              <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title="Open in file manager">Open</button>
               <button
-                className={`settings-icon-btn settings-danger`}
+                className={clearConfirmVault === config.lastVaultPath ? confirmBtnClass : dangerBtnClass}
                 onClick={(e) => handleDisconnectVault(config.lastVaultPath!, e)}
                 title={clearConfirmVault === config.lastVaultPath ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
               >
@@ -126,21 +131,21 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
       )}
 
       {otherVaults.length > 0 && (
-        <div className="settings-section">
-          <div className="settings-section-label">Other Vaults</div>
+        <div className="px-4 py-2.5">
+          <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">Other Vaults</div>
           {otherVaults.map(vp => (
-            <div key={vp} className="settings-vault-row">
-              <span className="settings-vault-path" title={vp}>{vp}</span>
-              <div className="settings-vault-actions">
+            <div key={vp} className="flex items-center justify-between gap-2 py-1.5">
+              <span className="text-3 text-text overflow-hidden text-ellipsis whitespace-nowrap min-w-0 flex-1" title={vp}>{vp}</span>
+              <div className="flex gap-1.5 shrink-0">
                 <button
-                  className={`settings-icon-btn ${switchConfirm === vp ? 'settings-confirm' : ''}`}
+                  className={switchConfirm === vp ? confirmBtnClass : settingsBtnClass}
                   onClick={() => handleSwitchVault(vp)}
                   title={switchConfirm === vp ? 'Click again to confirm switch' : 'Switch to this vault'}
                 >
                   {switchConfirm === vp ? 'Confirm?' : <Icons.arrowLeftRight size={ICON_SIZE.SM} />}
                 </button>
                 <button
-                  className={`settings-icon-btn settings-danger`}
+                  className={clearConfirmVault === vp ? confirmBtnClass : dangerBtnClass}
                   onClick={(e) => handleDisconnectVault(vp, e)}
                   title={clearConfirmVault === vp ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
                 >
@@ -152,37 +157,37 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
         </div>
       )}
 
-      <div className="settings-section">
-        <button className="settings-action-btn" onClick={handleAddVault}>+ Add Vault</button>
+      <div className="px-4 py-2.5">
+        <button className={settingsBtnClass} onClick={handleAddVault}>+ Add Vault</button>
       </div>
 
-      <div className="settings-divider" />
+      <div className="h-[1px] bg-border mx-4 my-1" />
 
-      <div className="settings-section">
+      <div className="px-4 py-2.5">
         <button
-          className={`settings-action-btn ${confirmReprocess ? 'settings-confirm' : ''}`}
+          className={confirmReprocess ? confirmBtnClass : settingsBtnClass}
           onClick={handleReprocessAll}
         >
           {confirmReprocess ? 'Confirm Reprocess?' : 'Reprocess All Files'}
         </button>
-        {reprocessResult && <div className="settings-result">{reprocessResult}</div>}
+        {reprocessResult && <div className="text-3 text-text-secondary mt-1.5">{reprocessResult}</div>}
       </div>
 
-      <div className="settings-section">
-        <div className="settings-section-label">Claude CLI</div>
-        <div className="settings-cli-status">
+      <div className="px-4 py-2.5">
+        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">Claude CLI</div>
+        <div className="text-3 text-text-secondary">
           {cliStatus === null
             ? 'Checking...'
             : cliStatus.available
               ? `Found (${cliStatus.version || 'unknown version'})`
-              : 'Not found — install Claude Code CLI and ensure it\'s in your PATH.'}
+              : "Not found — install Claude Code CLI and ensure it's in your PATH."}
         </div>
       </div>
 
-      <div className="settings-divider" />
+      <div className="h-[1px] bg-border mx-4 my-1" />
 
-      <div className="settings-section">
-        <button className="settings-action-btn settings-danger" onClick={handleQuit}>
+      <div className="px-4 py-2.5">
+        <button className={dangerBtnClass} onClick={handleQuit}>
           Quit InvoiceVault
         </button>
       </div>

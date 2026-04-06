@@ -14,6 +14,8 @@ interface Props {
   onSettingsClick?: () => void;
 }
 
+const iconBtnClass = 'bg-transparent border border-border text-text-secondary cursor-pointer px-1.5 py-1 rounded opacity-60 transition-[opacity,background] hover:opacity-100 hover:bg-bg-hover leading-[0]';
+
 export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowlize, onCheatsheetClick, onSettingsClick }, ref) => {
   const stats = useSearchStore(s => s.aggregates);
   const storeFilters = useSearchStore(s => s.filters);
@@ -72,65 +74,48 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
   if (stats.totalRecords === 0) return null;
 
   return (
-    <div className="sticky-footer">
-      <div className="sticky-footer-stats">
-        <span className="sticky-footer-count">{stats.totalRecords} records</span>
+    <div className="flex items-center justify-between px-3 py-1.5 border-t border-border h-9 box-border shrink-0">
+      <div className="flex items-center gap-1 text-3 text-text-muted">
+        <span className="font-medium text-text-secondary">{stats.totalRecords} records</span>
         {stats.totalAmount > 0 && (
           <>
-            <span className="sticky-footer-separator" />
-            <span className="sticky-footer-amount">{formatCurrency(stats.totalAmount)}</span>
+            <span className="w-[1px] h-3 bg-border mx-1" />
+            <span className="text-text-muted">{formatCurrency(stats.totalAmount)}</span>
           </>
         )}
       </div>
-      <div className="sticky-footer-actions">
+      <div className="flex items-center gap-1.5">
         {toast ? (
-          <div className="sticky-footer-toast">
+          <div className="flex items-center gap-2 text-3 text-text-secondary">
             <span>{toast.message}</span>
-            <button className="sticky-footer-toast-open" onClick={handleOpenExportFile}>Open</button>
+            <button
+              className="bg-transparent border border-border rounded px-2 py-[2px] text-2.75 text-accent cursor-pointer hover:bg-bg-hover"
+              onClick={handleOpenExportFile}
+            >Open</button>
           </div>
         ) : (
           <button
-            className="sticky-footer-export"
+            className="bg-accent text-white border-none rounded px-2.5 py-1 text-3 cursor-pointer font-medium transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-default"
             onClick={handleExport}
             disabled={exporting}
             aria-label="Export XLSX"
             title="Export XLSX (Ctrl+S)"
           >
-            <>
-              
-              {exporting ? (
-                'Exporting...'
-              ) : <Icons.download size={ICON_SIZE.SM} />}
-            </>
+            {exporting ? 'Exporting...' : <Icons.download size={ICON_SIZE.SM} />}
           </button>
         )}
         {onWindowlize && (
-          <button
-            className="windowlize-btn"
-            onClick={onWindowlize}
-            aria-label="Open as window"
-            title="Open as window"
-          >
+          <button className={iconBtnClass} onClick={onWindowlize} aria-label="Open as window" title="Open as window">
             <Icons.maximize size={ICON_SIZE.SM} />
           </button>
         )}
         {onCheatsheetClick && (
-          <button
-            className="windowlize-btn"
-            onClick={onCheatsheetClick}
-            aria-label="Cheatsheet"
-            title="Cheatsheet (?)"
-          >
+          <button className={iconBtnClass} onClick={onCheatsheetClick} aria-label="Cheatsheet" title="Cheatsheet (?)">
             <Icons.circleHelp size={ICON_SIZE.SM} />
           </button>
         )}
         {onSettingsClick && (
-          <button
-            className="windowlize-btn"
-            onClick={onSettingsClick}
-            aria-label="Settings"
-            title="Settings"
-          >
+          <button className={iconBtnClass} onClick={onSettingsClick} aria-label="Settings" title="Settings">
             <Icons.settings size={ICON_SIZE.SM} />
           </button>
         )}

@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-// === JeCell — inline-editable <td> for a single account code ===
-
 interface JeCellProps {
   account: string | null;
   onSave: (account: string) => void;
@@ -43,11 +41,11 @@ export const JeCell: React.FC<JeCellProps> = ({ account, onSave }) => {
   const isEmpty = !account;
 
   return (
-    <td className={`je-cell ${isEmpty ? 'je-cell-empty' : ''}`}>
+    <td className={`px-1.5 py-[3px] whitespace-nowrap ${isEmpty ? 'text-text-muted' : ''}`}>
       {editing ? (
         <input
           ref={inputRef}
-          className="je-cell-input"
+          className="w-[60px] border border-accent rounded-sm bg-bg text-text text-2.75 px-1 py-[1px] font-sans outline-none"
           type="text"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
@@ -56,7 +54,7 @@ export const JeCell: React.FC<JeCellProps> = ({ account, onSave }) => {
           placeholder="TK"
         />
       ) : (
-        <span className="je-cell-display" onClick={handleClick}>
+        <span className="je-cell-display cursor-pointer px-1 py-[1px] rounded-sm transition-colors" onClick={handleClick}>
           {account || '–'}
         </span>
       )}

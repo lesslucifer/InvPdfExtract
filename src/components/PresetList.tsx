@@ -107,41 +107,40 @@ export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePrese
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [filtered, selectedIndex, handleSelect]);
 
-  // Reset selection when filter changes
   useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
 
   if (filtered.length === 0) {
     return (
-      <div className="preset-list-empty">
+      <div className="px-4 py-6 text-center text-3.25 text-text-muted">
         {query ? 'No matching presets' : 'No saved presets'}
       </div>
     );
   }
 
   return (
-    <ul className="preset-list" role="listbox">
+    <ul className="list-none m-0 py-1 overflow-y-auto max-h-[340px]" role="listbox">
       {filtered.map((preset, idx) => (
         <li
           key={preset.id}
-          className={`preset-item${idx === selectedIndex ? ' selected' : ''}`}
+          className={`group flex flex-col px-4 py-2 cursor-pointer transition-colors ${idx === selectedIndex ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
           role="option"
           aria-selected={idx === selectedIndex}
           onClick={(e) => handleSelect(preset, e)}
           onMouseEnter={() => setSelectedIndex(idx)}
         >
-          <div className="preset-item__line1">
-            <span className="preset-item__star"><Icons.star size={ICON_SIZE.SM} /></span>
-            <span className="preset-item__name">{preset.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-accent inline-flex items-center shrink-0"><Icons.star size={ICON_SIZE.SM} /></span>
+            <span className="text-3.25 font-medium text-text flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{preset.name}</span>
             <button
-              className="preset-item__delete"
+              className="inline-flex items-center justify-center w-[22px] h-[22px] p-0 border-none rounded bg-transparent text-text-secondary cursor-pointer shrink-0 opacity-0 transition-[opacity,background,color] group-hover:opacity-60 hover:!opacity-100 hover:bg-confidence-low hover:text-white"
               onClick={(e) => handleDelete(e, preset.id)}
               aria-label={`Delete ${preset.name}`}
               title="Delete preset"
             ><Icons.close size={ICON_SIZE.XS} /></button>
           </div>
-          <div className="preset-item__line2">
+          <div className="text-2.75 text-text-muted pl-[22px] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
             {buildPresetSummary(preset.filtersJson)}
           </div>
         </li>

@@ -22,7 +22,6 @@ export const ResultList: React.FC<Props> = ({
   const listRef = useRef<HTMLDivElement>(null);
   const prevResultCountRef = useRef(results.length);
 
-  // Scroll to top when results are replaced (fresh search)
   useEffect(() => {
     if (results.length < prevResultCountRef.current) {
       listRef.current?.scrollTo(0, 0);
@@ -30,7 +29,6 @@ export const ResultList: React.FC<Props> = ({
     prevResultCountRef.current = results.length;
   }, [results.length]);
 
-  // Infinite scroll detection
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -48,11 +46,11 @@ export const ResultList: React.FC<Props> = ({
   }, []);
 
   if (results.length === 0) {
-    return <div className="result-empty">No results found</div>;
+    return <div className="px-6 py-6 text-center text-text-muted">No results found</div>;
   }
 
   return (
-    <div className="result-list" role="listbox" ref={listRef}>
+    <div className="result-list overflow-y-auto flex-1 min-h-0" role="listbox" ref={listRef}>
       {results.map((result, index) => (
         <div key={result.id}>
           <ResultRow
@@ -74,7 +72,7 @@ export const ResultList: React.FC<Props> = ({
         </div>
       ))}
       {isLoadingMore && (
-        <div className="result-loading">Loading more...</div>
+        <div className="text-center px-3 py-3 text-text-muted text-3.25">Loading more...</div>
       )}
     </div>
   );

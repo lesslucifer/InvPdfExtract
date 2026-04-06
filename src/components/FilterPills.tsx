@@ -83,12 +83,12 @@ export const FilterPills: React.FC = () => {
   if (pills.length === 0) return null;
 
   return (
-    <div className="filter-pills">
+    <div className="flex flex-wrap gap-1.5 px-4 py-1.5 border-b border-border">
       {pills.map((pill) => (
-        <span key={pill.key} className="filter-pill">
+        <span key={pill.key} className="inline-flex items-center gap-1 bg-bg-secondary border border-border rounded-full px-2.5 py-[3px] text-3 text-text">
           {pill.key === 'sortField' ? (
             <button
-              className="filter-pill-direction"
+              className="inline-flex items-center text-text-secondary border-none bg-transparent cursor-pointer p-0.5 rounded hover:text-accent hover:bg-bg-hover transition-colors"
               onClick={toggleSortDirection}
               aria-label="Toggle sort direction"
               title="Toggle sort direction"
@@ -96,11 +96,11 @@ export const FilterPills: React.FC = () => {
               <Icon name={pill.icon} size={ICON_SIZE.SM} />
             </button>
           ) : (
-            <span className="filter-pill-icon"><Icon name={pill.icon} size={ICON_SIZE.SM} /></span>
+            <span className="inline-flex items-center"><Icon name={pill.icon} size={ICON_SIZE.SM} /></span>
           )}
-          <span className="filter-pill-label">{pill.label}</span>
+          <span className="whitespace-nowrap">{pill.label}</span>
           <button
-            className="filter-pill-close"
+            className="bg-transparent border-none text-text-muted cursor-pointer px-0.5 inline-flex items-center rounded-full hover:text-text hover:bg-bg-hover"
             onClick={() => removeFilter(pill.key)}
             aria-label={`Remove ${pill.label} filter`}
           >
