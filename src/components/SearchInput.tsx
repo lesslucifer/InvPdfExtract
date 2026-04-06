@@ -1,19 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useProcessingStore } from '../stores';
+import type { LucideIcon } from 'lucide-react';
 
-const PROCESSING_STATUS_CLASSES: Record<string, string> = {
-  idle:       'bg-confidence-high',
-  processing: 'bg-accent animate-status-pulse',
-  review:     'bg-confidence-medium',
-  error:      'bg-confidence-low',
-};
-
-const PROCESSING_STATUS_LABELS: Record<string, string> = {
-  idle:       'Idle',
-  processing: 'Processing...',
-  review:     'Needs review',
-  error:      'Error',
+const PROCESSING_STATUS_CONFIG: Record<string, { icon: LucideIcon; className: string; label: string }> = {
+  idle:       { icon: Icons.success,   className: 'text-text-muted',               label: 'All good — view processing log' },
+  processing: { icon: Icons.loader,   className: 'text-accent animate-spin-slow', label: 'Processing...' },
+  review:     { icon: Icons.conflict,  className: 'text-confidence-medium',        label: 'Needs review' },
+  error:      { icon: Icons.error,     className: 'text-confidence-low',           label: 'Error' },
 };
 
 interface Props {
@@ -44,8 +38,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
     }
   };
 
-  const dotClass = `w-[7px] h-[7px] rounded-full shrink-0 mr-0.5 transition-colors ${PROCESSING_STATUS_CLASSES[status] ?? 'bg-text-muted'}`;
-  const dotLabel = PROCESSING_STATUS_LABELS[status] ?? status;
+  const statusConfig = PROCESSING_STATUS_CONFIG[status] ?? PROCESSING_STATUS_CONFIG['idle'];
 
   return (
     <div className="flex items-center px-4 py-3 border-b border-border gap-2.5">
@@ -73,17 +66,21 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
       )}
       {onStatusDotClick ? (
         <button
-          className={`${dotClass} border-none p-0 outline-none cursor-pointer hover:scale-[1.4]`}
-          title={dotLabel}
-          aria-label={`Status: ${status}`}
+          className={`inline-flex items-center shrink-0 border-none bg-transparent p-0 outline-none cursor-pointer hover:scale-[1.2] transition-transform ${statusConfig.className}`}
+          title={statusConfig.label}
+          aria-label={`Status: ${statusConfig.label}`}
           onClick={onStatusDotClick}
-        />
+        >
+          <statusConfig.icon size={ICON_SIZE.SM} />
+        </button>
       ) : (
         <span
-          className={dotClass}
-          title={dotLabel}
-          aria-label={`Status: ${status}`}
-        />
+          className={`inline-flex items-center shrink-0 ${statusConfig.className}`}
+          title={statusConfig.label}
+          aria-label={`Status: ${statusConfig.label}`}
+        >
+          <statusConfig.icon size={ICON_SIZE.SM} />
+        </span>
       )}
     </div>
   );

@@ -8,16 +8,18 @@ import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMis
 import { useProcessingStore } from '../stores';
 import { useResultDetail, useLineItems } from '../lib/queries';
 import { useSaveFieldOverride, useSaveJournalEntry, useSaveLineItemField } from '../lib/mutations';
+import { Icons, ICON_SIZE } from '../shared/icons';
+import type { LucideIcon } from 'lucide-react';
 
 interface Props {
   result: SearchResult;
 }
 
-const JE_DOT_CLASSES: Record<string, string> = {
-  pending:    'bg-confidence-medium animate-je-dot-pulse-slow',
-  processing: 'bg-accent animate-je-dot-pulse-fast',
-  done:       'bg-confidence-high',
-  error:      'bg-confidence-low',
+const JE_STATUS_ICON_CONFIG: Record<string, { icon: LucideIcon; className: string; title: string }> = {
+  pending:    { icon: Icons.hourglass, className: 'text-text-muted',                title: 'Queued for classification' },
+  processing: { icon: Icons.loader,    className: 'text-accent animate-spin-slow',    title: 'Classifying...' },
+  done:       { icon: Icons.check,     className: 'text-confidence-high',             title: 'Classified — click to reclassify' },
+  error:      { icon: Icons.error,     className: 'text-confidence-low',              title: 'Classification failed — click to retry' },
 };
 
 export const ResultDetail: React.FC<Props> = ({ result }) => {
@@ -151,14 +153,22 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
     await saveJournalEntry.mutateAsync({ recordId: result.id, lineItemId: lineItemId ?? undefined, entryType, account });
   };
 
-  const jeDotClass = (status: string) =>
-    `inline-block w-2 h-2 rounded-full ml-1.5 align-middle cursor-pointer shrink-0 ${JE_DOT_CLASSES[status] ?? 'bg-text-muted'}`;
-
-  const jeDotTitle = (status: string) =>
-    status === 'done' ? 'Classified — click to reclassify'
-    : status === 'error' ? 'Classification failed — click to retry'
-    : status === 'processing' ? 'Classifying...'
-    : 'Queued for classification';
+  const renderJeIcon = (status: string) => {
+    const config = JE_STATUS_ICON_CONFIG[status];
+    if (!config) return null;
+    const Icon = config.icon;
+    return (
+      <span
+        className={`inline-flex items-center ml-1.5 align-middle cursor-pointer shrink-0 ${config.className}`}
+        title={config.title}
+        onClick={handleReclassify}
+        role="button"
+        tabIndex={0}
+      >
+        <Icon size={ICON_SIZE.XS} />
+      </span>
+    );
+  };
 
   return (
     <div className="px-4 pb-3 pl-[50px] bg-bg-secondary border-b border-border animate-detail-in">
@@ -182,15 +192,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
             <tr>
               <td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">
                 TK
-                {jeStatus && (
-                  <span
-                    className={jeDotClass(jeStatus)}
-                    title={jeDotTitle(jeStatus)}
-                    onClick={handleReclassify}
-                    role="button"
-                    tabIndex={0}
-                  />
-                )}
+                {jeStatus && renderJeIcon(jeStatus)}
               </td>
               <JeCell account={bankJe?.account ?? null} onSave={(account) => handleSaveJeAccount('bank', null, account)} />
             </tr>
@@ -216,15 +218,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
             <div className="mt-2">
               <div className="flex items-center justify-between font-semibold text-3 mb-1 text-text-secondary">
                 <span>Line Items</span>
-                {jeStatus && (
-                  <span
-                    className={jeDotClass(jeStatus)}
-                    title={jeDotTitle(jeStatus)}
-                    onClick={handleReclassify}
-                    role="button"
-                    tabIndex={0}
-                  />
-                )}
+                {jeStatus && renderJeIcon(jeStatus)}
               </div>
               <table className="w-full border-collapse text-2.75">
                 <thead>

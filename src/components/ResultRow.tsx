@@ -1,6 +1,6 @@
 import React from 'react';
 import { SearchResult, DocType } from '../shared/types';
-import { StatusDot } from './StatusDot';
+import { StatusIcon } from './StatusIcon';
 import { formatCurrency } from '../shared/format';
 import { DOC_TYPE_ICONS, ICON_SIZE } from '../shared/icons';
 import { useSearchStore } from '../stores';
@@ -148,7 +148,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             {middleEllipsis(folder, FOLDER_MAX_LEN)}/
           </span>
         )}
-        {result.file_status && <StatusDot status={result.file_status} />}
+        {result.file_status && <StatusIcon status={result.file_status} />}
         <span
           className="text-text-secondary cursor-pointer rounded-sm px-[1px] hover:text-accent hover:underline"
           title={`Scope to ${filename}`}

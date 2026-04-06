@@ -33,6 +33,11 @@ import {
   CircleAlert,
   FingerprintPattern,
   CircleHelp,
+  Hourglass,
+  LoaderCircle,
+  CircleCheck,
+  CircleX,
+  CircleSlash,
 } from 'lucide-react';
 
 export const ICON_SIZE = {
@@ -54,6 +59,11 @@ export const Icons = {
   // Status
   conflict: AlertTriangle,
   overridden: PenLine,
+  hourglass: Hourglass,
+  loader: LoaderCircle,
+  success: CircleCheck,
+  error: CircleX,
+  skipped: CircleSlash,
 
   // Filters
   amount: Banknote,
