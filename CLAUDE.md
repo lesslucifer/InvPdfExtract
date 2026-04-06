@@ -150,19 +150,19 @@ Always use `queryHook`/`mutationHook` builders instead of raw `useQuery`/`useMut
 ```typescript
 // Query: queryHook.ofKey → .useQuery → .create()
 const usePresets = queryHook
-  .ofKey<void, ['presets']>(() => ['presets'] as const)
+  .ofKey(() => ['presets'] as const)
   .useQuery(() => ({ queryFn: () => window.api.listPresets() }))
   .create();
 
 // Query with params: pass param type to ofKey
 const useDetail = queryHook
-  .ofKey<{ id: string }, ['resultDetail', string]>(({ id }) => ['resultDetail', id] as const)
+  .ofKey(({ id }: { id: string }) => ['resultDetail', id] as const)
   .useQuery(({ params }) => ({ queryFn: () => window.api.getDetail(params.id) }))
   .create();
 
 // Extend with computed fields: .extend() instead of .create()
 const useDetailExt = queryHook
-  .ofKey<{ id: string }, ['resultDetail', string]>(({ id }) => ['resultDetail', id] as const)
+  .ofKey(({ id }: { id: string }) => ['resultDetail', id] as const)
   .useQuery(({ params }) => ({ queryFn: () => window.api.getDetail(params.id) }))
   .extend((data) => ({ isEmpty: !data?.length }));
 
@@ -174,14 +174,6 @@ const useDeletePreset = mutationHook
 
 Static methods on query hooks: `.key()`, `.invalidate()`, `.prefetch()`, `.getCachedData()`, `.setData()`.
 Chainable transforms: `.params()` (remap params), `.extend()` (add computed fields), `.data()` (add dependencies).
-
-- IPC calls returning `{ success }` don't fit `mutationHook` — use static `.invalidate()` with conditional check.
-- When parent owns IPC call via prop, use static `.invalidate()` in child — avoid double-calling.
-- `setQueryHookContext({ queryClient })` must run before any component renders (module-level in App.tsx).
-- Multi-fetch queries (e.g. `useHomeData` combining 3 IPC calls) use `Promise.all` inside `queryFn`.
-- `processingStore` imports query hooks and calls `.invalidate()` directly in IPC event handlers — no `queryClient` import needed.
-- Optimistic updates use `.setData()` (e.g. `useFolderStatuses.setData(undefined, undefined, updater)`) — keep `useState` only for local UI state.
-- `mutationHook.mutate<TParams, TResponse>` — specify both type params when IPC returns a typed response (e.g. `{ success: boolean }`).
 
 ## SQLite Schema
 

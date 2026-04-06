@@ -1,4 +1,4 @@
-import { AppConfig, FilterPreset, FolderInfo, AggregateStats, SearchFilters, FileStatus, VaultFile, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem } from '../shared/types';
+import { AppConfig, FilterPreset, FolderInfo, AggregateStats, SearchFilters, FileStatus, VaultFile, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem, FieldOverrideInfo, JournalEntry, InvoiceLineItem } from '../shared/types';
 import { queryHook } from './queryHook';
 
 const ALL_FILTERS: SearchFilters = {};
@@ -56,5 +56,27 @@ export const useErrorData = queryHook
       window.api.getErrorLogsWithPath(),
       window.api.getJeErrorItems(),
     ]).then(([logs, jeErrors]) => ({ logs, jeErrors }))
+  }))
+  .create();
+
+export const useResultDetail = queryHook
+  .ofKey<{ id: string }, ['resultDetail', string]>(({ id }) => ['resultDetail', id] as const)
+  .useQuery(({ params }) => ({
+    queryFn: () => Promise.all([
+      window.api.getFieldOverrides(params.id),
+      window.api.getJournalEntries(params.id),
+    ]).then(([overrides, journalEntries]) => ({ overrides, journalEntries }))
+  }))
+  .create();
+
+export const useLineItems = queryHook
+  .ofKey<{ id: string }, ['lineItems', string]>(({ id }) => ['lineItems', id] as const)
+  .useQuery(({ params }) => ({
+    queryFn: () => window.api.getLineItems(params.id).then(async (lineItems) => {
+      if (lineItems.length === 0) return { lineItems, lineItemOverrides: {} as Record<string, FieldOverrideInfo[]> };
+      const ids = lineItems.map((i: InvoiceLineItem) => i.id);
+      const lineItemOverrides = await window.api.getLineItemOverrides(ids);
+      return { lineItems, lineItemOverrides };
+    })
   }))
   .create();

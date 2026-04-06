@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { FileStatus, JEClassificationStatus } from '../shared/types';
-import { useHomeData, useFolderStatuses, useQueueData, useProcessedData, useErrorData } from '../lib/queries';
+import { useHomeData, useFolderStatuses, useQueueData, useProcessedData, useErrorData, useResultDetail } from '../lib/queries';
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -55,6 +55,9 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
       // Invalidate React Query caches
       useQueueData.invalidate();
       useErrorData.invalidate();
+      for (const id of data.recordIds) {
+        useResultDetail.invalidate({ id });
+      }
     });
 
     return () => {

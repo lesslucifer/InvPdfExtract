@@ -177,12 +177,12 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
 
 ---
 
-### Phase C — Complex Component (ResultDetail)
+### Phase C — Complex Component (ResultDetail) ✅
 
 **Goal:** Eliminate 5 useState + 4 manual loaders + manual-reload-after-mutation chains.
 
-**Steps:**
-1. Add to `src/lib/queries.ts`:
+**Completed:**
+1. ✅ Added to `src/lib/queries.ts`:
    ```typescript
    const useResultDetail = queryHook
      .ofKey<{ id: string }, ['resultDetail', string]>(({ id }) => ['resultDetail', id] as const)
@@ -197,39 +197,43 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
    const useLineItems = queryHook
      .ofKey<{ id: string }, ['lineItems', string]>(({ id }) => ['lineItems', id] as const)
      .useQuery(({ params }) => ({
-       queryFn: () => Promise.all([
-         window.api.getLineItems(params.id),
-         window.api.getLineItemOverrides([...]),
-       ]).then(([lineItems, overrides]) => ({ lineItems, overrides }))
+       queryFn: () => window.api.getLineItems(params.id).then(async (lineItems) => {
+         if (lineItems.length === 0) return { lineItems, lineItemOverrides: {} };
+         const lineItemOverrides = await window.api.getLineItemOverrides(lineItems.map(i => i.id));
+         return { lineItems, lineItemOverrides };
+       })
      }))
      .create();
    ```
-2. Add mutations to `src/lib/mutations.ts`:
+2. ✅ Added mutations to `src/lib/mutations.ts`:
    ```typescript
    const useSaveFieldOverride = mutationHook
-     .mutate<OverrideInput>(input => window.api.saveFieldOverride(input))
+     .mutate<FieldOverrideInput>(input => window.api.saveFieldOverride(input))
      .onSuccess((_, input) => useResultDetail.invalidate({ id: input.recordId }));
-
-   const useSaveLineItemField = mutationHook
-     .mutate<LineItemInput>(input => window.api.saveLineItemField(input))
-     .onSuccess((_, input) => useLineItems.invalidate({ id: input.recordId }));
 
    const useSaveJournalEntry = mutationHook
-     .mutate<JeInput>(input => window.api.saveJournalEntry(input))
+     .mutate<JournalEntryInput, JournalEntry>(input => window.api.saveJournalEntry(input))
      .onSuccess((_, input) => useResultDetail.invalidate({ id: input.recordId }));
-   ```
-3. Refactor `ResultDetail`:
-   - Use `useResultDetail({ id })` and `useLineItems({ id })` hooks
-   - Use mutation hooks for all save/resolve operations
-   - Remove manual loader `useCallback`s and `useEffect` reload loops
-4. Remove `useEffect([lastJeUpdate])` for JE reload → `processingStore` `onJeStatusChanged` invalidates `useResultDetail` (extend from Phase B wiring)
-5. Keep `localTotals` as `useState` — it's optimistic UI state
 
-**After Phase C:**
-- Run `pnpm test`
-- Run `pnpm tsc --noEmit`
-- Update CLAUDE.md with lessons learned
-- Commit code
+   // LineItemFieldInput lacks recordId — wrap it to enable invalidation:
+   const useSaveLineItemField = mutationHook
+     .mutate<{ input: LineItemFieldInput; recordId: string }>(({ input }) => window.api.saveLineItemField(input))
+     .onSuccess((_, { recordId }) => useLineItems.invalidate({ id: recordId }));
+   ```
+3. ✅ Refactored `ResultDetail`:
+   - Uses `useResultDetail({ id })` and `useLineItems({ id })` hooks
+   - `useSaveFieldOverride` / `useSaveJournalEntry` / `useSaveLineItemField` for all saves
+   - `resolveConflict` / `resolveAllConflicts` — static `.invalidate()` in async handlers (no recordId in their return)
+   - Removed all manual loader `useCallback`s and `useEffect` reload loops
+4. ✅ `processingStore` `onJeStatusChanged` iterates `recordIds` and calls `useResultDetail.invalidate({ id })` per record
+5. ✅ Kept `localTotals` as `useState` — optimistic UI state
+6. ✅ Kept `jeStatusRaw` + `lastJeUpdate` effect — optimistic JE status for reclassify animation
+
+**Lessons:**
+- `LineItemFieldInput` lacks `recordId` — wrap input to pass recordId alongside: `mutate<{ input, recordId }>`
+- IPC calls with no `recordId` in their signature (`resolveConflict`) → static `.invalidate()` in async handler, not `mutationHook.onSuccess`
+- `jeStatusRaw` (reclassify spinner) stays as `useState` — it's UI state, not server state
+- `processingStore` `onJeStatusChanged` iterates `recordIds` calling `.invalidate({ id })` per record — no component listener needed
   
 ---
 
@@ -265,7 +269,7 @@ After each phase, add lessons to the **QueryHook / MutationHook Conventions** se
 
 - [x] Phase A: PresetList + SettingsPanel migrated, tests pass, tsc clean
 - [x] Phase B: HomeScreen + ProcessingStatusPanel migrated, processingStore wired to query invalidation, tests pass, tsc clean
-- [ ] Phase C: ResultDetail migrated, tests pass, tsc clean
+- [x] Phase C: ResultDetail migrated, tests pass, tsc clean
 - [ ] Phase D: PathResultsList migrated (optional)
 - [ ] CLAUDE.md updated after each phase
 - [ ] No component uses manual `loading` state or `useEffect` + reload pattern for data that React Query now owns

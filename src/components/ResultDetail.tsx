@@ -6,20 +6,18 @@ import { JeCell } from './JeCell';
 import { formatCurrency } from '../shared/format';
 import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
 import { useProcessingStore } from '../stores';
+import { useResultDetail, useLineItems } from '../lib/queries';
+import { useSaveFieldOverride, useSaveJournalEntry, useSaveLineItemField } from '../lib/mutations';
 
 interface Props {
   result: SearchResult;
 }
 
 export const ResultDetail: React.FC<Props> = ({ result }) => {
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
-  const [overrides, setOverrides] = useState<FieldOverrideInfo[]>([]);
-  const [lineItemOverrides, setLineItemOverrides] = useState<Record<string, FieldOverrideInfo[]>>({});
   const [localTotals, setLocalTotals] = useState<{ tong_tien: number; tong_tien_truoc_thue: number }>({
     tong_tien: result.tong_tien,
     tong_tien_truoc_thue: result.tong_tien_truoc_thue,
   });
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [jeStatusRaw, setJeStatusRaw] = useState<JEClassificationStatus | null>(result.je_status);
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
@@ -32,37 +30,23 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
     });
   }, [result.id, result.tong_tien, result.tong_tien_truoc_thue]);
 
-  const loadOverrides = useCallback(() => {
-    window.api.getFieldOverrides(result.id).then(setOverrides);
-  }, [result.id]);
+  const { data: detailData } = useResultDetail({ id: result.id });
+  const overrides: FieldOverrideInfo[] = detailData?.overrides ?? [];
+  const journalEntries: JournalEntry[] = detailData?.journalEntries ?? [];
 
-  const loadLineItemOverrides = useCallback((items: InvoiceLineItem[]) => {
-    if (items.length === 0) return;
-    const ids = items.map(i => i.id);
-    window.api.getLineItemOverrides(ids).then(setLineItemOverrides);
-  }, []);
+  const { data: lineItemData } = useLineItems({ id: result.id });
+  const lineItems: InvoiceLineItem[] = lineItemData?.lineItems ?? [];
+  const lineItemOverrides: Record<string, FieldOverrideInfo[]> = lineItemData?.lineItemOverrides ?? {};
 
-  const loadJournalEntries = useCallback(() => {
-    window.api.getJournalEntries(result.id).then(setJournalEntries);
-  }, [result.id]);
+  const saveFieldOverride = useSaveFieldOverride();
+  const saveJournalEntry = useSaveJournalEntry();
+  const saveLineItemField = useSaveLineItemField();
 
-  useEffect(() => {
-    if (isInvoice) {
-      window.api.getLineItems(result.id).then((items) => {
-        setLineItems(items);
-        loadLineItemOverrides(items);
-      });
-    }
-    loadOverrides();
-    loadJournalEntries();
-  }, [result.id, isInvoice, loadOverrides, loadLineItemOverrides, loadJournalEntries]);
-
-  const getOverride = (fieldName: string): FieldOverrideInfo | undefined => {
-    return overrides.find(o => o.field_name === fieldName);
-  };
+  const getOverride = (fieldName: string): FieldOverrideInfo | undefined =>
+    overrides.find(o => o.field_name === fieldName);
 
   const handleSave = async (tableName: string, fieldName: string, userValue: string) => {
-    await window.api.saveFieldOverride({
+    await saveFieldOverride.mutateAsync({
       recordId: result.id,
       tableName,
       fieldName,
@@ -72,38 +56,29 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       const numVal = parseFloat(userValue) || 0;
       setLocalTotals(prev => ({ ...prev, [fieldName]: numVal }));
     }
-    loadOverrides();
-    // field updated — detail reloads its own data
   };
 
   const handleResolve = async (fieldName: string, action: 'keep' | 'accept') => {
     await window.api.resolveConflict(result.id, fieldName, action);
-    loadOverrides();
-    // field updated — detail reloads its own data
+    useResultDetail.invalidate({ id: result.id });
   };
 
   const handleResolveAll = async (action: 'keep' | 'accept') => {
     await window.api.resolveAllConflicts(result.id, action);
-    loadOverrides();
-    // field updated — detail reloads its own data
+    useResultDetail.invalidate({ id: result.id });
   };
 
   const handleLineItemSave = async (lineItemId: string, fieldName: string, userValue: string) => {
-    await window.api.saveLineItemField({ lineItemId, fieldName, userValue });
-    reloadLineItems();
-    // field updated — detail reloads its own data
+    await saveLineItemField.mutateAsync({ input: { lineItemId, fieldName, userValue }, recordId: result.id });
   };
 
   const handleLineItemResolve = async (lineItemId: string, fieldName: string, action: 'keep' | 'accept') => {
     await window.api.resolveConflict(lineItemId, fieldName, action);
-    loadLineItemOverrides(lineItems);
-    // field updated — detail reloads its own data
+    useLineItems.invalidate({ id: result.id });
   };
 
-  const getLineItemOverride = (lineItemId: string, fieldName: string): FieldOverrideInfo | undefined => {
-    const itemOverrides = lineItemOverrides[lineItemId];
-    return itemOverrides?.find(o => o.field_name === fieldName);
-  };
+  const getLineItemOverride = (lineItemId: string, fieldName: string): FieldOverrideInfo | undefined =>
+    lineItemOverrides[lineItemId]?.find(o => o.field_name === fieldName);
 
   const hasConflicts = overrides.some(o => o.status === 'conflict');
 
@@ -116,13 +91,6 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
     () => computeBeforeTaxTotalMismatch(localTotals.tong_tien_truoc_thue, lineItems),
     [localTotals.tong_tien_truoc_thue, lineItems],
   );
-
-  const reloadLineItems = useCallback(() => {
-    window.api.getLineItems(result.id).then((items) => {
-      setLineItems(items);
-      loadLineItemOverrides(items);
-    });
-  }, [result.id, loadLineItemOverrides]);
 
   const hasColumnIssues = useMemo(() => {
     const beforeTax = lineItems.some(i => deriveFieldValue('thanh_tien_truoc_thue', i) != null);
@@ -153,11 +121,8 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
     if (!lastJeUpdate) return;
     if (lastJeUpdate.recordIds.includes(result.id)) {
       setJeStatusRaw(lastJeUpdate.status);
-      if (lastJeUpdate.status === 'done') {
-        loadJournalEntries();
-      }
     }
-  }, [lastJeUpdate, result.id, loadJournalEntries]);
+  }, [lastJeUpdate, result.id]);
 
   // Lookup: line_item_id → JournalEntry (only 'line' entries)
   const jeByLineItem = useMemo(() => {
@@ -200,13 +165,12 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   }, [lineItems]);
 
   const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank', lineItemId: string | null, account: string) => {
-    await window.api.saveJournalEntry({
+    await saveJournalEntry.mutateAsync({
       recordId: result.id,
       lineItemId: lineItemId ?? undefined,
       entryType,
       account,
     });
-    loadJournalEntries();
   };
 
   return (
