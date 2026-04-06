@@ -9,6 +9,7 @@ import { SuggestionList } from './SuggestionList';
 import { BreadcrumbBar } from './BreadcrumbBar';
 import { ResultList } from './ResultList';
 import { NoVaultScreen } from './NoVaultScreen';
+import { DbErrorScreen } from './DbErrorScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { CheatsheetPanel } from './CheatsheetPanel';
 import { StickyFooter, StickyFooterHandle } from './StickyFooter';
@@ -17,7 +18,7 @@ import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
 import { SavePresetModal } from './SavePresetModal';
 import { mergePresetState } from '../shared/merge-preset';
-import { useOverlayStore, useSearchStore, usePathSearchStore, usePresetStore } from '../stores';
+import { useOverlayStore, useSearchStore, usePathSearchStore, usePresetStore, useProcessingStore } from '../stores';
 
 const DEBOUNCE_MS = 200;
 
@@ -56,12 +57,19 @@ export const SearchOverlay: React.FC = () => {
   const [showHintBar, setShowHintBar] = useState(false);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // On mount: check if vault exists
+  // On mount: check if vault exists or if there is a pending DB error
   useEffect(() => {
-    window.api.getAppConfig().then(config => {
-      if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
-        useOverlayStore.getState().setOverlayState(OverlayState.NoVault);
+    window.api.getDbError().then(error => {
+      if (error) {
+        useProcessingStore.setState({ dbError: error });
+        useOverlayStore.getState().setOverlayState(OverlayState.DbError);
+        return;
       }
+      window.api.getAppConfig().then(config => {
+        if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
+          useOverlayStore.getState().setOverlayState(OverlayState.NoVault);
+        }
+      });
     });
   }, []);
 
@@ -361,6 +369,9 @@ export const SearchOverlay: React.FC = () => {
     window.api.getAppConfig().then(config => {
       if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
         useOverlayStore.getState().setOverlayState(OverlayState.NoVault);
+      } else {
+        useProcessingStore.setState({ dbError: null });
+        useOverlayStore.getState().setOverlayState(OverlayState.Home);
       }
     });
   }, []);
@@ -571,6 +582,15 @@ export const SearchOverlay: React.FC = () => {
       <div className={overlayClass}>
         {titleBar}
         <NoVaultScreen />
+      </div>
+    );
+  }
+
+  if (overlayState === OverlayState.DbError) {
+    return (
+      <div className={overlayClass}>
+        {titleBar}
+        <DbErrorScreen />
       </div>
     );
   }

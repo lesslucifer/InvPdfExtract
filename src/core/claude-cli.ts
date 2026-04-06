@@ -1,8 +1,36 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { ExtractionResult, ModelTier, MODEL_TIER_MAP } from '../shared/types';
 import { DEFAULT_CLI_TIMEOUT } from '../shared/constants';
+
+export class CliError extends Error {
+  constructor(
+    public readonly exitCode: number | null,
+    public readonly stderr: string,
+    public readonly partialStdout: string,
+    public readonly sessionId: string | null,
+  ) {
+    super(`Claude CLI exited with code ${exitCode}: ${stderr}`);
+    this.name = 'CliError';
+  }
+}
+
+export function extractSessionId(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.type === 'result' && typeof parsed.session_id === 'string') {
+      return parsed.session_id;
+    }
+    return null;
+  } catch { return null; }
+}
+
+export function getSessionLogPath(cwd: string, sessionId: string): string {
+  const hashed = cwd.replace(/\//g, '-');
+  return path.join(os.homedir(), '.claude', 'projects', hashed, `${sessionId}.jsonl`);
+}
 
 /**
  * Unwrap the --output-format json envelope from Claude CLI.
@@ -267,15 +295,16 @@ Located relative to: ${vaultRoot}`;
         if (code === 0) {
           resolve(stdout.trim());
         } else {
-          reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
+          const sessionId = extractSessionId(stdout.trim());
+          reject(new CliError(code, stderr, stdout, sessionId));
         }
       });
 
       proc.on('error', (err) => {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-          reject(new Error(`Claude CLI not found at "${this.cliPath}". Install it from https://claude.ai/code`));
+          reject(new CliError(null, `Claude CLI not found at "${this.cliPath}". Install it from https://claude.ai/code`, '', null));
         } else {
-          reject(err);
+          reject(new CliError(null, (err as Error).message, '', null));
         }
       });
     });

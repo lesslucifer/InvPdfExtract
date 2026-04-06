@@ -275,4 +275,10 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE files ADD COLUMN filter_layer INTEGER;
   CREATE INDEX IF NOT EXISTS idx_files_status ON files(status);
   `,
+
+  // Migration 011: Structured error detail and file_id for processing_logs
+  `
+  ALTER TABLE processing_logs ADD COLUMN detail TEXT;
+  ALTER TABLE processing_logs ADD COLUMN file_id TEXT;
+  `,
 ];

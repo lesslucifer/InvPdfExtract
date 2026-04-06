@@ -197,6 +197,8 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
 
 const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
   const { copiedId, copy } = useCopyFeedback();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sessionLogs, setSessionLogs] = useState<Record<string, string | null>>({});
 
   const formatEntry = (file: ProcessedFileInfo) =>
     `File: ${file.relative_path} | Records: ${file.record_count} | Confidence: ${Math.round(file.overall_confidence * 100)}%`;
@@ -204,6 +206,18 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
   const handleCopyAll = () => {
     const text = files.map(formatEntry).join('\n');
     copy('__all__', text);
+  };
+
+  const handleToggleLog = async (fileId: string) => {
+    if (expandedId === fileId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(fileId);
+    if (!(fileId in sessionLogs)) {
+      const log = await window.api.getSessionLogForFile(fileId);
+      setSessionLogs(prev => ({ ...prev, [fileId]: log }));
+    }
   };
 
   if (files.length === 0) {
@@ -219,24 +233,59 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
       <ul className="list-none m-0 p-0">
         {files.map(file => {
           const confKey = file.overall_confidence >= 0.9 ? 'high' : file.overall_confidence >= 0.7 ? 'medium' : 'low';
+          const isExpanded = expandedId === file.id;
+          const sessionLog = sessionLogs[file.id];
           return (
-            <li key={file.id} className="group flex items-center gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
-              <StatusDot status={file.status as FileStatus} />
-              <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
-                {file.relative_path}
-              </span>
-              <span className="text-2.75 text-text-secondary shrink-0">{file.record_count} rec</span>
-              <span className={`text-2.75 font-medium shrink-0 px-[5px] py-[1px] rounded ${CONFIDENCE_ROW_CLASSES[confKey]}`}>
-                {Math.round(file.overall_confidence * 100)}%
-              </span>
-              <span className="text-2.5 text-text-muted shrink-0">{formatTime(file.updated_at)}</span>
-              <button
-                className={`bg-transparent border-none text-text-muted cursor-pointer inline-flex items-center px-1 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-[opacity,color,background] hover:text-text hover:bg-bg-hover ${copiedId === file.id ? '!opacity-100 text-confidence-high' : ''}`}
-                onClick={() => copy(file.id, formatEntry(file))}
-                title="Copy to clipboard"
-              >
-                {copiedId === file.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
-              </button>
+            <li key={file.id} className="border-b border-border">
+              <div className="group flex items-center gap-2 px-4 py-1.5 text-3 transition-colors hover:bg-bg-hover">
+                <StatusDot status={file.status as FileStatus} />
+                <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
+                  {file.relative_path}
+                </span>
+                <span className="text-2.75 text-text-secondary shrink-0">{file.record_count} rec</span>
+                <span className={`text-2.75 font-medium shrink-0 px-[5px] py-[1px] rounded ${CONFIDENCE_ROW_CLASSES[confKey]}`}>
+                  {Math.round(file.overall_confidence * 100)}%
+                </span>
+                <span className="text-2.5 text-text-muted shrink-0">{formatTime(file.updated_at)}</span>
+                <button
+                  className={`bg-transparent border-none text-text-muted cursor-pointer inline-flex items-center px-1 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-[opacity,color,background] hover:text-text hover:bg-bg-hover ${copiedId === file.id ? '!opacity-100 text-confidence-high' : ''}`}
+                  onClick={() => copy(file.id, formatEntry(file))}
+                  title="Copy to clipboard"
+                >
+                  {copiedId === file.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
+                </button>
+                <button
+                  className="bg-transparent border-none text-text-muted cursor-pointer inline-flex items-center px-1 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-[opacity,color,background] hover:text-text hover:bg-bg-hover"
+                  onClick={() => handleToggleLog(file.id)}
+                  title="View session log"
+                >
+                  {isExpanded ? <Icons.arrowUp size={ICON_SIZE.SM} /> : <Icons.arrowDown size={ICON_SIZE.SM} />}
+                </button>
+              </div>
+              {isExpanded && (
+                <div className="px-4 py-2 bg-bg-hover">
+                  {sessionLog === undefined ? (
+                    <span className="text-2.75 text-text-muted">Loading...</span>
+                  ) : sessionLog === null ? (
+                    <span className="text-2.75 text-text-muted">No session log available</span>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-2.75 text-text-secondary">Session log</span>
+                        <button
+                          className={copyAllBtnClass(copiedId === `log-${file.id}`)}
+                          onClick={() => copy(`log-${file.id}`, sessionLog)}
+                        >
+                          {copiedId === `log-${file.id}` ? 'Copied!' : 'Copy log'}
+                        </button>
+                      </div>
+                      <pre className="text-2.75 text-text whitespace-pre-wrap break-all bg-bg rounded p-2 max-h-48 overflow-y-auto m-0">
+                        {sessionLog}
+                      </pre>
+                    </>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}
@@ -282,8 +331,38 @@ const SkippedTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
   );
 };
 
+interface ParsedErrorDetail {
+  exitCode: number | null;
+  stderr: string | null;
+  partialStdout: string | null;
+  sessionLogPath: string | null;
+}
+
+function parseDetail(detail: string | null): ParsedErrorDetail | null {
+  if (!detail) return null;
+  try { return JSON.parse(detail); } catch { return null; }
+}
+
+function buildDiagnosticText(log: ErrorLogEntry, detail: ParsedErrorDetail | null, sessionLogContent: string | null): string {
+  const lines = [
+    `File: ${log.relative_path || 'Unknown file'}`,
+    `Time: ${log.timestamp}`,
+    `Error: ${log.message}`,
+  ];
+  if (detail) {
+    if (detail.exitCode != null) lines.push(`Exit code: ${detail.exitCode}`);
+    if (detail.stderr) lines.push(`\nStderr:\n${detail.stderr}`);
+    if (detail.partialStdout) lines.push(`\nPartial stdout:\n${detail.partialStdout}`);
+    if (detail.sessionLogPath) lines.push(`\nSession log path: ${detail.sessionLogPath}`);
+  }
+  if (sessionLogContent) lines.push(`\nSession log:\n${sessionLogContent}`);
+  return lines.join('\n');
+}
+
 const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = ({ logs, jeErrors }) => {
   const { copiedId, copy } = useCopyFeedback();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sessionLogContents, setSessionLogContents] = useState<Record<string, string | null>>({});
 
   const formatEntry = (log: ErrorLogEntry) =>
     `File: ${log.relative_path || 'Unknown file'}\nError: ${log.message}`;
@@ -291,6 +370,16 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
   const handleCopyAll = () => {
     const text = logs.map(formatEntry).join('\n\n');
     copy('__all__', text);
+  };
+
+  const handleToggle = (logId: string) => {
+    setExpandedId(prev => prev === logId ? null : logId);
+  };
+
+  const handleLoadSessionLog = async (logId: string, sessionLogPath: string) => {
+    if (logId in sessionLogContents) return;
+    const content = await window.api.readCliSessionLog(sessionLogPath);
+    setSessionLogContents(prev => ({ ...prev, [logId]: content }));
   };
 
   if (logs.length === 0 && jeErrors.length === 0) {
@@ -304,27 +393,105 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
         </button>
       </div>
       <ul className="list-none m-0 p-0">
-        {logs.map(log => (
-          <li key={log.id} className="group flex items-start gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
-            <StatusDot status={FileStatus.Error} />
-            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={log.relative_path || 'Unknown file'}>
-                {log.relative_path || 'Unknown file'}
-              </span>
-              <span className="text-2.75 text-confidence-low overflow-hidden text-ellipsis whitespace-nowrap" title={log.message}>
-                {log.message}
-              </span>
-            </div>
-            <span className="text-2.5 text-text-muted shrink-0">{formatTime(log.timestamp)}</span>
-            <button
-              className={`bg-transparent border-none text-text-muted cursor-pointer inline-flex items-center px-1 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-[opacity,color,background] hover:text-text hover:bg-bg-hover ${copiedId === log.id ? '!opacity-100 text-confidence-high' : ''}`}
-              onClick={() => copy(log.id, formatEntry(log))}
-              title="Copy to clipboard"
-            >
-              {copiedId === log.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
-            </button>
-          </li>
-        ))}
+        {logs.map(log => {
+          const detail = parseDetail(log.detail);
+          const isExpanded = expandedId === log.id;
+          const sessionLogContent = sessionLogContents[log.id];
+          return (
+            <li key={log.id} className="border-b border-border">
+              <div
+                className="group flex items-start gap-2 px-4 py-1.5 text-3 transition-colors hover:bg-bg-hover cursor-pointer"
+                onClick={() => handleToggle(log.id)}
+              >
+                <StatusDot status={FileStatus.Error} />
+                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={log.relative_path || 'Unknown file'}>
+                    {log.relative_path || 'Unknown file'}
+                  </span>
+                  <span className="text-2.75 text-confidence-low overflow-hidden text-ellipsis whitespace-nowrap" title={log.message}>
+                    {log.message}
+                  </span>
+                </div>
+                <span className="text-2.5 text-text-muted shrink-0">{formatTime(log.timestamp)}</span>
+                <button
+                  className={`bg-transparent border-none text-text-muted cursor-pointer inline-flex items-center px-1 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-[opacity,color,background] hover:text-text hover:bg-bg-hover ${copiedId === log.id ? '!opacity-100 text-confidence-high' : ''}`}
+                  onClick={e => { e.stopPropagation(); copy(log.id, formatEntry(log)); }}
+                  title="Copy to clipboard"
+                >
+                  {copiedId === log.id ? <Icons.check size={ICON_SIZE.SM} /> : <Icons.copy size={ICON_SIZE.SM} />}
+                </button>
+                <span className="text-text-muted inline-flex items-center shrink-0 opacity-0 group-hover:opacity-100">
+                  {isExpanded ? <Icons.arrowUp size={ICON_SIZE.SM} /> : <Icons.arrowDown size={ICON_SIZE.SM} />}
+                </span>
+              </div>
+              {isExpanded && (
+                <div className="px-4 py-2 bg-bg-hover flex flex-col gap-2">
+                  <pre className="text-2.75 text-text whitespace-pre-wrap break-all bg-bg rounded p-2 max-h-32 overflow-y-auto m-0">
+                    {log.message}
+                  </pre>
+                  {detail && (
+                    <>
+                      {detail.exitCode != null && (
+                        <span className="text-2.75 text-text-secondary">Exit code: <span className="text-confidence-low font-mono">{detail.exitCode}</span></span>
+                      )}
+                      {detail.stderr && (
+                        <>
+                          <span className="text-2.75 text-text-secondary">Stderr:</span>
+                          <pre className="text-2.75 text-text whitespace-pre-wrap break-all bg-bg rounded p-2 max-h-32 overflow-y-auto m-0">{detail.stderr}</pre>
+                        </>
+                      )}
+                      {detail.partialStdout && (
+                        <>
+                          <span className="text-2.75 text-text-secondary">Partial stdout:</span>
+                          <pre className="text-2.75 text-text whitespace-pre-wrap break-all bg-bg rounded p-2 max-h-32 overflow-y-auto m-0">{detail.partialStdout}</pre>
+                        </>
+                      )}
+                      {detail.sessionLogPath && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-2.75 text-text-secondary font-mono overflow-hidden text-ellipsis whitespace-nowrap flex-1" title={detail.sessionLogPath}>
+                            {detail.sessionLogPath}
+                          </span>
+                          <button
+                            className={copyAllBtnClass(copiedId === `path-${log.id}`)}
+                            onClick={() => copy(`path-${log.id}`, detail.sessionLogPath!)}
+                          >
+                            {copiedId === `path-${log.id}` ? 'Copied!' : 'Copy path'}
+                          </button>
+                          {!(log.id in sessionLogContents) && (
+                            <button
+                              className="bg-transparent border border-border rounded text-text-muted text-2.75 px-2 py-[2px] cursor-pointer hover:bg-bg hover:text-text"
+                              onClick={() => handleLoadSessionLog(log.id, detail.sessionLogPath!)}
+                            >
+                              Load log
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {log.id in sessionLogContents && (
+                        sessionLogContent === null ? (
+                          <span className="text-2.75 text-text-muted">Session log file not found</span>
+                        ) : (
+                          <>
+                            <span className="text-2.75 text-text-secondary">Session log:</span>
+                            <pre className="text-2.75 text-text whitespace-pre-wrap break-all bg-bg rounded p-2 max-h-48 overflow-y-auto m-0">{sessionLogContent}</pre>
+                          </>
+                        )
+                      )}
+                    </>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      className={copyAllBtnClass(copiedId === `diag-${log.id}`)}
+                      onClick={() => copy(`diag-${log.id}`, buildDiagnosticText(log, detail, sessionLogContent ?? null))}
+                    >
+                      {copiedId === `diag-${log.id}` ? 'Copied!' : 'Copy diagnostic info'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
         {jeErrors.map(item => (
           <li key={`je-err-${item.record_id}`} className="group flex items-start gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
             <span className={`inline-block w-2 h-2 rounded-full ml-1.5 mt-0.5 shrink-0 ${JE_STATUS_CLASSES['error']}`} />
