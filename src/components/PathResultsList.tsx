@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
-import { StatusDot } from './StatusDot';
+import { StatusIcon } from './StatusIcon';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useFolderStatuses } from '../lib/queries';
 
@@ -168,7 +168,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
           >
             <span className="inline-flex items-center shrink-0">{item.isDir ? <Icons.folder size={ICON_SIZE.MD} /> : <Icons.file size={ICON_SIZE.MD} />}</span>
             {itemStatuses[item.isDir ? item.name : item.relativePath] && (
-              <StatusDot status={itemStatuses[item.isDir ? item.name : item.relativePath]} />
+              <StatusIcon status={itemStatuses[item.isDir ? item.name : item.relativePath]} />
             )}
             <span className="text-3.25 font-medium text-text shrink-0 whitespace-nowrap">{item.name}</span>
             <span className="text-2.75 text-text-muted whitespace-nowrap overflow-hidden text-ellipsis flex-1">{item.relativePath}</span>

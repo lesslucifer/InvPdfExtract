@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FileStatus, OverlayState } from '../shared/types';
 
-// === StatusDot logic ===
+// === StatusIcon logic ===
 
 const STATUS_TITLES: Record<FileStatus, string> = {
   [FileStatus.Pending]: 'Queuing',
@@ -16,8 +16,17 @@ function getStatusTitle(status: FileStatus): string {
   return STATUS_TITLES[status] || status;
 }
 
-function getStatusDotClass(status: FileStatus): string {
-  return `status-dot-file status-dot-file--${status}`;
+const STATUS_ICON_NAMES: Record<FileStatus, string> = {
+  [FileStatus.Pending]:    'hourglass',
+  [FileStatus.Processing]: 'loader',
+  [FileStatus.Done]:       'success',
+  [FileStatus.Review]:     'conflict',
+  [FileStatus.Error]:      'error',
+  [FileStatus.Skipped]:    'skipped',
+};
+
+function getStatusIconName(status: FileStatus): string {
+  return STATUS_ICON_NAMES[status] ?? 'unknown';
 }
 
 // === Folder status aggregation logic ===
@@ -53,7 +62,7 @@ function handleStatusDotClick(): OverlayState {
 
 // === Tests ===
 
-describe('StatusDot', () => {
+describe('StatusIcon', () => {
   it('returns correct title for each status', () => {
     expect(getStatusTitle(FileStatus.Pending)).toBe('Queuing');
     expect(getStatusTitle(FileStatus.Processing)).toBe('Processing...');
@@ -62,11 +71,13 @@ describe('StatusDot', () => {
     expect(getStatusTitle(FileStatus.Error)).toBe('Error');
   });
 
-  it('returns correct CSS class for each status', () => {
-    expect(getStatusDotClass(FileStatus.Pending)).toBe('status-dot-file status-dot-file--pending');
-    expect(getStatusDotClass(FileStatus.Processing)).toBe('status-dot-file status-dot-file--processing');
-    expect(getStatusDotClass(FileStatus.Done)).toBe('status-dot-file status-dot-file--done');
-    expect(getStatusDotClass(FileStatus.Error)).toBe('status-dot-file status-dot-file--error');
+  it('maps each status to a distinct icon name', () => {
+    expect(getStatusIconName(FileStatus.Pending)).toBe('hourglass');
+    expect(getStatusIconName(FileStatus.Processing)).toBe('loader');
+    expect(getStatusIconName(FileStatus.Done)).toBe('success');
+    expect(getStatusIconName(FileStatus.Review)).toBe('conflict');
+    expect(getStatusIconName(FileStatus.Error)).toBe('error');
+    expect(getStatusIconName(FileStatus.Skipped)).toBe('skipped');
   });
 });
 

@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem } from '../shared/types';
-import { StatusDot } from './StatusDot';
+import { StatusIcon } from './StatusIcon';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useOverlayStore } from '../stores';
 import { useQueueData, useProcessedData, useErrorData, useSkippedData } from '../lib/queries';
 import { useCancelQueueItem, useClearPendingQueue } from '../lib/mutations';
+import type { LucideIcon } from 'lucide-react';
 
 type TabId = 'queue' | 'processed' | 'errors' | 'skipped';
 
-const JE_STATUS_CLASSES: Record<string, string> = {
-  pending:    'bg-confidence-medium animate-je-dot-pulse-slow',
-  processing: 'bg-accent animate-je-dot-pulse-fast',
-  done:       'bg-confidence-high',
-  error:      'bg-confidence-low',
+const JE_STATUS_ICON_CONFIG: Record<string, { icon: LucideIcon; className: string }> = {
+  pending:    { icon: Icons.hourglass, className: 'text-text-muted' },
+  processing: { icon: Icons.loader,    className: 'text-accent animate-spin-slow' },
+  done:       { icon: Icons.success,   className: 'text-confidence-high' },
+  error:      { icon: Icons.error,     className: 'text-confidence-low' },
 };
 
 const CONFIDENCE_ROW_CLASSES: Record<'high' | 'medium' | 'low', string> = {
@@ -152,7 +153,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
       <ul className="list-none m-0 p-0">
         {files.map(file => (
           <li key={file.id} className="group flex items-center gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
-            <StatusDot status={file.status} />
+            <StatusIcon status={file.status} />
             <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
               {file.relative_path}
             </span>
@@ -180,7 +181,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
         ))}
         {jeItems.map(item => (
           <li key={`je-${item.record_id}`} className="group flex items-center gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
-            <span className={`inline-block w-2 h-2 rounded-full ml-1.5 align-middle cursor-pointer shrink-0 ${JE_STATUS_CLASSES[item.je_status] ?? 'bg-text-muted'}`} />
+            {(() => { const c = JE_STATUS_ICON_CONFIG[item.je_status]; return c ? <span className={`inline-flex items-center shrink-0 ${c.className}`}><c.icon size={ICON_SIZE.XS} /></span> : null; })()}
             <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={item.relative_path}>
               {item.description || item.relative_path}
             </span>
@@ -238,7 +239,7 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
           return (
             <li key={file.id} className="border-b border-border">
               <div className="group flex items-center gap-2 px-4 py-1.5 text-3 transition-colors hover:bg-bg-hover">
-                <StatusDot status={file.status as FileStatus} />
+                <StatusIcon status={file.status as FileStatus} />
                 <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
                   {file.relative_path}
                 </span>
@@ -302,7 +303,7 @@ const SkippedTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
     <ul className="list-none m-0 p-0">
       {files.map(file => (
         <li key={file.id} className="group flex items-start gap-2 px-4 py-2 text-3 border-b border-border transition-colors hover:bg-bg-hover">
-          <StatusDot status={FileStatus.Skipped} />
+          <StatusIcon status={FileStatus.Skipped} />
           <div className="flex-1 min-w-0 flex flex-col gap-0.5">
             <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
               {file.relative_path}
@@ -403,7 +404,7 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
                 className="group flex items-start gap-2 px-4 py-1.5 text-3 transition-colors hover:bg-bg-hover cursor-pointer"
                 onClick={() => handleToggle(log.id)}
               >
-                <StatusDot status={FileStatus.Error} />
+                <StatusIcon status={FileStatus.Error} />
                 <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={log.relative_path || 'Unknown file'}>
                     {log.relative_path || 'Unknown file'}
@@ -494,7 +495,7 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
         })}
         {jeErrors.map(item => (
           <li key={`je-err-${item.record_id}`} className="group flex items-start gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
-            <span className={`inline-block w-2 h-2 rounded-full ml-1.5 mt-0.5 shrink-0 ${JE_STATUS_CLASSES['error']}`} />
+            <span className={`inline-flex items-center shrink-0 ${JE_STATUS_ICON_CONFIG['error'].className}`}><Icons.error size={ICON_SIZE.XS} /></span>
             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
               <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={item.relative_path}>
                 {item.description || item.relative_path}
