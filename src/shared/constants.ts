@@ -20,7 +20,7 @@ export const IGNORED_DIRS = [
 
 export const DEFAULT_CONFIDENCE_THRESHOLD = 0.8;
 export const DEFAULT_BATCH_SIZE = 5;
-export const DEFAULT_CLI_TIMEOUT = 120_000; // 2 minutes
+export const DEFAULT_CLI_TIMEOUT = 600_000; // 10 minutes
 export const WATCHER_DEBOUNCE_MS = 300;
 
 export const DEFAULT_CLAUDE_MODELS: ClaudeModelConfig = {
