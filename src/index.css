@@ -304,6 +304,9 @@ body {
 }
 
 .line-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-weight: 600;
   font-size: 12px;
   margin-bottom: 4px;
@@ -2159,5 +2162,142 @@ tr.line-item-mismatch {
   color: var(--text-muted);
   font-size: 11px;
   margin-left: 2px;
+}
+
+/* === Journal Entries === */
+
+.je-generate-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.je-generate-btn:hover {
+  opacity: 0.85;
+}
+
+.je-generate-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.je-generate-btn-inline {
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.je-cell {
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+
+.je-cell-empty {
+  color: var(--text-muted);
+}
+
+.je-cell-display {
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.je-cell-display:hover {
+  background: var(--bg-hover);
+}
+
+.je-cell-input {
+  width: 60px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+  padding: 1px 4px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* Tax / settlement summary below line items table */
+.je-summary {
+  margin-top: 6px;
+  padding: 4px 0;
+}
+
+.je-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.je-summary-label {
+  min-width: 80px;
+  color: var(--text-secondary);
+}
+
+.je-summary-account {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+}
+
+.je-summary-account .je-cell {
+  display: inline;
+  padding: 0;
+}
+
+.je-summary-amount {
+  color: var(--text);
+  margin-left: auto;
+}
+
+/* JE classification status dot */
+.je-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: middle;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.je-status-dot--pending {
+  background: var(--warning, #f59e0b);
+  animation: je-dot-pulse 1.5s ease-in-out infinite;
+}
+
+.je-status-dot--processing {
+  background: var(--accent, #3b82f6);
+  animation: je-dot-pulse 1s ease-in-out infinite;
+}
+
+.je-status-dot--done {
+  background: var(--success, #22c55e);
+}
+
+.je-status-dot--error {
+  background: var(--error, #ef4444);
+}
+
+@keyframes je-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* JE items in processing status panel */
+.processing-status-row--je .processing-status-label--je {
+  color: var(--accent, #3b82f6);
+  font-style: italic;
 }
 

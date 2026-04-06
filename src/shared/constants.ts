@@ -39,6 +39,11 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   [DocType.Unknown]: 'Chưa phân loại',
 };
 
+export const JE_INSTRUCTIONS_FILE = 'je-instructions.txt';
+export const JE_SIMILARITY_THRESHOLD = 0.9;
+export const JE_SIMILARITY_CACHE_SIZE = 10_000;
+export const JE_AI_BATCH_SIZE = 100;
+
 export const FILE_TYPE_MAP: Record<string, string> = {
   '.pdf': 'pdf',
   '.jpg': 'jpg',

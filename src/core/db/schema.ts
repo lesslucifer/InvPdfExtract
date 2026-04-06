@@ -173,4 +173,31 @@ export const MIGRATIONS: string[] = [
     created_at DATETIME NOT NULL DEFAULT (datetime('now'))
   );
   `,
+
+  // Migration 007: Journal entries — single-sided double entry
+  `
+  CREATE TABLE IF NOT EXISTS journal_entries (
+    id TEXT PRIMARY KEY,
+    record_id TEXT NOT NULL REFERENCES records(id),
+    line_item_id TEXT REFERENCES invoice_line_items(id),
+    entry_type TEXT NOT NULL DEFAULT 'line',
+    account TEXT,
+    cash_flow TEXT,
+    source TEXT NOT NULL DEFAULT 'auto',
+    similarity_score REAL,
+    matched_description TEXT,
+    user_edited INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_je_record_id ON journal_entries(record_id);
+  CREATE INDEX IF NOT EXISTS idx_je_line_item_id ON journal_entries(line_item_id);
+  `,
+
+  // Migration 008: JE classification status on records
+  `
+  ALTER TABLE records ADD COLUMN je_status TEXT;
+  CREATE INDEX IF NOT EXISTS idx_records_je_status ON records(je_status);
+  `,
 ];

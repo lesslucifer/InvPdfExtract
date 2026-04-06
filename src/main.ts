@@ -12,6 +12,9 @@ import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
 import { VaultHandle } from './shared/types';
 import { startIpcBridge, stopIpcBridge } from './main/ipc-bridge';
+import { JESimilarityEngine } from './core/je-similarity';
+import { JEGenerator } from './core/je-generator';
+import { writeDefaultInstructions } from './core/je-instructions';
 import { TrayManager } from './main/tray-manager';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -28,6 +31,8 @@ let syncEngine: SyncEngine | null = null;
 let extractionQueue: ExtractionQueue | null = null;
 let currentVault: VaultHandle | null = null;
 let vaultPathCache: VaultPathCache | null = null;
+let similarityEngine: JESimilarityEngine | null = null;
+let jeGenerator: JEGenerator | null = null;
 
 // Graceful shutdown on signals (terminal kill, Ctrl+C)
 process.on('SIGTERM', () => {
@@ -210,6 +215,15 @@ app.on('ready', async () => {
       return clearPendingQueue();
     },
     onQuit: handleQuit,
+    onGenerateJE: async (recordId: string) => {
+      if (!jeGenerator) return 0;
+      return jeGenerator.generateForRecord(recordId);
+    },
+    onGenerateJEForFile: async (fileId: string) => {
+      if (!jeGenerator) return 0;
+      return jeGenerator.generateForFile(fileId);
+    },
+    getVaultRoot: () => currentVault?.rootPath ?? null,
   });
   overlayWindow.registerIpcHandlers();
   overlayWindow.subscribeToStatusEvents();
@@ -282,6 +296,30 @@ async function startVault(vaultPath: string): Promise<void> {
   const appConfig = loadAppConfig();
   extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
 
+  // Initialize JE similarity engine & generator
+  writeDefaultInstructions(currentVault.rootPath);
+  similarityEngine = new JESimilarityEngine();
+  similarityEngine.initialize();
+  jeGenerator = new JEGenerator(currentVault.rootPath, similarityEngine, appConfig.claudeCliPath || undefined);
+
+  // Auto-generate JEs after extraction completes
+  eventBus.on('extraction:completed', async (data) => {
+    if (!jeGenerator) return;
+    try {
+      // Mark records as pending for JE classification
+      const { getRecordsByFileId, updateJeStatus } = require('./core/db/records');
+      const records = getRecordsByFileId(data.fileId);
+      if (records.length > 0) {
+        const ids = records.map((r: any) => r.id);
+        updateJeStatus(ids, 'pending');
+        eventBus.emit('je:status-changed', { recordIds: ids, status: 'pending' });
+      }
+      await jeGenerator.generateForFile(data.fileId);
+    } catch (err) {
+      console.error('[JEGenerator] Auto-generation failed:', err);
+    }
+  });
+
   // Startup recovery: reset stale processing files and trigger queue
   {
     const { resetStaleProcessingFiles, getFilesByStatus: getByStatus } = require('./core/db/files');
@@ -343,6 +381,9 @@ async function stopVault(): Promise<void> {
   syncEngine = null;
   extractionQueue = null;
   vaultPathCache = null;
+  similarityEngine?.destroy();
+  similarityEngine = null;
+  jeGenerator = null;
 
   if (currentVault) {
     closeVault(currentVault);

@@ -115,6 +115,7 @@ export interface DbRecord {
   ngay: string | null;
   field_confidence: string; // JSON
   raw_extraction: string; // JSON
+  je_status: JEClassificationStatus | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -349,6 +350,7 @@ export interface SearchResult {
   ten_doi_tac: string;
   mo_ta: string;
   dia_chi_doi_tac: string;
+  je_status: JEClassificationStatus | null;
   // Line items (populated on detail expand)
   line_items?: InvoiceLineItem[];
 }
@@ -411,6 +413,61 @@ export interface PresetFilters {
   fileScope: string | null;
 }
 
+// === Journal Entry Types ===
+
+export type JEEntryType = 'line' | 'tax' | 'settlement' | 'bank';
+export type JESource = 'similarity' | 'ai' | 'user' | 'auto';
+export type JEClassificationStatus = 'pending' | 'processing' | 'done' | 'error';
+export type CashFlowType = 'operating' | 'investing' | 'financing';
+
+export interface JournalEntry {
+  id: string;
+  record_id: string;
+  line_item_id: string | null;
+  entry_type: JEEntryType;
+  account: string | null;
+  cash_flow: CashFlowType | null;
+  source: JESource;
+  similarity_score: number | null;
+  matched_description: string | null;
+  user_edited: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JournalEntryInput {
+  recordId: string;
+  lineItemId?: string;
+  entryType: JEEntryType;
+  account: string;
+  cashFlow?: CashFlowType;
+}
+
+export interface JEClassificationResult {
+  lineItemId?: string;
+  account: string;
+  cashFlow?: CashFlowType;
+}
+
+// === JE Queue Types ===
+
+export interface JeQueueItem {
+  record_id: string;
+  je_status: JEClassificationStatus;
+  doc_type: DocType;
+  description: string; // so_hoa_don or mo_ta
+  relative_path: string;
+  created_at: string;
+}
+
+export interface JeErrorItem {
+  record_id: string;
+  doc_type: DocType;
+  description: string;
+  relative_path: string;
+  updated_at: string;
+}
+
 // === Preload API ===
 
 export interface InvoiceVaultAPI {
@@ -462,6 +519,17 @@ export interface InvoiceVaultAPI {
   listPresets: () => Promise<FilterPreset[]>;
   savePreset: (name: string, filtersJson: string) => Promise<FilterPreset>;
   deletePreset: (id: string) => Promise<void>;
+  // Journal entries
+  getJournalEntries: (recordId: string) => Promise<JournalEntry[]>;
+  saveJournalEntry: (input: JournalEntryInput) => Promise<JournalEntry>;
+  deleteJournalEntry: (id: string) => Promise<void>;
+  reclassifyRecord: (recordId: string) => Promise<void>;
+  getJEInstructions: () => Promise<string>;
+  saveJEInstructions: (content: string) => Promise<void>;
+  // JE classification status
+  getJeQueueItems: () => Promise<JeQueueItem[]>;
+  getJeErrorItems: () => Promise<JeErrorItem[]>;
+  onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEClassificationStatus }) => void) => () => void;
 }
 
 // === Event Types ===
@@ -477,4 +545,8 @@ export interface AppEvents {
   'conflicts:detected': { fileId: string; conflictCount: number };
   'vault:initialized': { path: string };
   'vault:opened': { path: string };
+  'je:generated': { recordId: string; count: number; source: JESource };
+  'je:updated': { recordId: string };
+  'je:status-changed': { recordIds: string[]; status: JEClassificationStatus };
+  'je:instructions-changed': Record<string, never>;
 }

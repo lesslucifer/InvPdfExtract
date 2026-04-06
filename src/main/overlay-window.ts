@@ -12,7 +12,12 @@ import {
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
 import { listPresets, savePreset, deletePreset } from '../core/db/presets';
-import { FieldOverrideInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
+import {
+  getJournalEntriesByRecord, insertJournalEntry, updateJournalEntry,
+  deleteJournalEntry as dbDeleteJE, findExistingEntry,
+} from '../core/db/journal-entries';
+import { readInstructions, writeInstructions } from '../core/je-instructions';
+import { FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { isVault, clearVaultData } from '../core/vault';
 import { eventBus } from '../core/event-bus';
@@ -31,10 +36,13 @@ export interface OverlayCallbacks {
   onCancelQueueItem: (fileId: string) => boolean;
   onClearPendingQueue: () => number;
   onQuit: () => Promise<void>;
+  onGenerateJE: (recordId: string) => Promise<number>;
+  onGenerateJEForFile: (fileId: string) => Promise<number>;
+  getVaultRoot: () => string | null;
 }
 
-const OVERLAY_WIDTH = 700;
-const OVERLAY_MAX_HEIGHT = 500;
+const OVERLAY_WIDTH = 860;
+const OVERLAY_MAX_HEIGHT = 560;
 
 export class OverlayWindow {
   private window: BrowserWindow | null = null;
@@ -259,6 +267,9 @@ export class OverlayWindow {
     eventBus.on('review:needed', (data) => {
       send('review');
       sendFileStatus([data.fileId], FileStatus.Review);
+    });
+    eventBus.on('je:status-changed', (data) => {
+      this.broadcastToAll('je-status-changed', data);
     });
   }
 
@@ -710,6 +721,107 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Overlay] export-filtered failed:', err);
         return { filePath: null };
+      }
+    });
+
+    // === Journal Entries ===
+
+    ipcMain.handle('get-journal-entries', async (_event, recordId: string) => {
+      try {
+        return getJournalEntriesByRecord(recordId);
+      } catch (err) {
+        console.error('[JournalEntry] Get entries failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('save-journal-entry', async (_event, input: JournalEntryInput) => {
+      try {
+        const existing = findExistingEntry(input.recordId, input.lineItemId ?? null, input.entryType);
+        if (existing) {
+          updateJournalEntry(existing.id, input.account, input.cashFlow ?? null);
+          const db = getDatabase();
+          const updated = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(existing.id);
+          eventBus.emit('je:updated', { recordId: input.recordId });
+          return updated;
+        }
+        const entry = insertJournalEntry(
+          input.recordId, input.lineItemId ?? null, input.entryType,
+          input.account, input.cashFlow ?? null,
+          'user', null, null,
+        );
+        eventBus.emit('je:updated', { recordId: input.recordId });
+        return entry;
+      } catch (err) {
+        console.error('[JournalEntry] Save entry failed:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('delete-journal-entry', async (_event, id: string) => {
+      try {
+        dbDeleteJE(id);
+      } catch (err) {
+        console.error('[JournalEntry] Delete entry failed:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('reclassify-record', async (_event, recordId: string) => {
+      try {
+        if (!this.callbacks) return;
+        const { updateJeStatus } = require('../core/db/records');
+        updateJeStatus([recordId], 'pending');
+        eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
+        // Fire and forget — status updates come via events
+        this.callbacks.onGenerateJE(recordId).catch((err: Error) => {
+          console.error('[JournalEntry] Reclassify failed:', err);
+        });
+      } catch (err) {
+        console.error('[JournalEntry] Reclassify record failed:', err);
+      }
+    });
+
+    ipcMain.handle('get-je-queue-items', async () => {
+      try {
+        const { getJeQueueItems } = require('../core/db/records');
+        return getJeQueueItems();
+      } catch (err) {
+        console.error('[JournalEntry] Get JE queue items failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-je-error-items', async () => {
+      try {
+        const { getJeErrorItems } = require('../core/db/records');
+        return getJeErrorItems();
+      } catch (err) {
+        console.error('[JournalEntry] Get JE error items failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-je-instructions', async () => {
+      try {
+        const root = this.callbacks?.getVaultRoot();
+        if (!root) return '';
+        return readInstructions(root);
+      } catch (err) {
+        console.error('[JournalEntry] Get instructions failed:', err);
+        return '';
+      }
+    });
+
+    ipcMain.handle('save-je-instructions', async (_event, content: string) => {
+      try {
+        const root = this.callbacks?.getVaultRoot();
+        if (!root) return;
+        writeInstructions(root, content);
+        eventBus.emit('je:instructions-changed', {} as never);
+      } catch (err) {
+        console.error('[JournalEntry] Save instructions failed:', err);
+        throw err;
       }
     });
   }
