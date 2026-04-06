@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
-import { useProcessingStore } from '../stores';
+import { useFolderStatuses } from '../lib/queries';
 
 const CONFIRM_THRESHOLD = 10;
 
@@ -31,17 +31,10 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   const [items, setItems] = useState<PathItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [confirmPath, setConfirmPath] = useState<string | null>(null);
-  const [itemStatuses, setItemStatuses] = useState<Record<string, FileStatus>>({});
+  const [fileStatuses, setFileStatuses] = useState<Record<string, FileStatus>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const refreshStatuses = useCallback(async (currentItems: PathItem[]) => {
-    const filePaths = currentItems.filter(r => !r.isDir).map(r => r.relativePath);
-    const [fileStatuses, folderStatuses] = await Promise.all([
-      filePaths.length > 0 ? window.api.getFileStatusesByPaths(filePaths) : Promise.resolve({}),
-      window.api.getFolderStatuses(),
-    ]);
-    setItemStatuses({ ...folderStatuses, ...fileStatuses });
-  }, []);
+  const { data: folderStatuses = {} } = useFolderStatuses();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -50,7 +43,9 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
         const results = await window.api.listVaultPaths(query, scope ?? undefined);
         setItems(results);
         setSelectedIndex(0);
-        await refreshStatuses(results);
+        const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
+        const statuses = filePaths.length > 0 ? await window.api.getFileStatusesByPaths(filePaths) : {};
+        setFileStatuses(statuses);
       } catch {
         setItems([]);
       }
@@ -59,14 +54,9 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, scope, refreshStatuses]);
+  }, [query, scope]);
 
-  // Re-fetch statuses when file processing status changes (centralized via store)
-  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
-  useEffect(() => {
-    if (fileStatusVersion === 0) return; // skip initial mount
-    refreshStatuses(items);
-  }, [fileStatusVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const itemStatuses: Record<string, FileStatus> = { ...folderStatuses, ...fileStatuses };
 
   const handleSelect = useCallback((item: PathItem, e?: React.MouseEvent | KeyboardEvent) => {
     const metaOrCtrl = e && ('metaKey' in e) && (e.metaKey || e.ctrlKey);
@@ -98,7 +88,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
 
   const setOptimisticStatus = useCallback((item: PathItem) => {
     const key = item.isDir ? item.name : item.relativePath;
-    setItemStatuses(prev => ({ ...prev, [key]: FileStatus.Pending }));
+    setFileStatuses(prev => ({ ...prev, [key]: FileStatus.Pending }));
   }, []);
 
   const handleReprocess = useCallback(async (e: React.MouseEvent, item: PathItem) => {
@@ -128,7 +118,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     if (confirmPath) {
       const matchedItem = items.find(i => i.relativePath === confirmPath);
       if (matchedItem) {
-        setItemStatuses(prev => ({ ...prev, [matchedItem.name]: FileStatus.Pending }));
+        setFileStatuses(prev => ({ ...prev, [matchedItem.name]: FileStatus.Pending }));
       }
       onReprocessFolder?.(confirmPath);
     }

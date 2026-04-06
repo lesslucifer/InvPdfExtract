@@ -237,25 +237,26 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
   
 ---
 
-### Phase D — Optional
+### Phase D — PathResultsList ✅
 
-**Goal:** PathResultsList debounced search.
+**Goal:** PathResultsList status refresh via React Query.
 
-**Consideration:** The path search query is debounced with a 300ms timer and is also refreshed on `fileStatusVersion`. This can work with React Query using:
-```typescript
-const useVaultPaths = queryHook
-  .ofKey(({ query }) => ['vaultPaths', query] as const)
-  .useQuery(({ params }) => ({ queryFn: () => window.api.listVaultPaths(params.query) }))
-  .create();
-```
+**Completed:**
+1. ✅ Replaced `fileStatusVersion` watcher effect with `useFolderStatuses()` from React Query
+2. ✅ File statuses fetched inside debounced effect (alongside `listVaultPaths`) — stored in `fileStatuses` local state
+3. ✅ `itemStatuses` computed at render by merging `folderStatuses` (React Query) + `fileStatuses` (local)
+4. ✅ Removed `fileStatusVersion` field from `processingStore` entirely — no more version counter bumping
+5. ✅ `set((s) => ({ fileStatusVersion: s.fileStatusVersion + 1 }))` removed from `onFileStatusChanged`
+6. ✅ Debounced path listing kept as `useEffect` (correct — debounced, not a pure data query)
 
-Only do this if the manual cancellation token pattern in PathResultsList causes bugs or feels brittle. Otherwise it's low priority.
+**Lessons:**
+- When a query has local side effects (debounce, file-status fetch), keep it as `useEffect`; use React Query only for the cacheable part (`folderStatuses`)
+- Optimistic status updates target `fileStatuses` (local state) rather than `itemStatuses` (computed merge)
+- Removing `fileStatusVersion` eliminates the last version-counter pattern from the codebase
 
 **After Phase D:**
-- Run `pnpm test`
-- Run `pnpm tsc --noEmit`
-- Update CLAUDE.md with lessons learned
-- Commit code
+- ✅ `pnpm test` — 620/620 passed
+- ✅ `pnpm tsc --noEmit` — clean
 
 ---
 
@@ -270,6 +271,6 @@ After each phase, add lessons to the **QueryHook / MutationHook Conventions** se
 - [x] Phase A: PresetList + SettingsPanel migrated, tests pass, tsc clean
 - [x] Phase B: HomeScreen + ProcessingStatusPanel migrated, processingStore wired to query invalidation, tests pass, tsc clean
 - [x] Phase C: ResultDetail migrated, tests pass, tsc clean
-- [ ] Phase D: PathResultsList migrated (optional)
-- [ ] CLAUDE.md updated after each phase
-- [ ] No component uses manual `loading` state or `useEffect` + reload pattern for data that React Query now owns
+- [x] Phase D: PathResultsList migrated — fileStatusVersion eliminated
+- [x] CLAUDE.md updated after each phase
+- [x] No component uses manual `loading` state or `useEffect` + reload pattern for data that React Query now owns

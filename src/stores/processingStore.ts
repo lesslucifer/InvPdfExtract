@@ -7,8 +7,6 @@ type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 interface ProcessingStore {
   /** Overall app processing indicator (shown in SearchInput status dot) */
   status: StatusIndicator;
-  /** Bumped on each onFileStatusChanged IPC event; consumers watch this to trigger refreshes */
-  fileStatusVersion: number;
   /** Bumped on each onJeStatusChanged IPC event */
   jeStatusVersion: number;
   /** Last JE status change data — consumed by ResultDetail to update per-record JE state */
@@ -20,7 +18,6 @@ interface ProcessingStore {
 
 export const useProcessingStore = create<ProcessingStore>((set) => ({
   status: 'idle',
-  fileStatusVersion: 0,
   jeStatusVersion: 0,
   lastJeUpdate: null,
 
@@ -30,7 +27,6 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
     });
 
     const unsubFile = window.api.onFileStatusChanged(async (_data: { fileIds: string[]; status: FileStatus }) => {
-      set((s) => ({ fileStatusVersion: s.fileStatusVersion + 1 }));
       // Invalidate React Query caches
       useHomeData.invalidate();
       useFolderStatuses.invalidate();

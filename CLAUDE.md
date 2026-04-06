@@ -112,8 +112,6 @@ Webpack replaces `__dirname` with `"/"` in the bundled output. This means any co
 - **NEVER** use `__dirname` or `__filename` in any `src/` file that gets bundled by webpack (main process or renderer).
 - Use `getAppRoot()` or `findNodeModules()` from `src/core/app-paths.ts` instead. These resolve correctly in dev, Vitest, and packaged Electron.
 - For packaged native bindings, use `process.resourcesPath` (Electron provides this).
-- `__dirname` is **fine** in files that are NOT webpack-bundled: `forge.config.ts`, `webpack.*.ts`, `scripts/`, `e2e/`, and test files (`*.test.ts`) that run under Vitest/Node directly.
-- The `__dirname` usage in `matcher-evaluator.ts` is intentional — it sets `__dirname` inside a VM sandbox for user-authored matcher scripts, not for the app's own path resolution.
 
 ## Zustand Conventions
 
@@ -122,13 +120,9 @@ Webpack replaces `__dirname` with `"/"` in the bundled output. This means any co
 - Always use selectors: `useStore(s => s.field)`, never bare `useStore()` — prevents unnecessary re-renders.
 - Cross-store access outside React: `useOtherStore.getState()` — standard Zustand pattern.
 - All IPC event subscriptions (`onStatusUpdate`, `onFileStatusChanged`, `onJeStatusChanged`) live in `processingStore` only — never subscribe in components.
-- Components react to IPC events via React Query invalidation (processingStore calls `.invalidate()`) or store selectors (`lastJeUpdate`), not direct listeners.
 - Use `immer` middleware only for stores with complex nested state updates (e.g. `searchStore`).
-- For imperative handlers (keyboard, timers), use `getState()` — avoids stale closures and dependency arrays.
 
 ## React Query Conventions
-
-Migration plan: [plan/react-query-migration.md](plan/react-query-migration.md)
 
 **What uses React Query:** SQLite reads/writes via IPC — `useQuery` for fetches, `useMutation` for writes with `invalidateQueries` on success.
 
@@ -140,7 +134,6 @@ Rules:
 - Use `staleTime: Infinity` globally — data only changes via mutations or IPC push events; no background refetching.
 - Also disable `refetchOnWindowFocus` and `refetchOnReconnect` — Electron tray app triggers focus events frequently.
 - `processingStore` calls `queryClient.invalidateQueries()` after IPC push events instead of bumping version counters that components watch.
-- Query keys: `['appConfig']`, `['cliStatus']`, `['presets']`, `['homeData']`, `['folderStatuses']`, `['queue']`, `['processed']`, `['errors']`, `['resultDetail', id]`, `['lineItems', id]`.
 - Optimistic local UI state (e.g. editable total fields) stays in `useState`; only server-owned data moves to `useQuery`.
 
 ### QueryHook / MutationHook Conventions
@@ -174,6 +167,18 @@ const useDeletePreset = mutationHook
 
 Static methods on query hooks: `.key()`, `.invalidate()`, `.prefetch()`, `.getCachedData()`, `.setData()`.
 Chainable transforms: `.params()` (remap params), `.extend()` (add computed fields), `.data()` (add dependencies).
+
+**Invalidation patterns:**
+- IPC calls returning `{ success }` — use static `.invalidate()` with manual `await`, not `mutationHook.onSuccess`.
+- When parent owns the IPC call via prop, use static `.invalidate()` in child — avoid double-calling.
+- When mutation input lacks `recordId`, wrap it: `mutate<{ input: LineItemFieldInput; recordId: string }>`.
+- IPC calls with no `recordId` in return (`resolveConflict`) — call `.invalidate()` statically in async handler.
+- `processingStore` `onJeStatusChanged` iterates `recordIds` calling `useResultDetail.invalidate({ id })` per record.
+
+**State ownership:**
+- Optimistic animation state (e.g. reclassify spinner) stays `useState` — it's UI state, not server state.
+- When a query has local side effects (debounce, sequential fetch), keep as `useEffect`; use React Query only for cacheable part.
+- Merge React Query data with local state at render time rather than storing merged copies.
 
 ## SQLite Schema
 
