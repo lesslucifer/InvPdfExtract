@@ -1,4 +1,4 @@
-import { DocType, ClaudeModelConfig } from './types';
+import { DocType, ClaudeModelConfig, RelevanceFilterConfig } from './types';
 
 export const APP_NAME = 'InvoiceVault';
 
@@ -43,6 +43,20 @@ export const JE_INSTRUCTIONS_FILE = 'je-instructions.txt';
 export const JE_SIMILARITY_THRESHOLD = 0.9;
 export const JE_SIMILARITY_CACHE_SIZE = 10_000;
 export const JE_AI_BATCH_SIZE = 100;
+
+export const FILTER_CONFIG_FILE = 'filter-config.json';
+
+export const DEFAULT_FILTER_CONFIG: RelevanceFilterConfig = {
+  skipThreshold: 0.4,
+  processThreshold: 0.6,
+  customKeywords: [],
+  customPathPatterns: [],
+  sizeMinBytes: 1024,
+  sizeMaxBytes: 52_428_800,
+  sizePenalty: 0.15,
+  aiTriageEnabled: true,
+  aiTriageBatchSize: 10,
+};
 
 export const FILE_TYPE_MAP: Record<string, string> = {
   '.pdf': 'pdf',

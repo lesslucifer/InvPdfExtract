@@ -9,6 +9,7 @@ const STATUS_TITLES: Record<FileStatus, string> = {
   [FileStatus.Done]: 'Processed',
   [FileStatus.Review]: 'Needs review',
   [FileStatus.Error]: 'Error',
+  [FileStatus.Skipped]: 'Skipped (filtered)',
 };
 
 function getStatusTitle(status: FileStatus): string {

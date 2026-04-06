@@ -5,7 +5,7 @@ import { openDatabase, closeDatabase, setActiveDatabase } from './db/database';
 import { VaultConfig, VaultHandle } from '../shared/types';
 import {
   INVOICEVAULT_DIR, CONFIG_FILE, DB_FILE, VAULT_SUBDIRS,
-  DEFAULT_CONFIDENCE_THRESHOLD,
+  DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_FILTER_CONFIG, FILTER_CONFIG_FILE,
 } from '../shared/constants';
 
 export function isVault(folderPath: string): boolean {
@@ -33,6 +33,9 @@ export function initVault(folderPath: string): VaultHandle {
     confidence_threshold: DEFAULT_CONFIDENCE_THRESHOLD,
   };
   fs.writeFileSync(path.join(dotPath, CONFIG_FILE), JSON.stringify(config, null, 2));
+
+  // Write default filter config
+  fs.writeFileSync(path.join(dotPath, FILTER_CONFIG_FILE), JSON.stringify(DEFAULT_FILTER_CONFIG, null, 2));
 
   // Initialize database
   const dbPath = path.join(dotPath, DB_FILE);

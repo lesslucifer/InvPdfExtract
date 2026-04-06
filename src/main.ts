@@ -1,4 +1,5 @@
 import { app, nativeImage } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 import { NotificationManager } from './main/notifications';
 import { OverlayWindow } from './main/overlay-window';
@@ -10,12 +11,19 @@ import { ExtractionQueue } from './core/extraction-queue';
 import { ClaudeCodeRunner } from './core/claude-cli';
 import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
-import { VaultHandle } from './shared/types';
+import { VaultHandle, FileStatus } from './shared/types';
 import { startIpcBridge, stopIpcBridge } from './main/ipc-bridge';
 import { JESimilarityEngine } from './core/je-similarity';
 import { JEGenerator } from './core/je-generator';
 import { writeDefaultInstructions } from './core/je-instructions';
 import { TrayManager } from './main/tray-manager';
+import { RelevanceFilter } from './core/filters/relevance-filter';
+import {
+  getFilesByStatus, updateFileStatus, getFileByPath, getFilesByFolder,
+  cancelQueueItem, clearPendingQueue, resetStaleProcessingFiles,
+} from './core/db/files';
+import { getRecordsByFileId, updateJeStatus } from './core/db/records';
+import { WATCHED_EXTENSIONS, INVOICEVAULT_DIR } from './shared/constants';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -33,6 +41,7 @@ let currentVault: VaultHandle | null = null;
 let vaultPathCache: VaultPathCache | null = null;
 let similarityEngine: JESimilarityEngine | null = null;
 let jeGenerator: JEGenerator | null = null;
+let relevanceFilter: RelevanceFilter | null = null;
 
 // Graceful shutdown on signals (terminal kill, Ctrl+C)
 process.on('SIGTERM', () => {
@@ -111,29 +120,28 @@ app.on('ready', async () => {
     },
     onReprocessAll: () => {
       if (!currentVault) return 0;
-      const { getFilesByStatus, updateFileStatus } = require('./core/db/files');
-      const doneFiles = getFilesByStatus('done');
-      const errorFiles = getFilesByStatus('error');
-      const reviewFiles = getFilesByStatus('review');
-      for (const file of [...doneFiles, ...errorFiles, ...reviewFiles]) {
-        updateFileStatus(file.id, 'pending');
+      const doneFiles = getFilesByStatus(FileStatus.Done);
+      const errorFiles = getFilesByStatus(FileStatus.Error);
+      const reviewFiles = getFilesByStatus(FileStatus.Review);
+      const skippedFiles = getFilesByStatus(FileStatus.Skipped);
+      for (const file of [...doneFiles, ...errorFiles, ...reviewFiles, ...skippedFiles]) {
+        updateFileStatus(file.id, FileStatus.Pending);
       }
-      const count = doneFiles.length + errorFiles.length + reviewFiles.length;
+      const count = doneFiles.length + errorFiles.length + reviewFiles.length + skippedFiles.length;
       extractionQueue?.trigger();
       return count;
     },
     onReprocessFile: (relativePath: string) => {
       if (!currentVault) return 0;
-      const { getFileByPath, updateFileStatus } = require('./core/db/files');
       const file = getFileByPath(relativePath);
       if (file) {
-        updateFileStatus(file.id, 'pending');
+        updateFileStatus(file.id, FileStatus.Pending);
         extractionQueue?.trigger();
         return 1;
       }
       // File not in DB — run through sync engine to insert + process
       if (syncEngine) {
-        const fullPath = require('path').join(currentVault.rootPath, relativePath);
+        const fullPath = path.join(currentVault.rootPath, relativePath);
         syncEngine.handleEvent('file:added', relativePath, fullPath);
         scheduleExtraction();
         return 1;
@@ -142,28 +150,24 @@ app.on('ready', async () => {
     },
     onReprocessFolder: (folderPrefix: string) => {
       if (!currentVault) return 0;
-      const { getFilesByFolder, updateFileStatus } = require('./core/db/files');
       const files = getFilesByFolder(folderPrefix);
       for (const file of files) {
-        updateFileStatus(file.id, 'pending');
+        updateFileStatus(file.id, FileStatus.Pending);
       }
       // Also scan filesystem for untracked files in this folder
-      const fs = require('fs');
-      const pathMod = require('path');
-      const { WATCHED_EXTENSIONS } = require('./shared/constants');
       const trackedPaths = new Set(files.map((f: any) => f.relative_path));
       let newCount = 0;
       const scanDir = (dir: string) => {
         try {
-          const entries = fs.readdirSync(pathMod.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          const entries = fs.readdirSync(path.join(currentVault!.rootPath, dir), { withFileTypes: true });
           for (const entry of entries) {
             const rel = dir ? `${dir}/${entry.name}` : entry.name;
             if (entry.isDirectory() && !entry.name.startsWith('.')) {
               scanDir(rel);
             } else if (entry.isFile()) {
-              const ext = pathMod.extname(entry.name).toLowerCase();
+              const ext = path.extname(entry.name).toLowerCase();
               if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
-                const fullPath = pathMod.join(currentVault!.rootPath, rel);
+                const fullPath = path.join(currentVault!.rootPath, rel);
                 syncEngine?.handleEvent('file:added', rel, fullPath);
                 newCount++;
               }
@@ -180,22 +184,18 @@ app.on('ready', async () => {
     onCountFolderFiles: (folderPrefix: string) => {
       if (!currentVault) return 0;
       // Count both tracked DB files and untracked filesystem files
-      const { getFilesByFolder } = require('./core/db/files');
-      const fs = require('fs');
-      const pathMod = require('path');
-      const { WATCHED_EXTENSIONS } = require('./shared/constants');
       const dbFiles = getFilesByFolder(folderPrefix);
       const trackedPaths = new Set(dbFiles.map((f: any) => f.relative_path));
       let total = dbFiles.length;
       const scanDir = (dir: string) => {
         try {
-          const entries = fs.readdirSync(pathMod.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          const entries = fs.readdirSync(path.join(currentVault!.rootPath, dir), { withFileTypes: true });
           for (const entry of entries) {
             const rel = dir ? `${dir}/${entry.name}` : entry.name;
             if (entry.isDirectory() && !entry.name.startsWith('.')) {
               scanDir(rel);
             } else if (entry.isFile()) {
-              const ext = pathMod.extname(entry.name).toLowerCase();
+              const ext = path.extname(entry.name).toLowerCase();
               if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
                 total++;
               }
@@ -207,11 +207,9 @@ app.on('ready', async () => {
       return total;
     },
     onCancelQueueItem: (fileId: string) => {
-      const { cancelQueueItem } = require('./core/db/files');
       return cancelQueueItem(fileId);
     },
     onClearPendingQueue: () => {
-      const { clearPendingQueue } = require('./core/db/files');
       return clearPendingQueue();
     },
     onQuit: handleQuit,
@@ -236,13 +234,42 @@ app.on('ready', async () => {
 
   startIpcBridge();
 
-  // Wire extraction queue trigger on file events
-  eventBus.on('file:added', () => {
-    scheduleExtraction();
+  // Wire file events through relevance filter before extraction
+  let pendingFilterFiles: import('./shared/types').VaultFile[] = [];
+  let filterTimer: NodeJS.Timeout | null = null;
+
+  eventBus.on('file:added', (data) => {
+    const file = getFileByPath(data.relativePath);
+    if (file) pendingFilterFiles.push(file);
+    scheduleFilter();
   });
-  eventBus.on('file:changed', () => {
-    scheduleExtraction();
+  eventBus.on('file:changed', (data) => {
+    const file = getFileByPath(data.relativePath);
+    if (file) pendingFilterFiles.push(file);
+    scheduleFilter();
   });
+
+  function scheduleFilter(): void {
+    if (filterTimer) clearTimeout(filterTimer);
+    filterTimer = setTimeout(async () => {
+      filterTimer = null;
+      if (pendingFilterFiles.length === 0 || !relevanceFilter) {
+        if (pendingFilterFiles.length > 0) scheduleExtraction();
+        return;
+      }
+
+      const filesToFilter = [...pendingFilterFiles];
+      pendingFilterFiles = [];
+
+      try {
+        const accepted = await relevanceFilter.filterFiles(filesToFilter);
+        if (accepted.length > 0) scheduleExtraction();
+      } catch (err) {
+        console.error('[RelevanceFilter] Error during filtering:', err);
+        scheduleExtraction();
+      }
+    }, 2000);
+  }
 
   // Try to open last vault
   const appConfig = loadAppConfig();
@@ -296,6 +323,9 @@ async function startVault(vaultPath: string): Promise<void> {
   const appConfig = loadAppConfig();
   extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
 
+  // Start relevance filter
+  relevanceFilter = new RelevanceFilter(currentVault, appConfig.claudeCliPath || undefined);
+
   // Initialize JE similarity engine & generator
   writeDefaultInstructions(currentVault.rootPath);
   similarityEngine = new JESimilarityEngine();
@@ -307,7 +337,6 @@ async function startVault(vaultPath: string): Promise<void> {
     if (!jeGenerator) return;
     try {
       // Mark records as pending for JE classification
-      const { getRecordsByFileId, updateJeStatus } = require('./core/db/records');
       const records = getRecordsByFileId(data.fileId);
       if (records.length > 0) {
         const ids = records.map((r: any) => r.id);
@@ -322,12 +351,11 @@ async function startVault(vaultPath: string): Promise<void> {
 
   // Startup recovery: reset stale processing files and trigger queue
   {
-    const { resetStaleProcessingFiles, getFilesByStatus: getByStatus } = require('./core/db/files');
     const recoveredCount = resetStaleProcessingFiles();
     if (recoveredCount > 0) {
       console.log(`[InvoiceVault] Recovered ${recoveredCount} stale processing file(s) → pending`);
     }
-    const pendingCount = getByStatus('pending').length;
+    const pendingCount = getFilesByStatus(FileStatus.Pending).length;
     if (pendingCount > 0) {
       console.log(`[InvoiceVault] ${pendingCount} pending file(s) found on startup, scheduling extraction`);
       scheduleExtraction();
@@ -336,23 +364,19 @@ async function startVault(vaultPath: string): Promise<void> {
 
   // Initial scan: pick up existing files not yet tracked in the DB
   {
-    const fs = require('fs');
-    const pathMod = require('path');
-    const { WATCHED_EXTENSIONS: exts, INVOICEVAULT_DIR: ivDir } = require('./shared/constants');
-    const { getFileByPath } = require('./core/db/files');
     let scanned = 0;
     const scan = (dir: string) => {
       try {
-        const entries = fs.readdirSync(pathMod.join(vaultPath, dir), { withFileTypes: true });
+        const entries = fs.readdirSync(path.join(vaultPath, dir), { withFileTypes: true });
         for (const entry of entries) {
           const rel = dir ? `${dir}/${entry.name}` : entry.name;
           if (entry.isDirectory()) {
-            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === ivDir) continue;
+            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === INVOICEVAULT_DIR) continue;
             scan(rel);
           } else if (entry.isFile()) {
-            const ext = pathMod.extname(entry.name).toLowerCase();
-            if (exts.has(ext) && !getFileByPath(rel)) {
-              const fullPath = pathMod.join(vaultPath, rel);
+            const ext = path.extname(entry.name).toLowerCase();
+            if (WATCHED_EXTENSIONS.has(ext) && !getFileByPath(rel)) {
+              const fullPath = path.join(vaultPath, rel);
               syncEngine?.handleEvent('file:added', rel, fullPath);
               scanned++;
             }
@@ -380,6 +404,7 @@ async function stopVault(): Promise<void> {
   }
   syncEngine = null;
   extractionQueue = null;
+  relevanceFilter = null;
   vaultPathCache = null;
   similarityEngine?.destroy();
   similarityEngine = null;

@@ -200,4 +200,12 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE records ADD COLUMN je_status TEXT;
   CREATE INDEX IF NOT EXISTS idx_records_je_status ON records(je_status);
   `,
+
+  // Migration 009: Relevance filter metadata on files
+  `
+  ALTER TABLE files ADD COLUMN filter_score REAL;
+  ALTER TABLE files ADD COLUMN filter_reason TEXT;
+  ALTER TABLE files ADD COLUMN filter_layer INTEGER;
+  CREATE INDEX IF NOT EXISTS idx_files_status ON files(status);
+  `,
 ];

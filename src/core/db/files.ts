@@ -158,12 +158,35 @@ export function getFileStatusesByPaths(paths: string[]): Record<string, FileStat
   return result;
 }
 
+export function updateFileFilterResult(
+  id: string,
+  status: FileStatus,
+  filterScore: number,
+  filterReason: string,
+  filterLayer: number
+): void {
+  const db = getDatabase();
+  db.prepare(`
+    UPDATE files
+    SET status = ?, filter_score = ?, filter_reason = ?, filter_layer = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).run(status, filterScore, filterReason, filterLayer, id);
+}
+
+export function getSkippedFiles(): VaultFile[] {
+  const db = getDatabase();
+  return db.prepare(
+    'SELECT * FROM files WHERE status = ? AND deleted_at IS NULL ORDER BY updated_at DESC'
+  ).all(FileStatus.Skipped) as VaultFile[];
+}
+
 const STATUS_PRIORITY: Record<string, number> = {
   [FileStatus.Processing]: 0,
   [FileStatus.Error]: 1,
   [FileStatus.Review]: 2,
   [FileStatus.Pending]: 3,
   [FileStatus.Done]: 4,
+  [FileStatus.Skipped]: 5,
 };
 
 export function getFolderStatuses(): Record<string, FileStatus> {

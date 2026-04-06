@@ -20,6 +20,9 @@ import {
   resetStaleProcessingFiles,
   cancelQueueItem,
   clearPendingQueue,
+  updateFileFilterResult,
+  getSkippedFiles,
+  getFolderStatuses,
 } from './files';
 import { createBatch, insertRecord, getRecordsByFileId } from './records';
 
@@ -182,5 +185,96 @@ describe('clearPendingQueue', () => {
     updateFileStatus(file.id, FileStatus.Done);
 
     expect(clearPendingQueue()).toBe(0);
+  });
+});
+
+describe('updateFileFilterResult', () => {
+  beforeEach(() => {
+    _testDb = createInMemoryDb();
+  });
+
+  afterEach(() => {
+    _testDb.close();
+  });
+
+  it('sets status, filter_score, filter_reason, and filter_layer', () => {
+    const file = insertFile('a.pdf', 'hash1', 'pdf', 1024);
+
+    updateFileFilterResult(file.id, FileStatus.Skipped, 0.25, 'No relevant keywords found', 2);
+
+    const updated = getFileById(file.id)!;
+    expect(updated.status).toBe(FileStatus.Skipped);
+    expect(updated.filter_score).toBeCloseTo(0.25);
+    expect(updated.filter_reason).toBe('No relevant keywords found');
+    expect(updated.filter_layer).toBe(2);
+  });
+
+  it('can set status to Pending when file passes filter', () => {
+    const file = insertFile('hoa_don.pdf', 'hash2', 'pdf', 2048);
+
+    updateFileFilterResult(file.id, FileStatus.Pending, 0.85, 'Filename matches invoice pattern', 1);
+
+    const updated = getFileById(file.id)!;
+    expect(updated.status).toBe(FileStatus.Pending);
+    expect(updated.filter_score).toBeCloseTo(0.85);
+    expect(updated.filter_layer).toBe(1);
+  });
+});
+
+describe('getSkippedFiles', () => {
+  beforeEach(() => {
+    _testDb = createInMemoryDb();
+  });
+
+  afterEach(() => {
+    _testDb.close();
+  });
+
+  it('returns only skipped, non-deleted files', () => {
+    const f1 = insertFile('a.pdf', 'hash1', 'pdf', 1024);
+    const f2 = insertFile('b.pdf', 'hash2', 'pdf', 1024);
+    const f3 = insertFile('c.pdf', 'hash3', 'pdf', 1024);
+
+    updateFileFilterResult(f1.id, FileStatus.Skipped, 0.2, 'irrelevant', 1);
+    updateFileFilterResult(f2.id, FileStatus.Skipped, 0.3, 'irrelevant', 2);
+    updateFileStatus(f3.id, FileStatus.Done);
+
+    const skipped = getSkippedFiles();
+    expect(skipped).toHaveLength(2);
+    expect(skipped.map(f => f.id)).toEqual(expect.arrayContaining([f1.id, f2.id]));
+  });
+
+  it('excludes soft-deleted skipped files', () => {
+    const file = insertFile('a.pdf', 'hash1', 'pdf', 1024);
+    updateFileFilterResult(file.id, FileStatus.Skipped, 0.1, 'irrelevant', 1);
+    _testDb.prepare("UPDATE files SET deleted_at = datetime('now') WHERE id = ?").run(file.id);
+
+    expect(getSkippedFiles()).toHaveLength(0);
+  });
+
+  it('returns empty array when no skipped files', () => {
+    insertFile('a.pdf', 'hash1', 'pdf', 1024);
+    expect(getSkippedFiles()).toHaveLength(0);
+  });
+});
+
+describe('STATUS_PRIORITY includes Skipped', () => {
+  beforeEach(() => {
+    _testDb = createInMemoryDb();
+  });
+
+  afterEach(() => {
+    _testDb.close();
+  });
+
+  it('skipped file does not override done in folder aggregation', () => {
+    const f1 = insertFile('folder/done.pdf', 'hash1', 'pdf', 1024);
+    const f2 = insertFile('folder/skipped.pdf', 'hash2', 'pdf', 1024);
+    updateFileStatus(f1.id, FileStatus.Done);
+    updateFileFilterResult(f2.id, FileStatus.Skipped, 0.1, 'irrelevant', 1);
+
+    // Done (priority 4) should win over Skipped (priority 5)
+    const statuses = getFolderStatuses();
+    expect(statuses['folder']).toBe(FileStatus.Done);
   });
 });
