@@ -1,10 +1,8 @@
 import React, { useState, useCallback } from 'react';
+import { OverlayState } from '../shared/types';
+import { useOverlayStore } from '../stores';
 
-interface Props {
-  onVaultCreated: () => void;
-}
-
-export const NoVaultScreen: React.FC<Props> = ({ onVaultCreated }) => {
+export const NoVaultScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +15,7 @@ export const NoVaultScreen: React.FC<Props> = ({ onVaultCreated }) => {
     try {
       const result = await window.api.initVault(folderPath);
       if (result.success) {
-        onVaultCreated();
+        useOverlayStore.getState().goTo(OverlayState.Home);
       } else {
         setError(result.error || 'Failed to initialize vault.');
       }
@@ -26,7 +24,7 @@ export const NoVaultScreen: React.FC<Props> = ({ onVaultCreated }) => {
     } finally {
       setLoading(false);
     }
-  }, [onVaultCreated]);
+  }, []);
 
   return (
     <div className="no-vault-screen">

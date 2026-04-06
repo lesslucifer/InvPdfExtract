@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppConfig } from '../shared/types';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useOverlayStore } from '../stores';
 
 interface Props {
-  onBack: () => void;
   onVaultChanged?: () => void;
 }
 
-export const SettingsPanel: React.FC<Props> = ({ onBack, onVaultChanged }) => {
+export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
+  const goBack = useOverlayStore(s => s.goBack);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [cliStatus, setCliStatus] = useState<{ available: boolean; version?: string } | null>(null);
   const [confirmReprocess, setConfirmReprocess] = useState(false);
@@ -99,7 +100,7 @@ export const SettingsPanel: React.FC<Props> = ({ onBack, onVaultChanged }) => {
   return (
     <div className="settings-panel">
       <div className="settings-header">
-        <button className="settings-back-btn" onClick={onBack} aria-label="Back">
+        <button className="settings-back-btn" onClick={goBack} aria-label="Back">
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
         <span className="settings-title">Settings</span>

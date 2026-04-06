@@ -17,14 +17,19 @@ import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
 import { SavePresetModal } from './SavePresetModal';
 import { mergePresetState } from '../shared/merge-preset';
-import { useProcessingStore } from '../stores';
+import { useProcessingStore, useOverlayStore } from '../stores';
 
 const DEBOUNCE_MS = 200;
 const PAGE_SIZE = 50;
 
 export const SearchOverlay: React.FC = () => {
-  const [overlayState, setOverlayState] = useState<OverlayState>(OverlayState.Home);
-  const [previousState, setPreviousState] = useState<OverlayState>(OverlayState.Home);
+  // Navigation state from store
+  const overlayState = useOverlayStore(s => s.overlayState);
+  const isWindowlized = useOverlayStore(s => s.isWindowlized);
+  const { goTo, goBack, setOverlayState } = useOverlayStore.getState();
+
+  // Initialize windowlized flag once on mount
+  useEffect(() => { useOverlayStore.getState().initWindowlized(); }, []);
 
   // Search state — query is the free text only (filters are separate)
   const [query, setQuery] = useState('');
@@ -39,11 +44,6 @@ export const SearchOverlay: React.FC = () => {
   const [pageOffset, setPageOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // Windowlized state — detected from URL param (synchronous, no flash)
-  const [isWindowlized] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('windowlized') === 'true';
-  });
   // PathSearch state — the text after the leading '/'
   const [pathQuery, setPathQuery] = useState('');
   // Track the state before PathSearch was entered so Backspace-to-empty can restore it
@@ -68,7 +68,7 @@ export const SearchOverlay: React.FC = () => {
   useEffect(() => {
     window.api.getAppConfig().then(config => {
       if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
-        setOverlayState(OverlayState.NoVault);
+        useOverlayStore.getState().setOverlayState(OverlayState.NoVault);
       }
     });
   }, []);
@@ -95,11 +95,6 @@ export const SearchOverlay: React.FC = () => {
       if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
     };
   }, []);
-
-  const goTo = useCallback((state: OverlayState) => {
-    setPreviousState(overlayState);
-    setOverlayState(state);
-  }, [overlayState]);
 
   // Build the full query string from free text + structured filters
   const buildFullQuery = useCallback((text: string, currentFilters: ParsedQuery): string => {
@@ -174,7 +169,7 @@ export const SearchOverlay: React.FC = () => {
         if (state.folderScope) setFolderScope(state.folderScope);
         if (state.fileScope) setFileScope(state.fileScope);
         if (state.overlayState && state.overlayState !== OverlayState.NoVault) {
-          setOverlayState(state.overlayState);
+          useOverlayStore.getState().setOverlayState(state.overlayState);
         }
         // Trigger search with restored state
         doSearch(
@@ -569,10 +564,6 @@ export const SearchOverlay: React.FC = () => {
     // disappearing from status:mismatch results).
   }, []);
 
-  const handleVaultCreated = useCallback(() => {
-    goTo(OverlayState.Home);
-  }, [goTo]);
-
   const handleVaultChanged = useCallback(() => {
     setQuery('');
     setFilters({ text: '' });
@@ -588,14 +579,10 @@ export const SearchOverlay: React.FC = () => {
     initialLoadDone.current = false;
     window.api.getAppConfig().then(config => {
       if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
-        setOverlayState(OverlayState.NoVault);
+        useOverlayStore.getState().setOverlayState(OverlayState.NoVault);
       }
     });
   }, []);
-
-  const handleSettingsBack = useCallback(() => {
-    goTo(previousState === OverlayState.Settings ? OverlayState.Home : previousState);
-  }, [goTo, previousState]);
 
   const handleGearClick = useCallback(() => {
     goTo(OverlayState.Settings);
@@ -605,17 +592,9 @@ export const SearchOverlay: React.FC = () => {
     goTo(OverlayState.Cheatsheet);
   }, [goTo]);
 
-  const handleCheatsheetBack = useCallback(() => {
-    goTo(previousState === OverlayState.Cheatsheet ? OverlayState.Home : previousState);
-  }, [goTo, previousState]);
-
   const handleStatusDotClick = useCallback(() => {
     goTo(OverlayState.ProcessingStatus);
   }, [goTo]);
-
-  const handleProcessingStatusBack = useCallback(() => {
-    goTo(previousState === OverlayState.ProcessingStatus ? OverlayState.Home : previousState);
-  }, [goTo, previousState]);
 
   // Preset handlers
   const handleLoadPreset = useCallback((filtersJson: string) => {
@@ -749,12 +728,10 @@ export const SearchOverlay: React.FC = () => {
             setFolderScope(null);
             setFileScope(null);
             setFilters({ text: '' });
-          } else if (overlayState === OverlayState.Settings) {
-            handleSettingsBack();
-          } else if (overlayState === OverlayState.Cheatsheet) {
-            handleCheatsheetBack();
-          } else if (overlayState === OverlayState.ProcessingStatus) {
-            handleProcessingStatusBack();
+          } else if (overlayState === OverlayState.Settings ||
+                     overlayState === OverlayState.Cheatsheet ||
+                     overlayState === OverlayState.ProcessingStatus) {
+            useOverlayStore.getState().goBack();
           } else if (expandedId) {
             setExpandedId(null);
           } else if (query) {
@@ -783,7 +760,7 @@ export const SearchOverlay: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [results, selectedIndex, handleToggleExpand, overlayState, expandedId, query, pathQuery,
-      folderScope, fileScope, filters, handleQueryChange, handleSettingsBack, handleProcessingStatusBack, handleClearFolderScope, handleClearFileScope, doSearch, isWindowlized,
+      folderScope, fileScope, filters, handleQueryChange, handleClearFolderScope, handleClearFileScope, doSearch, isWindowlized,
       suggestions, suggestionIndex, handleSuggestionAccept, showSaveModal]);
 
   // Check if there are active filter pills
@@ -816,7 +793,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <NoVaultScreen onVaultCreated={handleVaultCreated} />
+        <NoVaultScreen />
       </div>
     );
   }
@@ -825,7 +802,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <SettingsPanel onBack={handleSettingsBack} onVaultChanged={handleVaultChanged} />
+        <SettingsPanel onVaultChanged={handleVaultChanged} />
       </div>
     );
   }
@@ -834,7 +811,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <CheatsheetPanel onBack={handleCheatsheetBack} />
+        <CheatsheetPanel />
       </div>
     );
   }
@@ -843,7 +820,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <ProcessingStatusPanel onBack={handleProcessingStatusBack} />
+        <ProcessingStatusPanel />
       </div>
     );
   }

@@ -1,15 +1,13 @@
 import React from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useOverlayStore } from '../stores';
 
-interface Props {
-  onBack: () => void;
-}
-
-export const CheatsheetPanel: React.FC<Props> = ({ onBack }) => {
+export const CheatsheetPanel: React.FC = () => {
+  const goBack = useOverlayStore(s => s.goBack);
   return (
     <div className="settings-panel">
       <div className="settings-header">
-        <button className="settings-back-btn" onClick={onBack} aria-label="Back">
+        <button className="settings-back-btn" onClick={goBack} aria-label="Back">
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
         <span className="settings-title">Cheatsheet</span>

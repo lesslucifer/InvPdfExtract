@@ -2,13 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
-import { useProcessingStore } from '../stores';
+import { useProcessingStore, useOverlayStore } from '../stores';
 
 type TabId = 'queue' | 'processed' | 'errors';
-
-interface Props {
-  onBack: () => void;
-}
 
 function useCopyFeedback(timeout = 1500) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -31,7 +27,8 @@ function formatTime(iso: string): string {
   }
 }
 
-export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
+export const ProcessingStatusPanel: React.FC = () => {
+  const goBack = useOverlayStore(s => s.goBack);
   const [activeTab, setActiveTab] = useState<TabId>('queue');
   const [queueFiles, setQueueFiles] = useState<VaultFile[]>([]);
   const [jeQueueItems, setJeQueueItems] = useState<JeQueueItem[]>([]);
@@ -89,7 +86,7 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
   return (
     <div className="processing-status-panel">
       <div className="settings-header">
-        <button className="settings-back-btn" onClick={onBack} aria-label="Back">
+        <button className="settings-back-btn" onClick={goBack} aria-label="Back">
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
         <span className="settings-title">Processing Status</span>
