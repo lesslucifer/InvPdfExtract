@@ -184,6 +184,16 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     hint: 'Độ chính xác',
     keywords: ['sort', 'confidence', 'do tin cay'],
     filterKey: 'sortField',
+  },
+  {
+    category: 'sort',
+    icon: 'folderOpen',
+    directionIcon: 'arrowUp',
+    label: 'Invoice #',
+    insertText: 'sort:shd ',
+    hint: 'Số hoá đơn',
+    keywords: ['sort', 'shd', 'so hoa don', 'invoice number'],
+    filterKey: 'sortField',
   }
 ];
 
