@@ -100,6 +100,30 @@ describe('mergePresetState', () => {
     expect(result.query).toBe('existing');
   });
 
+  it('fills mst from preset when current has none', () => {
+    const result = mergePresetState(empty, JSON.stringify({
+      query: '',
+      filters: { text: '', mst: '0123456789' },
+      folderScope: null,
+      fileScope: null,
+    }));
+    expect(result.filters.mst).toBe('0123456789');
+  });
+
+  it('keeps current mst when already set', () => {
+    const current: MergeInput = {
+      ...empty,
+      currentFilters: { text: '', mst: '1111111111' },
+    };
+    const result = mergePresetState(current, JSON.stringify({
+      query: '',
+      filters: { text: '', mst: '2222222222' },
+      folderScope: null,
+      fileScope: null,
+    }));
+    expect(result.filters.mst).toBe('1111111111');
+  });
+
   it('fills amountMax when current has amountMin only', () => {
     const current: MergeInput = {
       ...empty,

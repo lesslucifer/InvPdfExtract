@@ -48,12 +48,16 @@ export const CheatsheetPanel: React.FC<Props> = ({ onBack }) => {
             <code>2024-03</code> <code>2024-03-15</code>
           </div>
           <div className="cheatsheet-group">
+            <span className="cheatsheet-group-label">MST</span>
+            <code>mst:0123456789</code>
+          </div>
+          <div className="cheatsheet-group">
             <span className="cheatsheet-group-label">Status</span>
-            <code>status:conflict</code> <code>status:review</code>
+            <code>status:conflict</code> <code>status:review</code> <code>status:mismatch</code>
           </div>
           <div className="cheatsheet-group">
             <span className="cheatsheet-group-label">Sort</span>
-            <code>sort:date</code> <code>sort:amount</code> <code>sort:path</code> <code>sort:confidence</code>
+            <code>sort:date</code> <code>sort:amount</code> <code>sort:path</code> <code>sort:time</code> <code>sort:confidence</code> <code>sort:shd</code>
             <span className="cheatsheet-note">Add <code>-asc</code> or <code>-desc</code></span>
           </div>
         </div>
@@ -101,15 +105,15 @@ export const CheatsheetPanel: React.FC<Props> = ({ onBack }) => {
         <div className="cheatsheet-click-groups">
           <div className="cheatsheet-click-group">
             <span className="cheatsheet-click-modifier">Click</span>
-            <span className="cheatsheet-click-desc">doc type icon <em>(toggle filter)</em>, date <em>(filter by date)</em></span>
+            <span className="cheatsheet-click-desc">doc type icon <em>(toggle filter)</em></span>
           </div>
           <div className="cheatsheet-click-group">
             <span className="cheatsheet-click-modifier"><kbd>⌘</kbd>+Click</span>
-            <span className="cheatsheet-click-desc">MST <em>(filter by tax code)</em>, date <em>(filter by month)</em>, folder <em>(open in Finder)</em>, filename <em>(open file)</em>, preset <em>(open as window)</em></span>
+            <span className="cheatsheet-click-desc">date <em>(filter by date)</em>, MST <em>(filter by tax code)</em>, folder <em>(open in Finder)</em>, filename <em>(open file)</em>, preset <em>(open as window)</em></span>
           </div>
           <div className="cheatsheet-click-group">
             <span className="cheatsheet-click-modifier"><kbd>⌥</kbd>+Click</span>
-            <span className="cheatsheet-click-desc">folder <em>(reprocess folder)</em>, filename <em>(reprocess file)</em></span>
+            <span className="cheatsheet-click-desc">date <em>(filter by month)</em>, folder <em>(reprocess folder)</em>, filename <em>(reprocess file)</em></span>
           </div>
         </div>
         <div className="cheatsheet-hint">Same modifiers apply in path browser: click = set scope, ⌘ = open in Finder, ⌥ = reprocess</div>

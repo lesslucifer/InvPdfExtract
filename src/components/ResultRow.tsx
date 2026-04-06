@@ -101,13 +101,14 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             {counterparty && <span className="result-counterparty">{counterparty}</span>}
             {result.ngay && <span
               className={`result-date${onDateFilter ? ' result-date-filterable' : ''}`}
-              title={onDateFilter ? 'Click to filter by date, Ctrl+Click for month' : undefined}
+              title={onDateFilter ? '⌘+Click: filter by date · ⌥+Click: filter by month' : undefined}
               onClick={onDateFilter ? (e) => {
-                e.stopPropagation();
-                // Ctrl/Cmd+Click → filter by month (YYYY-MM), plain click → exact date
-                if (e.ctrlKey || e.metaKey) {
+                // Ctrl/Cmd+Click → filter by exact date, Alt/Opt+Click → filter by month
+                if (e.altKey) {
+                  e.stopPropagation();
                   onDateFilter(result.ngay?.slice(0, 7) || ''); // YYYY-MM
-                } else {
+                } else if (e.ctrlKey || e.metaKey) {
+                  e.stopPropagation();
                   onDateFilter(result.ngay || '');
                 }
               } : undefined}
