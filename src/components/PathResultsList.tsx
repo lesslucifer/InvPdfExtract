@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useFolderStatuses } from '../lib/queries';
 
 const CONFIRM_THRESHOLD = 10;
-
 const DEBOUNCE_MS = 150;
 
 interface PathItem {
@@ -14,9 +14,7 @@ interface PathItem {
 }
 
 interface Props {
-  /** Text after the leading '/' — pass '' for bare '/' (shows top-level dirs) */
   query: string;
-  /** When set, results are limited to entries under this folder */
   scope?: string | null;
   onSelectFolder: (relativePath: string) => void;
   onSelectFile: (relativePath: string) => void;
@@ -30,17 +28,10 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   const [items, setItems] = useState<PathItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [confirmPath, setConfirmPath] = useState<string | null>(null);
-  const [itemStatuses, setItemStatuses] = useState<Record<string, FileStatus>>({});
+  const [fileStatuses, setFileStatuses] = useState<Record<string, FileStatus>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const refreshStatuses = useCallback(async (currentItems: PathItem[]) => {
-    const filePaths = currentItems.filter(r => !r.isDir).map(r => r.relativePath);
-    const [fileStatuses, folderStatuses] = await Promise.all([
-      filePaths.length > 0 ? window.api.getFileStatusesByPaths(filePaths) : Promise.resolve({}),
-      window.api.getFolderStatuses(),
-    ]);
-    setItemStatuses({ ...folderStatuses, ...fileStatuses });
-  }, []);
+  const { data: folderStatuses = {} } = useFolderStatuses();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -49,7 +40,9 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
         const results = await window.api.listVaultPaths(query, scope ?? undefined);
         setItems(results);
         setSelectedIndex(0);
-        await refreshStatuses(results);
+        const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
+        const statuses = filePaths.length > 0 ? await window.api.getFileStatusesByPaths(filePaths) : {};
+        setFileStatuses(statuses);
       } catch {
         setItems([]);
       }
@@ -58,36 +51,27 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, scope, refreshStatuses]);
+  }, [query, scope]);
 
-  // Re-fetch statuses when file processing status changes
-  useEffect(() => {
-    const unsubscribe = window.api.onFileStatusChanged(() => {
-      refreshStatuses(items);
-    });
-    return unsubscribe;
-  }, [items, refreshStatuses]);
+  const itemStatuses: Record<string, FileStatus> = { ...folderStatuses, ...fileStatuses };
 
   const handleSelect = useCallback((item: PathItem, e?: React.MouseEvent | KeyboardEvent) => {
     const metaOrCtrl = e && ('metaKey' in e) && (e.metaKey || e.ctrlKey);
     const alt = e && ('altKey' in e) && e.altKey;
 
     if (metaOrCtrl) {
-      // Cmd/Ctrl+click → open in Finder
       if (item.isDir) {
         onOpenFolder?.(item.relativePath);
       } else {
         onOpenFile?.(item.relativePath);
       }
     } else if (alt) {
-      // Alt/Option+click → reprocess
       if (item.isDir) {
         onReprocessFolder?.(item.relativePath);
       } else {
         onReprocessFile?.(item.relativePath);
       }
     } else {
-      // Normal click → set scope
       if (item.isDir) {
         onSelectFolder(item.relativePath);
       } else {
@@ -98,7 +82,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
 
   const setOptimisticStatus = useCallback((item: PathItem) => {
     const key = item.isDir ? item.name : item.relativePath;
-    setItemStatuses(prev => ({ ...prev, [key]: FileStatus.Pending }));
+    setFileStatuses(prev => ({ ...prev, [key]: FileStatus.Pending }));
   }, []);
 
   const handleReprocess = useCallback(async (e: React.MouseEvent, item: PathItem) => {
@@ -128,7 +112,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     if (confirmPath) {
       const matchedItem = items.find(i => i.relativePath === confirmPath);
       if (matchedItem) {
-        setItemStatuses(prev => ({ ...prev, [matchedItem.name]: FileStatus.Pending }));
+        setFileStatuses(prev => ({ ...prev, [matchedItem.name]: FileStatus.Pending }));
       }
       onReprocessFolder?.(confirmPath);
     }
@@ -140,7 +124,6 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     setConfirmPath(null);
   }, []);
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
@@ -163,7 +146,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
 
   if (items.length === 0) {
     return (
-      <div className="path-results-empty">
+      <div className="px-4 py-6 text-center text-3.25 text-text-muted">
         {query ? 'No matches' : 'No folders found'}
       </div>
     );
@@ -173,25 +156,25 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
 
   return (
     <>
-      <ul className="path-results-list" role="listbox">
+      <ul className="list-none m-0 py-1 overflow-y-auto max-h-[340px]" role="listbox">
         {items.map((item, idx) => (
           <li
             key={item.relativePath}
-            className={`path-results-item${idx === selectedIndex ? ' selected' : ''}`}
+            className={`group flex items-center gap-2 px-4 py-[7px] cursor-pointer transition-colors ${idx === selectedIndex ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
             role="option"
             aria-selected={idx === selectedIndex}
             onClick={(e) => handleSelect(item, e)}
             onMouseEnter={() => setSelectedIndex(idx)}
           >
-            <span className="path-results-icon">{item.isDir ? <Icons.folder size={ICON_SIZE.MD} /> : <Icons.file size={ICON_SIZE.MD} />}</span>
+            <span className="inline-flex items-center shrink-0">{item.isDir ? <Icons.folder size={ICON_SIZE.MD} /> : <Icons.file size={ICON_SIZE.MD} />}</span>
             {itemStatuses[item.isDir ? item.name : item.relativePath] && (
               <StatusDot status={itemStatuses[item.isDir ? item.name : item.relativePath]} />
             )}
-            <span className="path-results-name">{item.name}</span>
-            <span className="path-results-path">{item.relativePath}</span>
+            <span className="text-3.25 font-medium text-text shrink-0 whitespace-nowrap">{item.name}</span>
+            <span className="text-2.75 text-text-muted whitespace-nowrap overflow-hidden text-ellipsis flex-1">{item.relativePath}</span>
             {showReload && (
               <button
-                className="path-reload-btn"
+                className="inline-flex items-center justify-center w-[22px] h-[22px] ml-auto p-0 border-none rounded bg-transparent text-text-secondary cursor-pointer shrink-0 opacity-0 transition-[opacity,background,color] group-hover:opacity-60 hover:!opacity-100 hover:bg-accent hover:text-white"
                 title={item.isDir ? `Reprocess all files in ${item.relativePath}` : 'Reprocess this file'}
                 onClick={(e) => handleReprocess(e, item)}
               ><Icons.refresh size={ICON_SIZE.SM} /></button>
@@ -200,10 +183,10 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
         ))}
       </ul>
       {confirmPath && (
-        <div className="result-confirm-bar" onClick={(e) => e.stopPropagation()}>
-          <span>Reprocess all files in <strong>{confirmPath}</strong>?</span>
-          <button className="result-confirm-yes" onClick={handleConfirm}>Yes</button>
-          <button className="result-confirm-no" onClick={handleCancel}>Cancel</button>
+        <div className="flex items-center gap-2 px-3 py-1 bg-bg-secondary border-t border-border text-3 text-text-secondary" onClick={(e) => e.stopPropagation()}>
+          <span>Reprocess all files in <strong className="text-text">{confirmPath}</strong>?</span>
+          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-accent text-white hover:brightness-110" onClick={handleConfirm}>Yes</button>
+          <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:text-text" onClick={handleCancel}>Cancel</button>
         </div>
       )}
     </>

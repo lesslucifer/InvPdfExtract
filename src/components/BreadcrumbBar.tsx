@@ -1,13 +1,10 @@
 import React from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useSearchStore } from '../stores';
 
 interface Props {
-  folder: string | null;
-  file?: string | null;
   onNavigate: (folder: string) => void;
   onOpenFolder: () => void;
-  onClear: () => void;
-  onClearFile?: () => void;
   onReload?: () => void;
 }
 
@@ -29,18 +26,25 @@ function extractFileName(filePath: string): string {
   return parts[parts.length - 1] || filePath;
 }
 
-export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpenFolder, onClear, onClearFile, onReload }) => {
+const actionBtnClass = 'bg-transparent border-none text-text-muted cursor-pointer px-1 py-[1px] rounded inline-flex items-center hover:text-text hover:bg-bg-hover';
+
+export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onReload }) => {
+  const folder = useSearchStore(s => s.folderScope);
+  const file = useSearchStore(s => s.fileScope);
+  const clearFolderScope = useSearchStore(s => s.clearFolderScope);
+  const clearFileScope = useSearchStore(s => s.clearFileScope);
+
   const segments = folder ? splitSegments(folder) : [];
   const fileName = file ? extractFileName(file) : null;
 
   return (
-    <div className="breadcrumb-bar">
-      <span className="breadcrumb-root"><Icons.folder size={ICON_SIZE.MD} /></span>
+    <div className="flex items-center gap-1 px-4 py-1 bg-bg-secondary border-b border-border text-3">
+      <span className="inline-flex items-center shrink-0"><Icons.folder size={ICON_SIZE.MD} /></span>
       {segments.map((seg, i) => (
         <React.Fragment key={seg.path}>
-          {i > 0 && <span className="breadcrumb-separator"><Icons.chevronRight size={ICON_SIZE.XS} /></span>}
+          {i > 0 && <span className="text-text-muted inline-flex items-center shrink-0"><Icons.chevronRight size={ICON_SIZE.XS} /></span>}
           <button
-            className="breadcrumb-segment"
+            className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[1px] rounded text-3 font-sans whitespace-nowrap hover:text-accent hover:bg-bg-hover"
             onClick={() => onNavigate(seg.path)}
             title={`Scope to ${seg.path}`}
           >
@@ -50,26 +54,24 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
       ))}
       {fileName && (
         <>
-          {segments.length > 0 && <span className="breadcrumb-separator"><Icons.chevronRight size={ICON_SIZE.XS} /></span>}
-          <span className="breadcrumb-file" title={file!}>
+          {segments.length > 0 && <span className="text-text-muted inline-flex items-center shrink-0"><Icons.chevronRight size={ICON_SIZE.XS} /></span>}
+          <span className="text-accent text-3 whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] inline-flex items-center gap-1" title={file!}>
             <Icons.file size={ICON_SIZE.SM} /> {fileName}
           </span>
-          {onClearFile && (
-            <button
-              className="breadcrumb-file-clear"
-              onClick={onClearFile}
-              title="Clear file scope (show all records in folder)"
-              aria-label="Clear file scope"
-            >
-              <Icons.close size={ICON_SIZE.XS} />
-            </button>
-          )}
+          <button
+            className="bg-transparent border-none text-text-muted cursor-pointer text-3 px-0.5 rounded leading-none shrink-0 hover:text-text hover:bg-bg-hover"
+            onClick={clearFileScope}
+            title="Clear file scope (show all records in folder)"
+            aria-label="Clear file scope"
+          >
+            <Icons.close size={ICON_SIZE.XS} />
+          </button>
         </>
       )}
-      <div className="breadcrumb-actions">
+      <div className="ml-auto flex gap-1 shrink-0">
         {onReload && (
           <button
-            className="breadcrumb-action-btn"
+            className={actionBtnClass}
             onClick={onReload}
             title={file ? 'Reprocess this file' : 'Reprocess folder'}
             aria-label={file ? 'Reprocess file' : 'Reprocess folder'}
@@ -79,7 +81,7 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
         )}
         {folder && (
           <button
-            className="breadcrumb-action-btn"
+            className={actionBtnClass}
             onClick={onOpenFolder}
             title="Open in Finder"
             aria-label="Open folder in file manager"
@@ -88,8 +90,8 @@ export const BreadcrumbBar: React.FC<Props> = ({ folder, file, onNavigate, onOpe
           </button>
         )}
         <button
-          className="breadcrumb-action-btn"
-          onClick={onClear}
+          className={actionBtnClass}
+          onClick={clearFolderScope}
           title="Clear all scope"
           aria-label="Clear all scope"
         >

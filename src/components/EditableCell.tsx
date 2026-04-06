@@ -65,11 +65,11 @@ export const EditableCell: React.FC<Props> = ({
     : '-';
 
   return (
-    <td className={`editable-cell ${isConflict ? 'cell-conflict' : ''} ${showMismatchIcon ? 'cell-mismatch' : ''}`}>
+    <td className={`editable-cell relative ${isConflict ? 'cell-conflict' : ''} ${showMismatchIcon ? 'cell-mismatch' : ''}`}>
       {editing ? (
         <input
           ref={inputRef}
-          className="cell-edit-input"
+          className="w-full border border-accent rounded-sm bg-bg text-text text-2.75 px-1 py-[1px] font-sans outline-none box-border"
           type={inputType}
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
@@ -77,18 +77,18 @@ export const EditableCell: React.FC<Props> = ({
           onBlur={handleSave}
         />
       ) : (
-        <span className="cell-display" onClick={handleClick} title={hasDerived ? `\u2318+click → ${formatCurrency(derivedValue)}` : undefined}>
-          {StatusIcon && <span className="cell-status-icon" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.XS} /></span>}
-          {showMismatchIcon && <span className="cell-mismatch-icon">!</span>}
+        <span className="cell-display inline-block min-w-[20px] px-[3px] py-[1px] rounded-sm transition-colors" onClick={handleClick} title={hasDerived ? `⌘+click → ${formatCurrency(derivedValue)}` : undefined}>
+          {StatusIcon && <span className="inline-flex items-center mr-0.5" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.XS} /></span>}
+          {showMismatchIcon && <span className="text-confidence-low text-2.5 font-bold mr-0.5">!</span>}
           {displayValue}
         </span>
       )}
       {isConflict && !editing && onResolve && (
-        <div className="cell-conflict-resolution">
-          <div className="cell-conflict-ai">AI: {override!.ai_value_latest}</div>
-          <div className="cell-conflict-actions">
-            <button className="conflict-btn keep-btn" onClick={() => onResolve(lineItemId, fieldName, 'keep')}>Keep</button>
-            <button className="conflict-btn accept-btn" onClick={() => onResolve(lineItemId, fieldName, 'accept')}>Accept</button>
+        <div className="absolute top-full left-0 z-10 bg-bg-secondary border border-border rounded px-1.5 py-1 text-2.5 whitespace-nowrap shadow-dropdown">
+          <div className="text-confidence-medium italic mb-[3px]">AI: {override!.ai_value_latest}</div>
+          <div className="flex gap-1">
+            <button className="border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => onResolve(lineItemId, fieldName, 'keep')}>Keep</button>
+            <button className="border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => onResolve(lineItemId, fieldName, 'accept')}>Accept</button>
           </div>
         </div>
       )}

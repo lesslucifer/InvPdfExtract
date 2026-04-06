@@ -13,7 +13,7 @@ export const QuickFixButton: React.FC<Props> = ({ suggestedValue, label, onApply
   if (state === 'idle') {
     return (
       <button
-        className="quickfix-trigger"
+        className="text-confidence-low text-2.5 font-bold cursor-pointer bg-transparent border-none px-0.5 leading-none hover:opacity-70"
         title={`${label}: ${formatCurrency(suggestedValue)}`}
         onClick={(e) => { e.stopPropagation(); setState('confirming'); }}
       >
@@ -23,16 +23,16 @@ export const QuickFixButton: React.FC<Props> = ({ suggestedValue, label, onApply
   }
 
   return (
-    <span className="quickfix-confirm" onClick={(e) => e.stopPropagation()}>
-      <span className="quickfix-label">{label}: {formatCurrency(suggestedValue)}</span>
+    <span className="inline-flex items-center gap-1.5 text-2.75" onClick={(e) => e.stopPropagation()}>
+      <span className="text-text-secondary">{label}: {formatCurrency(suggestedValue)}</span>
       <button
-        className="quickfix-btn quickfix-apply"
+        className="bg-accent text-white border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer hover:opacity-85"
         onClick={() => { onApply(String(suggestedValue)); setState('idle'); }}
       >
         Apply
       </button>
       <button
-        className="quickfix-btn quickfix-cancel"
+        className="bg-bg-hover text-text-secondary border-none rounded px-1.5 py-[1px] text-2.5 font-medium cursor-pointer hover:bg-border"
         onClick={() => setState('idle')}
       >
         Cancel

@@ -1,39 +1,27 @@
 import React, { useRef, useEffect } from 'react';
-import { SearchResult } from '../shared/types';
 import { ResultRow } from './ResultRow';
 import { ResultDetail } from './ResultDetail';
+import { useSearchStore } from '../stores';
 
 interface Props {
-  results: SearchResult[];
-  selectedIndex: number;
-  expandedId: string | null;
-  onSelect: (index: number) => void;
-  onToggleExpand: (id: string) => void;
   onOpenFile: (relativePath: string) => void;
-  onFieldUpdated: () => void;
-  onFolderClick?: (folder: string) => void;
-  onFileClick?: (relativePath: string) => void;
-  onDocTypeClick?: (docType: string) => void;
   onOpenFolder?: (folder: string) => void;
   onReprocessFile?: (relativePath: string) => void;
   onReprocessFolder?: (folder: string) => void;
-  onMstFilter?: (mst: string) => void;
-  onDateFilter?: (date: string) => void;
-  onLoadMore?: () => void;
-  hasMore?: boolean;
-  isLoadingMore?: boolean;
 }
 
 export const ResultList: React.FC<Props> = ({
-  results, selectedIndex, expandedId, onSelect, onToggleExpand, onOpenFile, onFieldUpdated,
-  onFolderClick, onFileClick, onDocTypeClick,
-  onOpenFolder, onReprocessFile, onReprocessFolder, onMstFilter, onDateFilter,
-  onLoadMore, hasMore, isLoadingMore,
+  onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder,
 }) => {
+  const results = useSearchStore(s => s.results);
+  const selectedIndex = useSearchStore(s => s.selectedIndex);
+  const expandedId = useSearchStore(s => s.expandedId);
+  const hasMore = useSearchStore(s => s.hasMore);
+  const isLoadingMore = useSearchStore(s => s.isLoadingMore);
+
   const listRef = useRef<HTMLDivElement>(null);
   const prevResultCountRef = useRef(results.length);
 
-  // Scroll to top when results are replaced (fresh search)
   useEffect(() => {
     if (results.length < prevResultCountRef.current) {
       listRef.current?.scrollTo(0, 0);
@@ -41,28 +29,28 @@ export const ResultList: React.FC<Props> = ({
     prevResultCountRef.current = results.length;
   }, [results.length]);
 
-  // Infinite scroll detection
   useEffect(() => {
     const el = listRef.current;
-    if (!el || !onLoadMore) return;
+    if (!el) return;
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el;
-      if (scrollHeight - scrollTop - clientHeight < 200 && hasMore && !isLoadingMore) {
-        onLoadMore();
+      const ss = useSearchStore.getState();
+      if (scrollHeight - scrollTop - clientHeight < 200 && ss.hasMore && !ss.isLoadingMore) {
+        ss.loadMore();
       }
     };
 
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => el.removeEventListener('scroll', handleScroll);
-  }, [onLoadMore, hasMore, isLoadingMore]);
+  }, []);
 
   if (results.length === 0) {
-    return <div className="result-empty">No results found</div>;
+    return <div className="px-6 py-6 text-center text-text-muted">No results found</div>;
   }
 
   return (
-    <div className="result-list" role="listbox" ref={listRef}>
+    <div className="result-list overflow-y-auto flex-1 min-h-0" role="listbox" ref={listRef}>
       {results.map((result, index) => (
         <div key={result.id}>
           <ResultRow
@@ -70,29 +58,21 @@ export const ResultList: React.FC<Props> = ({
             isSelected={index === selectedIndex}
             isExpanded={expandedId === result.id}
             onClick={() => {
-              onSelect(index);
-              onToggleExpand(result.id);
+              useSearchStore.getState().setSelectedIndex(index);
+              useSearchStore.getState().toggleExpand(result.id);
             }}
-            onFolderClick={onFolderClick}
-            onFileClick={onFileClick}
-            onDocTypeClick={onDocTypeClick}
             onOpenFile={onOpenFile}
             onOpenFolder={onOpenFolder}
             onReprocessFile={onReprocessFile}
             onReprocessFolder={onReprocessFolder}
-            onMstFilter={onMstFilter}
-            onDateFilter={onDateFilter}
           />
           {expandedId === result.id && (
-            <ResultDetail
-              result={result}
-              onFieldUpdated={onFieldUpdated}
-            />
+            <ResultDetail result={result} />
           )}
         </div>
       ))}
       {isLoadingMore && (
-        <div className="result-loading">Loading more...</div>
+        <div className="text-center px-3 py-3 text-text-muted text-3.25">Loading more...</div>
       )}
     </div>
   );

@@ -57,16 +57,16 @@ export const EditableField: React.FC<Props> = ({
 
   return (
     <tr className={`editable-field ${isConflict ? 'field-conflict' : ''}`}>
-      <td className="detail-label">
-        {StatusIcon && <span className="field-status-icon" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.SM} /></span>}
+      <td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">
+        {StatusIcon && <span className="inline-flex items-center mr-1" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.SM} /></span>}
         {label}
       </td>
-      <td className="field-value-cell">
+      <td className="relative py-[3px] text-3 align-top">
         {editing ? (
-          <span className="field-edit-group">
+          <span className="flex gap-1 items-center">
             <input
               ref={inputRef}
-              className="field-edit-input"
+              className="flex-1 border border-accent rounded bg-bg text-text text-3 px-1.5 py-[2px] font-sans outline-none"
               type={inputType}
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
@@ -75,27 +75,27 @@ export const EditableField: React.FC<Props> = ({
             />
           </span>
         ) : (
-          <span className={`field-display ${showMismatchIcon ? 'field-mismatch' : ''}`} onClick={(e) => {
+          <span className={`field-display cursor-pointer px-1 py-[1px] rounded-sm transition-colors ${showMismatchIcon ? 'field-mismatch cursor-pointer' : ''}`} onClick={(e) => {
             if ((e.metaKey || e.ctrlKey) && derivedValue != null) {
               e.preventDefault();
               onSave(String(derivedValue));
               return;
             }
             setEditValue(value); setEditing(true);
-          }} title={derivedValue != null ? `\u2318+click → ${formatCurrency(derivedValue)}` : undefined}>
+          }} title={derivedValue != null ? `⌘+click → ${formatCurrency(derivedValue)}` : undefined}>
             {displayValue}
-            {showMismatchIcon && derivedValue != null && <span className="field-mismatch-hint"> ({formatCurrency(derivedValue)}!)</span>}
+            {showMismatchIcon && derivedValue != null && <span className="text-confidence-low text-2.75 font-semibold"> ({formatCurrency(derivedValue)}!)</span>}
           </span>
         )}
 
         {isConflict && !editing && onResolve && (
-          <div className="conflict-resolution">
-            <div className="conflict-values">
-              <span className="conflict-ai-value">AI suggests: {override!.ai_value_latest}</span>
+          <div className="mt-1">
+            <div className="text-2.75 mb-1">
+              <span className="text-confidence-medium italic">AI suggests: {override!.ai_value_latest}</span>
             </div>
-            <div className="conflict-actions">
-              <button className="conflict-btn keep-btn" onClick={() => onResolve('keep')}>Keep mine</button>
-              <button className="conflict-btn accept-btn" onClick={() => onResolve('accept')}>Accept AI</button>
+            <div className="flex gap-1.5">
+              <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => onResolve('keep')}>Keep mine</button>
+              <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => onResolve('accept')}>Accept AI</button>
             </div>
           </div>
         )}

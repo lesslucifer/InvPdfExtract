@@ -5,26 +5,30 @@ import { EditableCell } from './EditableCell';
 import { JeCell } from './JeCell';
 import { formatCurrency } from '../shared/format';
 import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
+import { useProcessingStore } from '../stores';
+import { useResultDetail, useLineItems } from '../lib/queries';
+import { useSaveFieldOverride, useSaveJournalEntry, useSaveLineItemField } from '../lib/mutations';
 
 interface Props {
   result: SearchResult;
-  onFieldUpdated: () => void;
 }
 
-export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
-  const [overrides, setOverrides] = useState<FieldOverrideInfo[]>([]);
-  const [lineItemOverrides, setLineItemOverrides] = useState<Record<string, FieldOverrideInfo[]>>({});
+const JE_DOT_CLASSES: Record<string, string> = {
+  pending:    'bg-confidence-medium animate-je-dot-pulse-slow',
+  processing: 'bg-accent animate-je-dot-pulse-fast',
+  done:       'bg-confidence-high',
+  error:      'bg-confidence-low',
+};
+
+export const ResultDetail: React.FC<Props> = ({ result }) => {
   const [localTotals, setLocalTotals] = useState<{ tong_tien: number; tong_tien_truoc_thue: number }>({
     tong_tien: result.tong_tien,
     tong_tien_truoc_thue: result.tong_tien_truoc_thue,
   });
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [jeStatusRaw, setJeStatusRaw] = useState<JEClassificationStatus | null>(result.je_status);
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
 
-  // Sync local totals when result prop changes
   useEffect(() => {
     setLocalTotals({
       tong_tien: result.tong_tien,
@@ -32,78 +36,50 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     });
   }, [result.id, result.tong_tien, result.tong_tien_truoc_thue]);
 
-  const loadOverrides = useCallback(() => {
-    window.api.getFieldOverrides(result.id).then(setOverrides);
-  }, [result.id]);
+  const { data: detailData } = useResultDetail({ id: result.id });
+  const overrides: FieldOverrideInfo[] = detailData?.overrides ?? [];
+  const journalEntries: JournalEntry[] = detailData?.journalEntries ?? [];
 
-  const loadLineItemOverrides = useCallback((items: InvoiceLineItem[]) => {
-    if (items.length === 0) return;
-    const ids = items.map(i => i.id);
-    window.api.getLineItemOverrides(ids).then(setLineItemOverrides);
-  }, []);
+  const { data: lineItemData } = useLineItems({ id: result.id });
+  const lineItems: InvoiceLineItem[] = lineItemData?.lineItems ?? [];
+  const lineItemOverrides: Record<string, FieldOverrideInfo[]> = lineItemData?.lineItemOverrides ?? {};
 
-  const loadJournalEntries = useCallback(() => {
-    window.api.getJournalEntries(result.id).then(setJournalEntries);
-  }, [result.id]);
+  const saveFieldOverride = useSaveFieldOverride();
+  const saveJournalEntry = useSaveJournalEntry();
+  const saveLineItemField = useSaveLineItemField();
 
-  useEffect(() => {
-    if (isInvoice) {
-      window.api.getLineItems(result.id).then((items) => {
-        setLineItems(items);
-        loadLineItemOverrides(items);
-      });
-    }
-    loadOverrides();
-    loadJournalEntries();
-  }, [result.id, isInvoice, loadOverrides, loadLineItemOverrides, loadJournalEntries]);
-
-  const getOverride = (fieldName: string): FieldOverrideInfo | undefined => {
-    return overrides.find(o => o.field_name === fieldName);
-  };
+  const getOverride = (fieldName: string): FieldOverrideInfo | undefined =>
+    overrides.find(o => o.field_name === fieldName);
 
   const handleSave = async (tableName: string, fieldName: string, userValue: string) => {
-    await window.api.saveFieldOverride({
-      recordId: result.id,
-      tableName,
-      fieldName,
-      userValue,
-    });
+    await saveFieldOverride.mutateAsync({ recordId: result.id, tableName, fieldName, userValue });
     if (fieldName === 'tong_tien' || fieldName === 'tong_tien_truoc_thue') {
       const numVal = parseFloat(userValue) || 0;
       setLocalTotals(prev => ({ ...prev, [fieldName]: numVal }));
     }
-    loadOverrides();
-    onFieldUpdated();
   };
 
   const handleResolve = async (fieldName: string, action: 'keep' | 'accept') => {
     await window.api.resolveConflict(result.id, fieldName, action);
-    loadOverrides();
-    onFieldUpdated();
+    useResultDetail.invalidate({ id: result.id });
   };
 
   const handleResolveAll = async (action: 'keep' | 'accept') => {
     await window.api.resolveAllConflicts(result.id, action);
-    loadOverrides();
-    onFieldUpdated();
+    useResultDetail.invalidate({ id: result.id });
   };
 
   const handleLineItemSave = async (lineItemId: string, fieldName: string, userValue: string) => {
-    await window.api.saveLineItemField({ lineItemId, fieldName, userValue });
-    reloadLineItems();
-    onFieldUpdated();
+    await saveLineItemField.mutateAsync({ input: { lineItemId, fieldName, userValue }, recordId: result.id });
   };
 
   const handleLineItemResolve = async (lineItemId: string, fieldName: string, action: 'keep' | 'accept') => {
     await window.api.resolveConflict(lineItemId, fieldName, action);
-    loadLineItemOverrides(lineItems);
-    onFieldUpdated();
+    useLineItems.invalidate({ id: result.id });
   };
 
-  const getLineItemOverride = (lineItemId: string, fieldName: string): FieldOverrideInfo | undefined => {
-    const itemOverrides = lineItemOverrides[lineItemId];
-    return itemOverrides?.find(o => o.field_name === fieldName);
-  };
+  const getLineItemOverride = (lineItemId: string, fieldName: string): FieldOverrideInfo | undefined =>
+    lineItemOverrides[lineItemId]?.find(o => o.field_name === fieldName);
 
   const hasConflicts = overrides.some(o => o.status === 'conflict');
 
@@ -116,13 +92,6 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     () => computeBeforeTaxTotalMismatch(localTotals.tong_tien_truoc_thue, lineItems),
     [localTotals.tong_tien_truoc_thue, lineItems],
   );
-
-  const reloadLineItems = useCallback(() => {
-    window.api.getLineItems(result.id).then((items) => {
-      setLineItems(items);
-      loadLineItemOverrides(items);
-    });
-  }, [result.id, loadLineItemOverrides]);
 
   const hasColumnIssues = useMemo(() => {
     const beforeTax = lineItems.some(i => deriveFieldValue('thanh_tien_truoc_thue', i) != null);
@@ -139,7 +108,6 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     }
   };
 
-  // Derive effective status: if DB has null but JEs exist, treat as 'done'
   const jeStatus: JEClassificationStatus | null = jeStatusRaw ?? (journalEntries.length > 0 ? 'done' : null);
 
   const handleReclassify = () => {
@@ -147,20 +115,14 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     window.api.reclassifyRecord(result.id);
   };
 
-  // Subscribe to JE status changes
+  const lastJeUpdate = useProcessingStore(s => s.lastJeUpdate);
   useEffect(() => {
-    const unsubscribe = window.api.onJeStatusChanged((data) => {
-      if (data.recordIds.includes(result.id)) {
-        setJeStatusRaw(data.status);
-        if (data.status === 'done') {
-          loadJournalEntries();
-        }
-      }
-    });
-    return unsubscribe;
-  }, [result.id, loadJournalEntries]);
+    if (!lastJeUpdate) return;
+    if (lastJeUpdate.recordIds.includes(result.id)) {
+      setJeStatusRaw(lastJeUpdate.status);
+    }
+  }, [lastJeUpdate, result.id]);
 
-  // Lookup: line_item_id → JournalEntry (only 'line' entries)
   const jeByLineItem = useMemo(() => {
     const map = new Map<string, JournalEntry>();
     for (const je of journalEntries) {
@@ -171,25 +133,10 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     return map;
   }, [journalEntries]);
 
-  // Tax JE: single combined entry per invoice
-  const taxJe = useMemo(
-    () => journalEntries.find(je => je.entry_type === 'tax') ?? null,
-    [journalEntries],
-  );
+  const taxJe = useMemo(() => journalEntries.find(je => je.entry_type === 'tax') ?? null, [journalEntries]);
+  const settlementJe = useMemo(() => journalEntries.find(je => je.entry_type === 'settlement') ?? null, [journalEntries]);
+  const bankJe = useMemo(() => journalEntries.find(je => je.entry_type === 'bank') ?? null, [journalEntries]);
 
-  // Settlement JE: single entry per invoice
-  const settlementJe = useMemo(
-    () => journalEntries.find(je => je.entry_type === 'settlement') ?? null,
-    [journalEntries],
-  );
-
-  // Bank JE: the single 'bank' entry for this record
-  const bankJe = useMemo(
-    () => journalEntries.find(je => je.entry_type === 'bank') ?? null,
-    [journalEntries],
-  );
-
-  // Derived amounts for tax and settlement (computed from line items / invoice data)
   const derivedTaxAmount = useMemo(() => {
     return lineItems
       .filter(li => li.thue_suat != null && li.thue_suat > 0)
@@ -201,58 +148,59 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
   }, [lineItems]);
 
   const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank', lineItemId: string | null, account: string) => {
-    await window.api.saveJournalEntry({
-      recordId: result.id,
-      lineItemId: lineItemId ?? undefined,
-      entryType,
-      account,
-    });
-    loadJournalEntries();
+    await saveJournalEntry.mutateAsync({ recordId: result.id, lineItemId: lineItemId ?? undefined, entryType, account });
   };
 
+  const jeDotClass = (status: string) =>
+    `inline-block w-2 h-2 rounded-full ml-1.5 align-middle cursor-pointer shrink-0 ${JE_DOT_CLASSES[status] ?? 'bg-text-muted'}`;
+
+  const jeDotTitle = (status: string) =>
+    status === 'done' ? 'Classified — click to reclassify'
+    : status === 'error' ? 'Classification failed — click to retry'
+    : status === 'processing' ? 'Classifying...'
+    : 'Queued for classification';
+
   return (
-    <div className="result-detail">
+    <div className="px-4 pb-3 pl-[50px] bg-bg-secondary border-b border-border animate-detail-in">
       {hasConflicts && (
-        <div className="batch-conflict-actions">
-          <span className="batch-conflict-label">Conflicts detected:</span>
-          <button className="conflict-btn keep-btn" onClick={() => handleResolveAll('keep')}>Keep all mine</button>
-          <button className="conflict-btn accept-btn" onClick={() => handleResolveAll('accept')}>Accept all AI</button>
+        <div className="flex items-center gap-2 py-1.5 mb-1.5 border-b border-border text-3">
+          <span className="text-confidence-medium font-semibold">Conflicts detected:</span>
+          <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-bg-hover text-text hover:bg-border" onClick={() => handleResolveAll('keep')}>Keep all mine</button>
+          <button className="border-none rounded px-2 py-[2px] text-2.75 font-medium cursor-pointer bg-accent text-white hover:opacity-85" onClick={() => handleResolveAll('accept')}>Accept all AI</button>
         </div>
       )}
 
       {isBank && (
-        <>
-          <table className="detail-table">
-            <tbody>
-              <EditableField label="Bank" value={result.ten_ngan_hang || ''} fieldName="ten_ngan_hang" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_ngan_hang')} onSave={(v) => handleSave('bank_statement_data', 'ten_ngan_hang', v)} onResolve={(a) => handleResolve('ten_ngan_hang', a)} />
-              <EditableField label="Account" value={result.stk || ''} fieldName="stk" tableName="bank_statement_data" recordId={result.id} override={getOverride('stk')} onSave={(v) => handleSave('bank_statement_data', 'stk', v)} onResolve={(a) => handleResolve('stk', a)} />
-              <EditableField label="Amount" value={String(result.so_tien || '')} fieldName="so_tien" tableName="bank_statement_data" recordId={result.id} override={getOverride('so_tien')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'so_tien', v)} onResolve={(a) => handleResolve('so_tien', a)} />
-              <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('bank_statement_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
-              <EditableField label="Description" value={result.mo_ta || ''} fieldName="mo_ta" tableName="bank_statement_data" recordId={result.id} override={getOverride('mo_ta')} onSave={(v) => handleSave('bank_statement_data', 'mo_ta', v)} onResolve={(a) => handleResolve('mo_ta', a)} />
-              <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
-              <tr>
-                <td className="detail-label">
-                  TK
-                  {jeStatus && (
-                    <span
-                      className={`je-status-dot je-status-dot--${jeStatus}`}
-                      title={jeStatus === 'done' ? 'Classified — click to reclassify' : jeStatus === 'error' ? 'Classification failed — click to retry' : jeStatus === 'processing' ? 'Classifying...' : 'Queued for classification'}
-                      onClick={handleReclassify}
-                      role="button"
-                      tabIndex={0}
-                    />
-                  )}
-                </td>
-                <JeCell account={bankJe?.account ?? null} onSave={(account) => handleSaveJeAccount('bank', null, account)} />
-              </tr>
-            </tbody>
-          </table>
-        </>
+        <table className="w-full border-collapse">
+          <tbody>
+            <EditableField label="Bank" value={result.ten_ngan_hang || ''} fieldName="ten_ngan_hang" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_ngan_hang')} onSave={(v) => handleSave('bank_statement_data', 'ten_ngan_hang', v)} onResolve={(a) => handleResolve('ten_ngan_hang', a)} />
+            <EditableField label="Account" value={result.stk || ''} fieldName="stk" tableName="bank_statement_data" recordId={result.id} override={getOverride('stk')} onSave={(v) => handleSave('bank_statement_data', 'stk', v)} onResolve={(a) => handleResolve('stk', a)} />
+            <EditableField label="Amount" value={String(result.so_tien || '')} fieldName="so_tien" tableName="bank_statement_data" recordId={result.id} override={getOverride('so_tien')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'so_tien', v)} onResolve={(a) => handleResolve('so_tien', a)} />
+            <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('bank_statement_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
+            <EditableField label="Description" value={result.mo_ta || ''} fieldName="mo_ta" tableName="bank_statement_data" recordId={result.id} override={getOverride('mo_ta')} onSave={(v) => handleSave('bank_statement_data', 'mo_ta', v)} onResolve={(a) => handleResolve('mo_ta', a)} />
+            <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.ngay || '-'}</td></tr>
+            <tr>
+              <td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">
+                TK
+                {jeStatus && (
+                  <span
+                    className={jeDotClass(jeStatus)}
+                    title={jeDotTitle(jeStatus)}
+                    onClick={handleReclassify}
+                    role="button"
+                    tabIndex={0}
+                  />
+                )}
+              </td>
+              <JeCell account={bankJe?.account ?? null} onSave={(account) => handleSaveJeAccount('bank', null, account)} />
+            </tr>
+          </tbody>
+        </table>
       )}
 
       {isInvoice && (
         <>
-          <table className="detail-table">
+          <table className="w-full border-collapse">
             <tbody>
               <EditableField label="Invoice #" value={result.so_hoa_don || ''} fieldName="so_hoa_don" tableName="invoice_data" recordId={result.id} override={getOverride('so_hoa_don')} onSave={(v) => handleSave('invoice_data', 'so_hoa_don', v)} onResolve={(a) => handleResolve('so_hoa_don', a)} />
               <EditableField label="MST" value={result.mst || ''} fieldName="mst" tableName="invoice_data" recordId={result.id} override={getOverride('mst')} onSave={(v) => handleSave('invoice_data', 'mst', v)} onResolve={(a) => handleResolve('mst', a)} />
@@ -260,35 +208,47 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
               <EditableField label="Total (incl. tax)" value={String(localTotals.tong_tien || '')} fieldName="tong_tien" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'tong_tien', v)} onResolve={(a) => handleResolve('tong_tien', a)} />
               <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('invoice_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
               <EditableField label="Address" value={result.dia_chi_doi_tac || ''} fieldName="dia_chi_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('dia_chi_doi_tac')} onSave={(v) => handleSave('invoice_data', 'dia_chi_doi_tac', v)} onResolve={(a) => handleResolve('dia_chi_doi_tac', a)} />
-              <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
+              <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.ngay || '-'}</td></tr>
             </tbody>
           </table>
 
           {lineItems.length > 0 && (
-            <div className="line-items">
-              <div className="line-items-header">
+            <div className="mt-2">
+              <div className="flex items-center justify-between font-semibold text-3 mb-1 text-text-secondary">
                 <span>Line Items</span>
                 {jeStatus && (
                   <span
-                    className={`je-status-dot je-status-dot--${jeStatus}`}
-                    title={jeStatus === 'done' ? 'Classified — click to reclassify' : jeStatus === 'error' ? 'Classification failed — click to retry' : jeStatus === 'processing' ? 'Classifying...' : 'Queued for classification'}
+                    className={jeDotClass(jeStatus)}
+                    title={jeDotTitle(jeStatus)}
                     onClick={handleReclassify}
                     role="button"
                     tabIndex={0}
                   />
                 )}
               </div>
-              <table className="line-items-table">
+              <table className="w-full border-collapse text-2.75">
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Description</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th className={hasColumnIssues.beforeTax ? 'th-fixable' : ''} onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('thanh_tien_truoc_thue'); }} title={hasColumnIssues.beforeTax ? '\u2318+click to fix column' : undefined}>Before tax{hasColumnIssues.beforeTax && <span className="th-fix-hint">!</span>}</th>
-                    <th>Tax %</th>
-                    <th className={hasColumnIssues.afterTax ? 'th-fixable' : ''} onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('thanh_tien'); }} title={hasColumnIssues.afterTax ? '\u2318+click to fix column' : undefined}>After tax{hasColumnIssues.afterTax && <span className="th-fix-hint">!</span>}</th>
-                    <th>TK</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">#</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Description</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Qty</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Price</th>
+                    <th
+                      className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.beforeTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
+                      onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('thanh_tien_truoc_thue'); }}
+                      title={hasColumnIssues.beforeTax ? '⌘+click to fix column' : undefined}
+                    >
+                      Before tax{hasColumnIssues.beforeTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
+                    </th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Tax %</th>
+                    <th
+                      className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.afterTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
+                      onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('thanh_tien'); }}
+                      title={hasColumnIssues.afterTax ? '⌘+click to fix column' : undefined}
+                    >
+                      After tax{hasColumnIssues.afterTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
+                    </th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">TK</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -299,43 +259,41 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
                     const hasRowIssue = itemMismatch.hasMismatch || taxMismatch.hasMismatch || afterTaxMismatch.hasMismatch;
                     const je = jeByLineItem.get(item.id) ?? null;
                     return (
-                    <tr key={item.id} className={hasRowIssue ? 'line-item-mismatch' : ''}>
-                      <td>{item.line_number}</td>
-                      <EditableCell value={item.mo_ta || ''} fieldName="mo_ta" lineItemId={item.id} override={getLineItemOverride(item.id, 'mo_ta')} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.so_luong ?? '')} fieldName="so_luong" lineItemId={item.id} override={getLineItemOverride(item.id, 'so_luong')} inputType="number" derivedValue={deriveFieldValue('so_luong', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.don_gia ?? '')} fieldName="don_gia" lineItemId={item.id} override={getLineItemOverride(item.id, 'don_gia')} inputType="number" derivedValue={deriveFieldValue('don_gia', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.thanh_tien_truoc_thue ?? '')} fieldName="thanh_tien_truoc_thue" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien_truoc_thue')} inputType="number" derivedValue={deriveFieldValue('thanh_tien_truoc_thue', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={item.thue_suat != null ? String(item.thue_suat) : ''} fieldName="thue_suat" lineItemId={item.id} override={getLineItemOverride(item.id, 'thue_suat')} inputType="number" derivedValue={deriveFieldValue('thue_suat', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <EditableCell value={String(item.thanh_tien ?? '')} fieldName="thanh_tien" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien')} inputType="number" derivedValue={deriveFieldValue('thanh_tien', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                      <JeCell account={je?.account ?? null} onSave={(account) => handleSaveJeAccount('line', item.id, account)} />
-                    </tr>
+                      <tr key={item.id} className={hasRowIssue ? 'line-item-mismatch' : ''}>
+                        <td className="px-1.5 py-[3px] border-b border-border">{item.line_number}</td>
+                        <EditableCell value={item.mo_ta || ''} fieldName="mo_ta" lineItemId={item.id} override={getLineItemOverride(item.id, 'mo_ta')} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.so_luong ?? '')} fieldName="so_luong" lineItemId={item.id} override={getLineItemOverride(item.id, 'so_luong')} inputType="number" derivedValue={deriveFieldValue('so_luong', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.don_gia ?? '')} fieldName="don_gia" lineItemId={item.id} override={getLineItemOverride(item.id, 'don_gia')} inputType="number" derivedValue={deriveFieldValue('don_gia', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.thanh_tien_truoc_thue ?? '')} fieldName="thanh_tien_truoc_thue" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien_truoc_thue')} inputType="number" derivedValue={deriveFieldValue('thanh_tien_truoc_thue', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={item.thue_suat != null ? String(item.thue_suat) : ''} fieldName="thue_suat" lineItemId={item.id} override={getLineItemOverride(item.id, 'thue_suat')} inputType="number" derivedValue={deriveFieldValue('thue_suat', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.thanh_tien ?? '')} fieldName="thanh_tien" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien')} inputType="number" derivedValue={deriveFieldValue('thanh_tien', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <JeCell account={je?.account ?? null} onSave={(account) => handleSaveJeAccount('line', item.id, account)} />
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
 
-              {/* Tax and settlement summary rows */}
-              <div className="je-summary">
-                <div className="je-summary-row">
-                  <span className="je-summary-label">Thue GTGT</span>
-                  <span className="je-summary-account">
+              <div className="mt-1.5 py-1">
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">Thue GTGT</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">
                     TK <JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
                   </span>
-                  <span className="je-summary-amount">{derivedTaxAmount > 0 ? formatCurrency(derivedTaxAmount) : '–'}</span>
+                  <span className="text-text ml-auto">{derivedTaxAmount > 0 ? formatCurrency(derivedTaxAmount) : '–'}</span>
                 </div>
-                <div className="je-summary-row">
-                  <span className="je-summary-label">Thanh toan</span>
-                  <span className="je-summary-account">
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">Thanh toan</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">
                     TK <JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
                   </span>
-                  <span className="je-summary-amount">{localTotals.tong_tien ? formatCurrency(localTotals.tong_tien) : '–'}</span>
+                  <span className="text-text ml-auto">{localTotals.tong_tien ? formatCurrency(localTotals.tong_tien) : '–'}</span>
                 </div>
               </div>
             </div>
           )}
         </>
       )}
-
     </div>
   );
 };

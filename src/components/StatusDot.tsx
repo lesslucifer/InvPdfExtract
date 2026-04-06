@@ -9,6 +9,14 @@ const STATUS_TITLES: Record<FileStatus, string> = {
   [FileStatus.Error]: 'Error',
 };
 
+const STATUS_CLASSES: Record<FileStatus, string> = {
+  [FileStatus.Pending]:    'bg-text-muted',
+  [FileStatus.Processing]: 'bg-accent animate-status-pulse',
+  [FileStatus.Done]:       'bg-confidence-high',
+  [FileStatus.Review]:     'bg-confidence-medium',
+  [FileStatus.Error]:      'bg-confidence-low',
+};
+
 interface Props {
   status: FileStatus;
   onClick?: (e: React.MouseEvent) => void;
@@ -18,7 +26,7 @@ export const StatusDot: React.FC<Props> = ({ status, onClick }) => {
   const title = STATUS_TITLES[status] || status;
   return (
     <span
-      className={`status-dot-file status-dot-file--${status}`}
+      className={`w-[5px] h-[5px] rounded-full shrink-0 inline-block align-middle mx-1 ${STATUS_CLASSES[status]}`}
       title={title}
       aria-label={title}
       onClick={onClick}

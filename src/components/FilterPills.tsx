@@ -3,12 +3,7 @@ import { ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 import { formatCurrency } from '../shared/format';
 import { Icons, DOC_TYPE_ICONS, ICON_SIZE, type IconName } from '../shared/icons';
 import { Icon } from './Icon';
-
-interface Props {
-  filters: ParsedQuery;
-  onRemoveFilter: (key: keyof ParsedQuery) => void;
-  onToggleSortDirection?: () => void;
-}
+import { useSearchStore } from '../stores';
 
 function formatAmount(n: number): string {
   return formatCurrency(n, { abbreviated: true });
@@ -80,30 +75,33 @@ function getPills(filters: ParsedQuery): PillDef[] {
   return pills;
 }
 
-export const FilterPills: React.FC<Props> = ({ filters, onRemoveFilter, onToggleSortDirection }) => {
+export const FilterPills: React.FC = () => {
+  const filters = useSearchStore(s => s.filters);
+  const removeFilter = useSearchStore(s => s.removeFilter);
+  const toggleSortDirection = useSearchStore(s => s.toggleSortDirection);
   const pills = getPills(filters);
   if (pills.length === 0) return null;
 
   return (
-    <div className="filter-pills">
+    <div className="flex flex-wrap gap-1.5 px-4 py-1.5 border-b border-border">
       {pills.map((pill) => (
-        <span key={pill.key} className="filter-pill">
-          {pill.key === 'sortField' && onToggleSortDirection ? (
+        <span key={pill.key} className="inline-flex items-center gap-1 bg-bg-secondary border border-border rounded-full px-2.5 py-[3px] text-3 text-text">
+          {pill.key === 'sortField' ? (
             <button
-              className="filter-pill-direction"
-              onClick={onToggleSortDirection}
+              className="inline-flex items-center text-text-secondary border-none bg-transparent cursor-pointer p-0.5 rounded hover:text-accent hover:bg-bg-hover transition-colors"
+              onClick={toggleSortDirection}
               aria-label="Toggle sort direction"
               title="Toggle sort direction"
             >
               <Icon name={pill.icon} size={ICON_SIZE.SM} />
             </button>
           ) : (
-            <span className="filter-pill-icon"><Icon name={pill.icon} size={ICON_SIZE.SM} /></span>
+            <span className="inline-flex items-center"><Icon name={pill.icon} size={ICON_SIZE.SM} /></span>
           )}
-          <span className="filter-pill-label">{pill.label}</span>
+          <span className="whitespace-nowrap">{pill.label}</span>
           <button
-            className="filter-pill-close"
-            onClick={() => onRemoveFilter(pill.key)}
+            className="bg-transparent border-none text-text-muted cursor-pointer px-0.5 inline-flex items-center rounded-full hover:text-text hover:bg-bg-hover"
+            onClick={() => removeFilter(pill.key)}
             aria-label={`Remove ${pill.label} filter`}
           >
             <Icons.close size={ICON_SIZE.XS} />
