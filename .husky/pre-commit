@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+if [ -f "$(dirname -- "$0")/_/.env" ]; then
+  . "$(dirname -- "$0")/_/.env"
+  export PATH="${PATH}:${EXT_PATH}"
+fi
+
+echo "TypeScript check"
+
+pnpm test
