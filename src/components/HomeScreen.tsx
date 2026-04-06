@@ -3,6 +3,7 @@ import { FolderInfo, AggregateStats, SearchFilters, FileStatus } from '../shared
 import { StickyFooter } from './StickyFooter';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useProcessingStore } from '../stores';
 
 const ALL_FILTERS: SearchFilters = {};
 
@@ -56,13 +57,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return () => { cancelled = true; };
   }, []);
 
-  // Re-fetch folder statuses when file processing status changes
+  // Re-fetch folder statuses when file processing status changes (centralized via store)
+  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
   useEffect(() => {
-    const unsubscribe = window.api.onFileStatusChanged(() => {
-      refreshFolderStatuses();
-    });
-    return unsubscribe;
-  }, [refreshFolderStatuses]);
+    if (fileStatusVersion === 0) return; // skip initial mount (data loaded above)
+    refreshFolderStatuses();
+  }, [fileStatusVersion, refreshFolderStatuses]);
 
   const handleOptimisticFolderUpdate = useCallback((folderPath: string) => {
     setFolderStatuses(prev => ({ ...prev, [folderPath]: FileStatus.Pending }));

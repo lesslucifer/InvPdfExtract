@@ -95,6 +95,16 @@ Webpack replaces `__dirname` with `"/"` in the bundled output. This means any co
 - `__dirname` is **fine** in files that are NOT webpack-bundled: `forge.config.ts`, `webpack.*.ts`, `scripts/`, `e2e/`, and test files (`*.test.ts`) that run under Vitest/Node directly.
 - The `__dirname` usage in `matcher-evaluator.ts` is intentional — it sets `__dirname` inside a VM sandbox for user-authored matcher scripts, not for the app's own path resolution.
 
+## Zustand Conventions
+
+- Stores live in `src/stores/<name>Store.ts`; re-export from `src/stores/index.ts`.
+- Shared/cross-component state → Zustand store. Local UI state (edit buffers, confirms) → `useState`.
+- Always use selectors: `useStore(s => s.field)`, never bare `useStore()` — prevents unnecessary re-renders.
+- Cross-store access outside React: `useOtherStore.getState()` — standard Zustand pattern.
+- All IPC event subscriptions (`onStatusUpdate`, `onFileStatusChanged`, `onJeStatusChanged`) live in `processingStore` only — never subscribe in components.
+- Components react to IPC events via store selectors (`fileStatusVersion`, `lastJeUpdate`), not direct listeners.
+- Use `immer` middleware only for stores with complex nested state updates (e.g. `searchStore`).
+
 ## SQLite Schema
 
 The database (`vault.db` in `.invoicevault/`) uses these core tables: `files`, `extraction_batches`, `records`, `bank_statement_data`, `invoice_data`, `invoice_line_items`, `extraction_scripts`, `file_script_assignments`, `field_overrides`, `processing_logs`. Full schema definitions are in PRD Section 9. All deletions are soft deletes (`deleted_at` column). FTS5 is used for search.

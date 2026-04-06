@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useProcessingStore } from '../stores';
 
 const CONFIRM_THRESHOLD = 10;
 
@@ -60,13 +61,12 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     };
   }, [query, scope, refreshStatuses]);
 
-  // Re-fetch statuses when file processing status changes
+  // Re-fetch statuses when file processing status changes (centralized via store)
+  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
   useEffect(() => {
-    const unsubscribe = window.api.onFileStatusChanged(() => {
-      refreshStatuses(items);
-    });
-    return unsubscribe;
-  }, [items, refreshStatuses]);
+    if (fileStatusVersion === 0) return; // skip initial mount
+    refreshStatuses(items);
+  }, [fileStatusVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelect = useCallback((item: PathItem, e?: React.MouseEvent | KeyboardEvent) => {
     const metaOrCtrl = e && ('metaKey' in e) && (e.metaKey || e.ctrlKey);

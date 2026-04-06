@@ -17,16 +17,14 @@ import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
 import { SavePresetModal } from './SavePresetModal';
 import { mergePresetState } from '../shared/merge-preset';
+import { useProcessingStore } from '../stores';
 
 const DEBOUNCE_MS = 200;
 const PAGE_SIZE = 50;
 
-type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
-
 export const SearchOverlay: React.FC = () => {
   const [overlayState, setOverlayState] = useState<OverlayState>(OverlayState.Home);
   const [previousState, setPreviousState] = useState<OverlayState>(OverlayState.Home);
-  const [status, setStatus] = useState<StatusIndicator>('idle');
 
   // Search state — query is the free text only (filters are separate)
   const [query, setQuery] = useState('');
@@ -75,28 +73,21 @@ export const SearchOverlay: React.FC = () => {
     });
   }, []);
 
-  // Subscribe to processing status updates from main process
-  useEffect(() => {
-    const unsubscribe = window.api.onStatusUpdate(setStatus);
-    return unsubscribe;
-  }, []);
-
-  // Subscribe to file status changes to update StatusDots in search results
+  // Watch centralized file status changes to update StatusDots in search results
   const resultsRef = useRef(results);
   resultsRef.current = results;
+  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
   useEffect(() => {
-    const unsubscribe = window.api.onFileStatusChanged(async () => {
-      const currentResults = resultsRef.current;
-      if (currentResults.length === 0) return;
-      const paths = [...new Set(currentResults.map(r => r.relative_path))];
-      const updatedStatuses = await window.api.getFileStatusesByPaths(paths);
+    const currentResults = resultsRef.current;
+    if (currentResults.length === 0) return;
+    const paths = [...new Set(currentResults.map(r => r.relative_path))];
+    window.api.getFileStatusesByPaths(paths).then(updatedStatuses => {
       setResults(prev => prev.map(r => {
         const newStatus = updatedStatuses[r.relative_path];
         return newStatus !== undefined ? { ...r, file_status: newStatus } : r;
       }));
     });
-    return unsubscribe;
-  }, []);
+  }, [fileStatusVersion]);
 
   // Cleanup hint timer on unmount
   useEffect(() => {
@@ -862,7 +853,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} />
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} />
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -882,7 +873,7 @@ export const SearchOverlay: React.FC = () => {
     return (
       <div className={overlayClassName}>
         {titleBar}
-        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} />
+        <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} />
         <PresetList
           query={presetQuery}
           onLoadPreset={handleLoadPreset}
@@ -905,7 +896,7 @@ export const SearchOverlay: React.FC = () => {
   return (
     <div className={overlayClassName}>
       {titleBar}
-      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} status={status} />
+      <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} />
       <SuggestionList
         items={visibleSuggestions}
         selectedIndex={suggestionIndex}

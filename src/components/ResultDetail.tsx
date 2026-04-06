@@ -5,6 +5,7 @@ import { EditableCell } from './EditableCell';
 import { JeCell } from './JeCell';
 import { formatCurrency } from '../shared/format';
 import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
+import { useProcessingStore } from '../stores';
 
 interface Props {
   result: SearchResult;
@@ -147,18 +148,17 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     window.api.reclassifyRecord(result.id);
   };
 
-  // Subscribe to JE status changes
+  // React to JE status changes (centralized via store)
+  const lastJeUpdate = useProcessingStore(s => s.lastJeUpdate);
   useEffect(() => {
-    const unsubscribe = window.api.onJeStatusChanged((data) => {
-      if (data.recordIds.includes(result.id)) {
-        setJeStatusRaw(data.status);
-        if (data.status === 'done') {
-          loadJournalEntries();
-        }
+    if (!lastJeUpdate) return;
+    if (lastJeUpdate.recordIds.includes(result.id)) {
+      setJeStatusRaw(lastJeUpdate.status);
+      if (lastJeUpdate.status === 'done') {
+        loadJournalEntries();
       }
-    });
-    return unsubscribe;
-  }, [result.id, loadJournalEntries]);
+    }
+  }, [lastJeUpdate, result.id, loadJournalEntries]);
 
   // Lookup: line_item_id → JournalEntry (only 'line' entries)
   const jeByLineItem = useMemo(() => {

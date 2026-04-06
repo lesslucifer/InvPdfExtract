@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { useProcessingStore } from '../stores';
 
 type TabId = 'queue' | 'processed' | 'errors';
 
@@ -71,16 +72,13 @@ export const ProcessingStatusPanel: React.FC<Props> = ({ onBack }) => {
     return () => { cancelled = true; };
   }, [activeTab]);
 
-  // Subscribe to real-time updates to refresh the active tab
+  // Refresh active tab when file or JE status changes (centralized via store)
+  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
+  const jeStatusVersion = useProcessingStore(s => s.jeStatusVersion);
   useEffect(() => {
-    const unsubFile = window.api.onFileStatusChanged(async () => {
-      try { await loadTab(activeTab); } catch { /* ignore */ }
-    });
-    const unsubJe = window.api.onJeStatusChanged(async () => {
-      try { await loadTab(activeTab); } catch { /* ignore */ }
-    });
-    return () => { unsubFile(); unsubJe(); };
-  }, [activeTab]);
+    if (fileStatusVersion === 0 && jeStatusVersion === 0) return; // skip initial mount
+    loadTab(activeTab).catch(() => { /* ignore */ });
+  }, [fileStatusVersion, jeStatusVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: 'queue', label: 'Queue', count: queueFiles.length + jeQueueItems.length },

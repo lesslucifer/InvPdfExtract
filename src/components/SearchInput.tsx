@@ -1,17 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
-
-type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
+import { useProcessingStore } from '../stores';
 
 interface Props {
   value: string;
   onChange: (value: string) => void;
   onCursorChange?: (pos: number) => void;
   onStatusDotClick?: () => void;
-  status?: StatusIndicator;
 }
 
-export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onStatusDotClick, status = 'idle' }) => {
+export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onStatusDotClick }) => {
+  const status = useProcessingStore(s => s.status);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
