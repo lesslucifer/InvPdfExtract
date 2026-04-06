@@ -58,8 +58,8 @@ const result = {
   records: rows.map(r => ({
     confidence: 1.0,
     field_confidence: {},
-    ngay: r['Ngày lập'] || null,
-    data: { so_hoa_don: r['Số HĐ'], tong_tien: r['Tổng tiền'], mst: r['MST'] },
+    doc_date: r['Ngày lập'] || null,
+    data: { invoice_number: r['Số HĐ'], total_amount: r['Tổng tiền'], tax_id: r['MST'] },
     line_items: []
   }))
 };

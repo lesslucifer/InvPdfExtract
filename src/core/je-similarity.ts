@@ -57,7 +57,7 @@ export class JESimilarityEngine {
         .slice(0, this.maxSize)
         .map(entry => ({
           ...entry,
-          normalizedMoTa: normalize(entry.mo_ta),
+          normalizedMoTa: normalize(entry.description),
         }))
         .filter(entry => entry.normalizedMoTa.length > 0);
 
@@ -97,7 +97,7 @@ export class JESimilarityEngine {
         cashFlow: bestMatch.cash_flow,
         entryType: bestMatch.entry_type,
         score: bestScore,
-        matchedDescription: bestMatch.mo_ta,
+        matchedDescription: bestMatch.description,
       };
     }
 

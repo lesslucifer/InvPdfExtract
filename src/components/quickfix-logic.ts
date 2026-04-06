@@ -3,46 +3,46 @@ import { InvoiceLineItem } from '../shared/types';
 const TOLERANCE = 1; // 1 VND rounding tolerance
 
 /**
- * Check if tong_tien (after-tax) matches the sum of line item thanh_tien (after-tax).
+ * Check if total_amount (after-tax) matches the sum of line item total_with_tax (after-tax).
  */
 export function computeTotalMismatch(
-  tongTien: number,
-  lineItems: { thanh_tien?: number | null }[],
+  totalAmount: number,
+  lineItems: { total_with_tax?: number | null }[],
 ): { hasMismatch: boolean; sum: number } {
-  if (lineItems.length === 0 || !tongTien) {
+  if (lineItems.length === 0 || !totalAmount) {
     return { hasMismatch: false, sum: 0 };
   }
-  const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien ?? 0), 0);
-  const hasMismatch = Math.abs(sum - tongTien) > TOLERANCE;
+  const sum = lineItems.reduce((acc, item) => acc + (item.total_with_tax ?? 0), 0);
+  const hasMismatch = Math.abs(sum - totalAmount) > TOLERANCE;
   return { hasMismatch, sum };
 }
 
 /**
- * Check if tong_tien_truoc_thue (before-tax total) matches the sum of line item thanh_tien_truoc_thue.
+ * Check if total_before_tax matches the sum of line item subtotal.
  */
 export function computeBeforeTaxTotalMismatch(
-  tongTienTruocThue: number,
-  lineItems: { thanh_tien_truoc_thue?: number | null }[],
+  totalBeforeTax: number,
+  lineItems: { subtotal?: number | null }[],
 ): { hasMismatch: boolean; sum: number } {
-  if (lineItems.length === 0 || !tongTienTruocThue) {
+  if (lineItems.length === 0 || !totalBeforeTax) {
     return { hasMismatch: false, sum: 0 };
   }
-  const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien_truoc_thue ?? 0), 0);
-  const hasMismatch = Math.abs(sum - tongTienTruocThue) > TOLERANCE;
+  const sum = lineItems.reduce((acc, item) => acc + (item.subtotal ?? 0), 0);
+  const hasMismatch = Math.abs(sum - totalBeforeTax) > TOLERANCE;
   return { hasMismatch, sum };
 }
 
 /**
- * Check if thanh_tien_truoc_thue matches don_gia * so_luong (both pre-tax).
+ * Check if subtotal matches unit_price * quantity (both pre-tax).
  */
 export function computeLineItemMismatch(
-  item: { don_gia?: number | null; so_luong?: number | null; thanh_tien_truoc_thue?: number | null },
+  item: { unit_price?: number | null; quantity?: number | null; subtotal?: number | null },
 ): { hasMismatch: boolean; expected: number | null } {
-  if (item.don_gia == null || item.so_luong == null || item.thanh_tien_truoc_thue == null) {
+  if (item.unit_price == null || item.quantity == null || item.subtotal == null) {
     return { hasMismatch: false, expected: null };
   }
-  const expected = Math.round(item.don_gia * item.so_luong);
-  const hasMismatch = Math.abs(item.thanh_tien_truoc_thue - expected) > TOLERANCE;
+  const expected = Math.round(item.unit_price * item.quantity);
+  const hasMismatch = Math.abs(item.subtotal - expected) > TOLERANCE;
   return { hasMismatch, expected };
 }
 
@@ -60,31 +60,31 @@ export function getMismatchedLineItems(
 }
 
 /**
- * Check if thanh_tien (after-tax) matches thanh_tien_truoc_thue * (1 + thue_suat/100).
+ * Check if total_with_tax (after-tax) matches subtotal * (1 + tax_rate/100).
  */
 export function computeAfterTaxMismatch(
-  item: { thanh_tien_truoc_thue?: number | null; thue_suat?: number | null; thanh_tien?: number | null },
+  item: { subtotal?: number | null; tax_rate?: number | null; total_with_tax?: number | null },
 ): { hasMismatch: boolean; expected: number | null } {
-  if (item.thanh_tien_truoc_thue == null || item.thue_suat == null || item.thanh_tien == null) {
+  if (item.subtotal == null || item.tax_rate == null || item.total_with_tax == null) {
     return { hasMismatch: false, expected: null };
   }
-  const expected = Math.round(item.thanh_tien_truoc_thue * (1 + item.thue_suat / 100));
-  const hasMismatch = Math.abs(item.thanh_tien - expected) > TOLERANCE;
+  const expected = Math.round(item.subtotal * (1 + item.tax_rate / 100));
+  const hasMismatch = Math.abs(item.total_with_tax - expected) > TOLERANCE;
   return { hasMismatch, expected };
 }
 
 /**
- * Detect if thue_suat was likely extracted as a decimal (e.g. 0.08) instead of
+ * Detect if tax_rate was likely extracted as a decimal (e.g. 0.08) instead of
  * percentage (e.g. 8). Values < 1 are almost certainly decimals that need *100.
  */
 export function computeTaxRateMismatch(
-  item: { thue_suat?: number | null },
+  item: { tax_rate?: number | null },
 ): { hasMismatch: boolean; expected: number | null } {
-  if (item.thue_suat == null || item.thue_suat === 0) {
+  if (item.tax_rate == null || item.tax_rate === 0) {
     return { hasMismatch: false, expected: null };
   }
-  if (item.thue_suat > 0 && item.thue_suat < 1) {
-    return { hasMismatch: true, expected: Math.round(item.thue_suat * 100) };
+  if (item.tax_rate > 0 && item.tax_rate < 1) {
+    return { hasMismatch: true, expected: Math.round(item.tax_rate * 100) };
   }
   return { hasMismatch: false, expected: null };
 }
@@ -113,31 +113,31 @@ export function deriveFieldValue(
   fieldName: string,
   item: InvoiceLineItem,
 ): number | null {
-  const qty = item.so_luong;
-  const price = item.don_gia;
-  const tax = item.thue_suat;
-  const beforeTax = item.thanh_tien_truoc_thue;
-  const afterTax = item.thanh_tien;
+  const qty = item.quantity;
+  const price = item.unit_price;
+  const tax = item.tax_rate;
+  const beforeTax = item.subtotal;
+  const afterTax = item.total_with_tax;
 
   let derived: number | null = null;
   let current: number | null = null;
 
   switch (fieldName) {
-    case 'so_luong': // qty = before_tax / price
+    case 'quantity': // qty = subtotal / price
       if (beforeTax != null && price != null && price !== 0) {
         derived = Math.round((beforeTax / price) * 1e6) / 1e6;
       }
       current = qty;
       break;
 
-    case 'don_gia': // price = before_tax / qty
+    case 'unit_price': // price = subtotal / qty
       if (beforeTax != null && qty != null && qty !== 0) {
         derived = Math.round((beforeTax / qty) * 1e6) / 1e6;
       }
       current = price;
       break;
 
-    case 'thue_suat': {
+    case 'tax_rate': {
       // Auto-fix decimal rates (0.08 -> 8)
       const taxMismatch = computeTaxRateMismatch(item);
       if (taxMismatch.hasMismatch) {
@@ -151,14 +151,14 @@ export function deriveFieldValue(
       break;
     }
 
-    case 'thanh_tien_truoc_thue': // before_tax = qty * price
+    case 'subtotal': // subtotal = qty * price
       if (qty != null && price != null) {
         derived = Math.round(qty * price);
       }
       current = beforeTax;
       break;
 
-    case 'thanh_tien': // after_tax = before_tax * (1 + tax/100)
+    case 'total_with_tax': // after_tax = subtotal * (1 + tax/100)
       if (beforeTax != null && tax != null) {
         derived = Math.round(beforeTax * (1 + tax / 100));
       }
@@ -172,9 +172,8 @@ export function deriveFieldValue(
   if (derived == null) return null;
   // Only return derived value if it differs from current
   // Use tolerance for VND amount fields only; exact match for qty/price/tax
-  const isAmountField = fieldName === 'thanh_tien_truoc_thue' || fieldName === 'thanh_tien';
+  const isAmountField = fieldName === 'subtotal' || fieldName === 'total_with_tax';
   const tol = isAmountField ? TOLERANCE : 0.001;
   if (current != null && Math.abs(current - derived) <= tol) return null;
   return derived;
 }
-

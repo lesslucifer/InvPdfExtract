@@ -35,8 +35,8 @@ describe('Script Sandbox', () => {
           records: [{
             confidence: 1.0,
             field_confidence: {},
-            ngay: '2026-01-31',
-            data: { so_hoa_don: '123', tong_tien: 100000 },
+            doc_date: '2026-01-31',
+            data: { invoice_number: '123', total_amount: 100000 },
             line_items: []
           }]
         };
@@ -50,7 +50,7 @@ describe('Script Sandbox', () => {
       expect(result.relative_path).toBe('test.xml');
       expect(result.doc_type).toBe('invoice_in');
       expect(result.records).toHaveLength(1);
-      expect((result.records[0].data as ExtractionInvoiceData).so_hoa_don).toBe('123');
+      expect((result.records[0].data as ExtractionInvoiceData).invoice_number).toBe('123');
     });
 
     it('passes the filePath argument to the script', async () => {

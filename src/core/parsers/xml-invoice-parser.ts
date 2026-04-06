@@ -41,22 +41,22 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
   const lineItems = parseLineItems(dsHHDVu);
 
   const data: ExtractionInvoiceData = {
-    so_hoa_don: soHoaDon ?? undefined,
-    tong_tien_truoc_thue: tongTienTruocThue ?? undefined,
-    tong_tien: tongTien ?? undefined,
-    mst: mst ?? undefined,
-    ten_doi_tac: tenDoiTac ?? undefined,
-    dia_chi_doi_tac: diaChiDoiTac ?? undefined,
+    invoice_number: soHoaDon ?? undefined,
+    total_before_tax: tongTienTruocThue ?? undefined,
+    total_amount: tongTien ?? undefined,
+    tax_id: mst ?? undefined,
+    counterparty_name: tenDoiTac ?? undefined,
+    counterparty_address: diaChiDoiTac ?? undefined,
   };
 
   const fieldConfidence: Record<string, number> = {
-    so_hoa_don: 1.0,
-    tong_tien_truoc_thue: 1.0,
-    tong_tien: 1.0,
-    mst: 1.0,
-    ten_doi_tac: 1.0,
-    ngay: 1.0,
-    dia_chi_doi_tac: 1.0,
+    invoice_number: 1.0,
+    total_before_tax: 1.0,
+    total_amount: 1.0,
+    tax_id: 1.0,
+    counterparty_name: 1.0,
+    doc_date: 1.0,
+    counterparty_address: 1.0,
   };
 
   return {
@@ -65,7 +65,7 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
     records: [{
       confidence: 1.0,
       field_confidence: fieldConfidence,
-      ngay: ngayLap ?? null,
+      doc_date: ngayLap ?? null,
       data,
       line_items: lineItems,
     }],
@@ -145,20 +145,20 @@ function parseLineItems(dsHHDVu: string | null): ExtractionLineItem[] {
     const tChat = getTextContent(itemXml, 'TChat');
     if (tChat === '4') continue;
 
-    const mo_ta = getTextContent(itemXml, 'THHDVu') ?? undefined;
-    const don_gia = parseNumber(getTextContent(itemXml, 'DGia')) ?? undefined;
-    const so_luong = parseNumber(getTextContent(itemXml, 'SLuong')) ?? undefined;
-    // ThTien in Vietnamese e-invoice XML is pre-tax amount
-    const thanh_tien_truoc_thue = parseNumber(getTextContent(itemXml, 'ThTien')) ?? undefined;
-    const thue_suat = parseTaxRate(getTextContent(itemXml, 'TSuat')) ?? undefined;
+    const description = getTextContent(itemXml, 'THHDVu') ?? undefined;
+    const unit_price = parseNumber(getTextContent(itemXml, 'DGia')) ?? undefined;
+    const quantity = parseNumber(getTextContent(itemXml, 'SLuong')) ?? undefined;
+    // ThTien in Vietnamese e-invoice XML is pre-tax amount (thanh tien = subtotal before VAT)
+    const subtotal = parseNumber(getTextContent(itemXml, 'ThTien')) ?? undefined;
+    const tax_rate = parseTaxRate(getTextContent(itemXml, 'TSuat')) ?? undefined;
 
     // Compute after-tax from before-tax + rate
     const computed = computeMissingTaxField({
-      beforeTax: thanh_tien_truoc_thue,
-      taxRate: thue_suat,
+      beforeTax: subtotal,
+      taxRate: tax_rate,
     });
 
-    items.push({ mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien: computed.afterTax ?? undefined });
+    items.push({ description, unit_price, quantity, tax_rate, subtotal, total_with_tax: computed.afterTax ?? undefined });
   }
 
   return items;

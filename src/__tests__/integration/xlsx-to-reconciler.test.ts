@@ -39,31 +39,31 @@ const records = invoiceRows.map(row => {
   const items = lineItemRows
     .filter(li => String(li['Số HĐ']) === soHD && String(li['Ký hiệu HĐ']) === kyHieu)
     .map(li => ({
-      mo_ta: li['Tên hàng hóa/dịch vụ'] || null,
-      don_gia: typeof li['Đơn giá'] === 'number' ? li['Đơn giá'] : null,
-      so_luong: typeof li['Số lượng'] === 'number' ? li['Số lượng'] : null,
-      thue_suat: null,
-      thanh_tien_truoc_thue: typeof li['Thành tiền (chưa thuế)'] === 'number' ? li['Thành tiền (chưa thuế)'] : null,
-      thanh_tien: null,
+      description: li['Tên hàng hóa/dịch vụ'] || null,
+      unit_price: typeof li['Đơn giá'] === 'number' ? li['Đơn giá'] : null,
+      quantity: typeof li['Số lượng'] === 'number' ? li['Số lượng'] : null,
+      tax_rate: null,
+      subtotal: typeof li['Thành tiền (chưa thuế)'] === 'number' ? li['Thành tiền (chưa thuế)'] : null,
+      total_with_tax: null,
     }));
 
   return {
     confidence: 1.0,
     field_confidence: {
-      so_hoa_don: 1.0,
-      ngay: 1.0,
-      tong_tien: 1.0,
-      mst: 1.0,
-      ten_doi_tac: 1.0,
-      dia_chi_doi_tac: 1.0,
+      invoice_number: 1.0,
+      doc_date: 1.0,
+      total_amount: 1.0,
+      tax_id: 1.0,
+      counterparty_name: 1.0,
+      counterparty_address: 1.0,
     },
-    ngay: ngay,
+    doc_date: ngay,
     data: {
-      so_hoa_don: soHD,
-      tong_tien: typeof row['Tổng tiền thanh toán'] === 'number' ? row['Tổng tiền thanh toán'] : 0,
-      mst: String(row['MST người bán'] || ''),
-      ten_doi_tac: String(row['Tên người bán'] || ''),
-      dia_chi_doi_tac: String(row['Địa chỉ người bán'] || ''),
+      invoice_number: soHD,
+      total_amount: typeof row['Tổng tiền thanh toán'] === 'number' ? row['Tổng tiền thanh toán'] : 0,
+      tax_id: String(row['MST người bán'] || ''),
+      counterparty_name: String(row['Tên người bán'] || ''),
+      counterparty_address: String(row['Địa chỉ người bán'] || ''),
     },
     line_items: items,
   };
@@ -145,9 +145,9 @@ describe('Integration: XLSX to Reconciler', () => {
     // Verify invoice_data
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(records[0].id) as any;
     expect(invoiceData).toBeTruthy();
-    expect(invoiceData.so_hoa_don).toBe('8');
-    expect(invoiceData.mst).toBe('0305008980');
-    expect(invoiceData.ten_doi_tac).toBe('CÔNG TY TNHH GINKGO');
+    expect(invoiceData.invoice_number).toBe('8');
+    expect(invoiceData.tax_id).toBe('0305008980');
+    expect(invoiceData.counterparty_name).toBe('CÔNG TY TNHH GINKGO');
 
     // Verify invoice_line_items — should have 55 items from "Chi tiết hàng hóa" sheet
     const lineItems = db.prepare(
@@ -156,12 +156,12 @@ describe('Integration: XLSX to Reconciler', () => {
     expect(lineItems).toHaveLength(55);
 
     // Verify first line item
-    expect(lineItems[0].mo_ta).toBe('Khăn Twilly hoạ tiết An Tư Công chúa - 6x130');
-    expect(lineItems[0].so_luong).toBe(10);
+    expect(lineItems[0].description).toBe('Khăn Twilly hoạ tiết An Tư Công chúa - 6x130');
+    expect(lineItems[0].quantity).toBe(10);
 
     // Verify last line item
-    expect(lineItems[54].mo_ta).toBe('Postcard');
-    expect(lineItems[54].so_luong).toBe(60);
+    expect(lineItems[54].description).toBe('Postcard');
+    expect(lineItems[54].quantity).toBe(60);
 
     // Verify file status updated to 'done'
     const updatedFile = db.prepare('SELECT * FROM files WHERE id = ?').get(file.id) as any;

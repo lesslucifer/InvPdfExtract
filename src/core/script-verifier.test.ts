@@ -39,9 +39,9 @@ function makeValidResult(): ExtractionFileResult {
     doc_type: DocType.InvoiceOut,
     records: [{
       confidence: 1.0,
-      field_confidence: { so_hoa_don: 1.0 },
-      ngay: '2026-01-01',
-      data: { so_hoa_don: 'HD001', tong_tien: 1000 },
+      field_confidence: { invoice_number: 1.0 },
+      doc_date: '2026-01-01',
+      data: { invoice_number: 'HD001', total_amount: 1000 },
       line_items: [],
     }],
   };
@@ -229,8 +229,8 @@ describe('ScriptVerifier', () => {
         records: Array.from({ length: 5 }, (_, i) => ({
           confidence: 1.0,
           field_confidence: {},
-          ngay: '2026-01-01',
-          data: { stk: `ACC${i}`, so_tien: i * 100 },
+          doc_date: '2026-01-01',
+          data: { account_number: `ACC${i}`, amount: i * 100 },
         })),
       };
       mockExecuteScript.mockResolvedValue(resultWith5Records);

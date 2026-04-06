@@ -165,11 +165,11 @@ export class JEGenerator {
   private classifyInvoiceRecord(record: DbRecord): UnclassifiedItem[] {
     const db = getDatabase();
     const lineItems = getLineItemsByRecord(record.id);
-    const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(record.id) as { ten_doi_tac?: string; mst?: string } | undefined;
+    const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(record.id) as { counterparty_name?: string; tax_id?: string } | undefined;
     const unmatched: UnclassifiedItem[] = [];
 
     for (const item of lineItems) {
-      if (!item.mo_ta) continue;
+      if (!item.description) continue;
 
       // Skip if user already has a manually edited JE for this line item
       const existingUserEdited = db.prepare(
@@ -177,7 +177,7 @@ export class JEGenerator {
       ).get(item.id);
       if (existingUserEdited) continue;
 
-      const match = this.similarityEngine.findMatch(item.mo_ta);
+      const match = this.similarityEngine.findMatch(item.description);
       if (match) {
         insertJournalEntry(
           record.id, item.id, 'line',
@@ -190,12 +190,12 @@ export class JEGenerator {
           id: item.id,
           recordId: record.id,
           docType: record.doc_type,
-          moTa: item.mo_ta,
-          tenDoiTac: invoiceData?.ten_doi_tac ?? undefined,
-          mst: invoiceData?.mst ?? undefined,
-          thueSuat: item.thue_suat ?? undefined,
-          thanhTien: item.thanh_tien ?? undefined,
-          thanhTienTruocThue: item.thanh_tien_truoc_thue ?? undefined,
+          description: item.description,
+          counterpartyName: invoiceData?.counterparty_name ?? undefined,
+          taxId: invoiceData?.tax_id ?? undefined,
+          taxRate: item.tax_rate ?? undefined,
+          totalWithTax: item.total_with_tax ?? undefined,
+          subtotal: item.subtotal ?? undefined,
         });
       }
     }
@@ -206,14 +206,14 @@ export class JEGenerator {
   private classifyBankRecord(record: DbRecord): UnclassifiedItem[] {
     const db = getDatabase();
     const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(record.id) as BankStatementData | undefined;
-    if (!bankData || !bankData.mo_ta) return [];
+    if (!bankData || !bankData.description) return [];
 
     const existingUserEdited = db.prepare(
       "SELECT id FROM journal_entries WHERE record_id = ? AND line_item_id IS NULL AND entry_type = 'bank' AND user_edited = 1"
     ).get(record.id);
     if (existingUserEdited) return [];
 
-    const match = this.similarityEngine.findMatch(bankData.mo_ta);
+    const match = this.similarityEngine.findMatch(bankData.description);
     if (match) {
       insertJournalEntry(
         record.id, null, 'bank',
@@ -228,8 +228,8 @@ export class JEGenerator {
       id: record.id,
       recordId: record.id,
       docType: record.doc_type,
-      moTa: bankData.mo_ta,
-      thanhTien: bankData.so_tien ?? undefined,
+      description: bankData.description,
+      totalWithTax: bankData.amount ?? undefined,
     }];
   }
 
@@ -276,7 +276,7 @@ export class JEGenerator {
     // Tax entry — combined across all taxable line items
     const existingTax = findExistingEntry(recordId, null, 'tax');
     if (!existingTax || !existingTax.user_edited) {
-      const hasTaxableItems = lineItems.some(li => li.thue_suat != null && li.thue_suat > 0);
+      const hasTaxableItems = lineItems.some(li => li.tax_rate != null && li.tax_rate > 0);
       if (hasTaxableItems) {
         // Delete stale auto tax entry if exists
         if (existingTax) {

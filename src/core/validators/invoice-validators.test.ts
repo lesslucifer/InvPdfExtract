@@ -12,9 +12,9 @@ describe('Invoice Validators', () => {
   // ── Line item sum validation (after-tax) ──
 
   describe('validateLineItemSum', () => {
-    it('passes when sum of after-tax thanh_tien equals tong_tien', () => {
+    it('passes when sum of after-tax total_with_tax equals total_amount', () => {
       const warnings = validateLineItemSum(
-        [{ thanh_tien: 351000 }],
+        [{ total_with_tax: 351000 }],
         351000,
       );
       expect(warnings).toHaveLength(0);
@@ -22,23 +22,23 @@ describe('Invoice Validators', () => {
 
     it('passes for multi-item invoice', () => {
       const lineItems = [
-        { thanh_tien: 1944000 },
-        { thanh_tien: 1512000 },
-        { thanh_tien: 1080000 },
-        { thanh_tien: 1188000 },
-        { thanh_tien: 1404000 },
-        { thanh_tien: 432000 },
-        { thanh_tien: 540000 },
+        { total_with_tax: 1944000 },
+        { total_with_tax: 1512000 },
+        { total_with_tax: 1080000 },
+        { total_with_tax: 1188000 },
+        { total_with_tax: 1404000 },
+        { total_with_tax: 432000 },
+        { total_with_tax: 540000 },
       ];
-      const sum = lineItems.reduce((a, b) => a + (b.thanh_tien ?? 0), 0);
+      const sum = lineItems.reduce((a, b) => a + (b.total_with_tax ?? 0), 0);
       const warnings = validateLineItemSum(lineItems, sum);
       expect(warnings).toHaveLength(0);
     });
 
     it('returns warning when sum does not match total', () => {
       const lineItems = [
-        { thanh_tien: 100000 },
-        { thanh_tien: 200000 },
+        { total_with_tax: 100000 },
+        { total_with_tax: 200000 },
       ];
       const warnings = validateLineItemSum(lineItems, 400000);
       expect(warnings).toHaveLength(1);
@@ -47,11 +47,11 @@ describe('Invoice Validators', () => {
       expect(warnings[0].actual).toBe(300000);
     });
 
-    it('handles missing thanh_tien values gracefully', () => {
+    it('handles missing total_with_tax values gracefully', () => {
       const lineItems = [
-        { thanh_tien: 100000 },
-        { thanh_tien: undefined },
-        { thanh_tien: 200000 },
+        { total_with_tax: 100000 },
+        { total_with_tax: undefined },
+        { total_with_tax: 200000 },
       ];
       const warnings = validateLineItemSum(lineItems, 300000);
       expect(warnings).toHaveLength(0);
@@ -63,7 +63,7 @@ describe('Invoice Validators', () => {
   describe('validateLineItemSumBeforeTax', () => {
     it('passes when sum of before-tax amounts equals total before tax', () => {
       const warnings = validateLineItemSumBeforeTax(
-        [{ thanh_tien_truoc_thue: 325000 }],
+        [{ subtotal: 325000 }],
         325000,
       );
       expect(warnings).toHaveLength(0);
@@ -71,7 +71,7 @@ describe('Invoice Validators', () => {
 
     it('returns warning when sum does not match', () => {
       const warnings = validateLineItemSumBeforeTax(
-        [{ thanh_tien_truoc_thue: 100000 }, { thanh_tien_truoc_thue: 200000 }],
+        [{ subtotal: 100000 }, { subtotal: 200000 }],
         400000,
       );
       expect(warnings).toHaveLength(1);

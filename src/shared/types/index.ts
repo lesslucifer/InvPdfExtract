@@ -116,7 +116,7 @@ export interface DbRecord {
   doc_type: DocType;
   fingerprint: string;
   confidence: number;
-  ngay: string | null;
+  doc_date: string | null;
   field_confidence: string; // JSON
   raw_extraction: string; // JSON
   je_status: JEClassificationStatus | null;
@@ -127,33 +127,33 @@ export interface DbRecord {
 
 export interface BankStatementData {
   record_id: string;
-  ten_ngan_hang: string | null;
-  stk: string | null;
-  mo_ta: string | null;
-  so_tien: number | null;
-  ten_doi_tac: string | null;
+  bank_name: string | null;
+  account_number: string | null;
+  description: string | null;
+  amount: number | null;
+  counterparty_name: string | null;
 }
 
 export interface InvoiceData {
   record_id: string;
-  so_hoa_don: string | null;
-  tong_tien_truoc_thue: number | null;
-  tong_tien: number | null;
-  mst: string | null;
-  ten_doi_tac: string | null;
-  dia_chi_doi_tac: string | null;
+  invoice_number: string | null;
+  total_before_tax: number | null;
+  total_amount: number | null;
+  tax_id: string | null;
+  counterparty_name: string | null;
+  counterparty_address: string | null;
 }
 
 export interface InvoiceLineItem {
   id: string;
   record_id: string;
   line_number: number;
-  mo_ta: string | null;
-  don_gia: number | null;
-  so_luong: number | null;
-  thue_suat: number | null;
-  thanh_tien_truoc_thue: number | null;
-  thanh_tien: number | null;
+  description: string | null;
+  unit_price: number | null;
+  quantity: number | null;
+  tax_rate: number | null;
+  subtotal: number | null;
+  total_with_tax: number | null;
   deleted_at: string | null;
 }
 
@@ -251,7 +251,7 @@ export interface ExtractionRecord {
   fingerprint?: string;
   confidence: number;
   field_confidence: { [field: string]: number };
-  ngay: string | null;
+  doc_date: string | null;
   data: ExtractionRecordData;
   line_items?: ExtractionLineItem[];
 }
@@ -259,29 +259,29 @@ export interface ExtractionRecord {
 export type ExtractionRecordData = ExtractionBankStatementData | ExtractionInvoiceData;
 
 export interface ExtractionBankStatementData {
-  ten_ngan_hang?: string;
-  stk?: string;
-  mo_ta?: string;
-  so_tien?: number;
-  ten_doi_tac?: string;
+  bank_name?: string;
+  account_number?: string;
+  description?: string;
+  amount?: number;
+  counterparty_name?: string;
 }
 
 export interface ExtractionInvoiceData {
-  so_hoa_don?: string;
-  tong_tien_truoc_thue?: number;
-  tong_tien?: number;
-  mst?: string;
-  ten_doi_tac?: string;
-  dia_chi_doi_tac?: string;
+  invoice_number?: string;
+  total_before_tax?: number;
+  total_amount?: number;
+  tax_id?: string;
+  counterparty_name?: string;
+  counterparty_address?: string;
 }
 
 export interface ExtractionLineItem {
-  mo_ta?: string;
-  don_gia?: number;
-  so_luong?: number;
-  thue_suat?: number;
-  thanh_tien_truoc_thue?: number;
-  thanh_tien?: number;
+  description?: string;
+  unit_price?: number;
+  quantity?: number;
+  tax_rate?: number;
+  subtotal?: number;
+  total_with_tax?: number;
 }
 
 export interface ExtractionResult {
@@ -334,26 +334,26 @@ export interface SearchResult {
   id: string;
   doc_type: DocType;
   confidence: number;
-  ngay: string | null;
+  doc_date: string | null;
   relative_path: string;
   file_status: FileStatus;
   // Bank statement fields
-  ten_ngan_hang: string;
-  stk: string;
-  so_tien: number;
+  bank_name: string;
+  account_number: string;
+  amount: number;
   // Invoice fields
-  so_hoa_don: string;
-  tong_tien_truoc_thue: number;
-  tong_tien: number;
-  mst: string;
-  // Computed: sum of line item thanh_tien after-tax (null if no line items)
+  invoice_number: string;
+  total_before_tax: number;
+  total_amount: number;
+  tax_id: string;
+  // Computed: sum of line item total_with_tax (null if no line items)
   line_item_sum: number | null;
-  // Computed: sum of line item thanh_tien_truoc_thue (null if no line items)
-  line_item_sum_truoc_thue: number | null;
+  // Computed: sum of line item subtotal (null if no line items)
+  line_item_sum_before_tax: number | null;
   // Shared
-  ten_doi_tac: string;
-  mo_ta: string;
-  dia_chi_doi_tac: string;
+  counterparty_name: string;
+  description: string;
+  counterparty_address: string;
   je_status: JEClassificationStatus | null;
   // Line items (populated on detail expand)
   line_items?: InvoiceLineItem[];
@@ -459,7 +459,7 @@ export interface JeQueueItem {
   record_id: string;
   je_status: JEClassificationStatus;
   doc_type: DocType;
-  description: string; // so_hoa_don or mo_ta
+  description: string; // invoice_number or description
   relative_path: string;
   created_at: string;
 }

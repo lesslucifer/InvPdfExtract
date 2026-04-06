@@ -70,7 +70,7 @@ export function deleteJournalEntriesByRecord(recordId: string, preserveUserEdite
 // === Similarity Cache Queries ===
 
 export interface CacheEntry {
-  mo_ta: string;
+  description: string;
   record_id: string;
   line_item_id: string | null;
   account: string;
@@ -81,12 +81,12 @@ export interface CacheEntry {
 export function getRecentClassifiedLineItems(limit: number): CacheEntry[] {
   const db = getDatabase();
   return db.prepare(`
-    SELECT ili.mo_ta, je.record_id, je.line_item_id, je.account, je.cash_flow, je.entry_type
+    SELECT ili.description, je.record_id, je.line_item_id, je.account, je.cash_flow, je.entry_type
     FROM journal_entries je
     JOIN invoice_line_items ili ON je.line_item_id = ili.id
     WHERE je.line_item_id IS NOT NULL
       AND je.entry_type = 'line'
-      AND ili.mo_ta IS NOT NULL
+      AND ili.description IS NOT NULL
       AND ili.deleted_at IS NULL
     ORDER BY je.created_at DESC
     LIMIT ?
@@ -96,12 +96,12 @@ export function getRecentClassifiedLineItems(limit: number): CacheEntry[] {
 export function getRecentClassifiedBankItems(limit: number): CacheEntry[] {
   const db = getDatabase();
   return db.prepare(`
-    SELECT bsd.mo_ta, je.record_id, NULL as line_item_id, je.account, je.cash_flow, je.entry_type
+    SELECT bsd.description, je.record_id, NULL as line_item_id, je.account, je.cash_flow, je.entry_type
     FROM journal_entries je
     JOIN bank_statement_data bsd ON je.record_id = bsd.record_id
     WHERE je.line_item_id IS NULL
       AND je.entry_type = 'bank'
-      AND bsd.mo_ta IS NOT NULL
+      AND bsd.description IS NOT NULL
     ORDER BY je.created_at DESC
     LIMIT ?
   `).all(limit) as CacheEntry[];

@@ -6,12 +6,12 @@ export interface UnclassifiedItem {
   id: string; // line_item_id or record_id
   recordId: string;
   docType: string;
-  moTa: string;
-  tenDoiTac?: string;
-  mst?: string;
-  thueSuat?: number;
-  thanhTien?: number;
-  thanhTienTruocThue?: number;
+  description: string;
+  counterpartyName?: string;
+  taxId?: string;
+  taxRate?: number;
+  totalWithTax?: number;
+  subtotal?: number;
 }
 
 const SYSTEM_PROMPT_SUFFIX = `
@@ -51,12 +51,12 @@ export async function classifyWithAI(
 
   const itemLines = items.map((item, idx) => {
     const parts = [`${idx + 1}. [id: ${item.id}]`];
-    parts.push(`"${item.moTa}"`);
+    parts.push(`"${item.description}"`);
     parts.push(`- ${item.docType}`);
-    if (item.thanhTien != null) parts.push(`${item.thanhTien.toLocaleString()} VND`);
-    if (item.thueSuat != null) parts.push(`tax ${item.thueSuat}%`);
-    if (item.tenDoiTac) parts.push(`counterparty: ${item.tenDoiTac}`);
-    if (item.mst) parts.push(`MST: ${item.mst}`);
+    if (item.totalWithTax != null) parts.push(`${item.totalWithTax.toLocaleString()} VND`);
+    if (item.taxRate != null) parts.push(`tax ${item.taxRate}%`);
+    if (item.counterpartyName) parts.push(`counterparty: ${item.counterpartyName}`);
+    if (item.taxId) parts.push(`MST: ${item.taxId}`);
     return parts.join(' ');
   });
 

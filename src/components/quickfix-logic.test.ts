@@ -5,8 +5,8 @@ import { InvoiceLineItem } from '../shared/types';
 describe('computeTotalMismatch', () => {
   it('returns no mismatch when after-tax sum matches total', () => {
     const result = computeTotalMismatch(1000, [
-      { thanh_tien: 400 },
-      { thanh_tien: 600 },
+      { total_with_tax: 400 },
+      { total_with_tax: 600 },
     ]);
     expect(result.hasMismatch).toBe(false);
     expect(result.sum).toBe(1000);
@@ -14,8 +14,8 @@ describe('computeTotalMismatch', () => {
 
   it('returns mismatch when after-tax sum differs', () => {
     const result = computeTotalMismatch(1000, [
-      { thanh_tien: 400 },
-      { thanh_tien: 500 },
+      { total_with_tax: 400 },
+      { total_with_tax: 500 },
     ]);
     expect(result.hasMismatch).toBe(true);
     expect(result.sum).toBe(900);
@@ -23,8 +23,8 @@ describe('computeTotalMismatch', () => {
 
   it('tolerates 1 VND rounding difference', () => {
     const result = computeTotalMismatch(1001, [
-      { thanh_tien: 500 },
-      { thanh_tien: 500 },
+      { total_with_tax: 500 },
+      { total_with_tax: 500 },
     ]);
     expect(result.hasMismatch).toBe(false);
   });
@@ -35,50 +35,50 @@ describe('computeTotalMismatch', () => {
     expect(result.sum).toBe(0);
   });
 
-  it('returns no mismatch when tongTien is 0', () => {
-    const result = computeTotalMismatch(0, [{ thanh_tien: 500 }]);
+  it('returns no mismatch when totalAmount is 0', () => {
+    const result = computeTotalMismatch(0, [{ total_with_tax: 500 }]);
     expect(result.hasMismatch).toBe(false);
   });
 
-  it('handles null thanh_tien in items', () => {
-    const result = computeTotalMismatch(500, [{ thanh_tien: 500 }, { thanh_tien: null }]);
+  it('handles null total_with_tax in items', () => {
+    const result = computeTotalMismatch(500, [{ total_with_tax: 500 }, { total_with_tax: null }]);
     expect(result.hasMismatch).toBe(false);
     expect(result.sum).toBe(500);
   });
 });
 
 describe('computeLineItemMismatch', () => {
-  it('returns no mismatch when product equals thanh_tien_truoc_thue', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien_truoc_thue: 500 });
+  it('returns no mismatch when product equals subtotal', () => {
+    const result = computeLineItemMismatch({ unit_price: 100, quantity: 5, subtotal: 500 });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBe(500);
   });
 
   it('returns mismatch when product differs', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien_truoc_thue: 600 });
+    const result = computeLineItemMismatch({ unit_price: 100, quantity: 5, subtotal: 600 });
     expect(result.hasMismatch).toBe(true);
     expect(result.expected).toBe(500);
   });
 
   it('tolerates 1 VND rounding difference', () => {
-    const result = computeLineItemMismatch({ don_gia: 33.33, so_luong: 3, thanh_tien_truoc_thue: 100 });
+    const result = computeLineItemMismatch({ unit_price: 33.33, quantity: 3, subtotal: 100 });
     expect(result.hasMismatch).toBe(false);
   });
 
-  it('returns no mismatch when don_gia is null', () => {
-    const result = computeLineItemMismatch({ don_gia: null, so_luong: 5, thanh_tien_truoc_thue: 500 });
-    expect(result.hasMismatch).toBe(false);
-    expect(result.expected).toBeNull();
-  });
-
-  it('returns no mismatch when so_luong is null', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: null, thanh_tien_truoc_thue: 500 });
+  it('returns no mismatch when unit_price is null', () => {
+    const result = computeLineItemMismatch({ unit_price: null, quantity: 5, subtotal: 500 });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
   });
 
-  it('returns no mismatch when thanh_tien_truoc_thue is null', () => {
-    const result = computeLineItemMismatch({ don_gia: 100, so_luong: 5, thanh_tien_truoc_thue: null });
+  it('returns no mismatch when quantity is null', () => {
+    const result = computeLineItemMismatch({ unit_price: 100, quantity: null, subtotal: 500 });
+    expect(result.hasMismatch).toBe(false);
+    expect(result.expected).toBeNull();
+  });
+
+  it('returns no mismatch when subtotal is null', () => {
+    const result = computeLineItemMismatch({ unit_price: 100, quantity: 5, subtotal: null });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
   });
@@ -86,73 +86,73 @@ describe('computeLineItemMismatch', () => {
 
 describe('computeAfterTaxMismatch', () => {
   it('returns mismatch when after_tax != before_tax * (1 + tax/100)', () => {
-    const result = computeAfterTaxMismatch({ thanh_tien_truoc_thue: 1000, thue_suat: 10, thanh_tien: 1200 });
+    const result = computeAfterTaxMismatch({ subtotal: 1000, tax_rate: 10, total_with_tax: 1200 });
     expect(result.hasMismatch).toBe(true);
     expect(result.expected).toBe(1100);
   });
 
   it('returns no mismatch when values are consistent', () => {
-    const result = computeAfterTaxMismatch({ thanh_tien_truoc_thue: 1000, thue_suat: 10, thanh_tien: 1100 });
+    const result = computeAfterTaxMismatch({ subtotal: 1000, tax_rate: 10, total_with_tax: 1100 });
     expect(result.hasMismatch).toBe(false);
   });
 
   it('returns no mismatch when fields are null', () => {
-    expect(computeAfterTaxMismatch({ thanh_tien_truoc_thue: null, thue_suat: 10, thanh_tien: 1100 }).hasMismatch).toBe(false);
-    expect(computeAfterTaxMismatch({ thanh_tien_truoc_thue: 1000, thue_suat: null, thanh_tien: 1100 }).hasMismatch).toBe(false);
-    expect(computeAfterTaxMismatch({ thanh_tien_truoc_thue: 1000, thue_suat: 10, thanh_tien: null }).hasMismatch).toBe(false);
+    expect(computeAfterTaxMismatch({ subtotal: null, tax_rate: 10, total_with_tax: 1100 }).hasMismatch).toBe(false);
+    expect(computeAfterTaxMismatch({ subtotal: 1000, tax_rate: null, total_with_tax: 1100 }).hasMismatch).toBe(false);
+    expect(computeAfterTaxMismatch({ subtotal: 1000, tax_rate: 10, total_with_tax: null }).hasMismatch).toBe(false);
   });
 });
 
 describe('computeTaxRateMismatch', () => {
   it('detects decimal tax rate (0.08 should be 8)', () => {
-    const result = computeTaxRateMismatch({ thue_suat: 0.08 });
+    const result = computeTaxRateMismatch({ tax_rate: 0.08 });
     expect(result.hasMismatch).toBe(true);
     expect(result.expected).toBe(8);
   });
 
   it('detects decimal tax rate (0.1 should be 10)', () => {
-    const result = computeTaxRateMismatch({ thue_suat: 0.1 });
+    const result = computeTaxRateMismatch({ tax_rate: 0.1 });
     expect(result.hasMismatch).toBe(true);
     expect(result.expected).toBe(10);
   });
 
   it('does not flag correct percentage rate', () => {
-    const result = computeTaxRateMismatch({ thue_suat: 8 });
+    const result = computeTaxRateMismatch({ tax_rate: 8 });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
   });
 
   it('does not flag 10%', () => {
-    const result = computeTaxRateMismatch({ thue_suat: 10 });
+    const result = computeTaxRateMismatch({ tax_rate: 10 });
     expect(result.hasMismatch).toBe(false);
   });
 
   it('does not flag 0% tax', () => {
-    const result = computeTaxRateMismatch({ thue_suat: 0 });
+    const result = computeTaxRateMismatch({ tax_rate: 0 });
     expect(result.hasMismatch).toBe(false);
   });
 
   it('does not flag null tax', () => {
-    const result = computeTaxRateMismatch({ thue_suat: null });
+    const result = computeTaxRateMismatch({ tax_rate: null });
     expect(result.hasMismatch).toBe(false);
   });
 });
 
 describe('getMismatchedLineItems', () => {
-  const makeItem = (id: string, don_gia: number | null, so_luong: number | null, thanh_tien_truoc_thue: number | null): InvoiceLineItem => ({
+  const makeItem = (id: string, unit_price: number | null, quantity: number | null, subtotal: number | null): InvoiceLineItem => ({
     id,
     record_id: 'r1',
     line_number: 1,
-    mo_ta: null,
-    don_gia,
-    so_luong,
-    thue_suat: null,
-    thanh_tien_truoc_thue,
-    thanh_tien: null,
+    description: null,
+    unit_price,
+    quantity,
+    tax_rate: null,
+    subtotal,
+    total_with_tax: null,
     deleted_at: null,
   });
 
-  it('returns items where thanh_tien_truoc_thue differs from don_gia * so_luong', () => {
+  it('returns items where subtotal differs from unit_price * quantity', () => {
     const items = [
       makeItem('a', 100, 5, 500),   // match
       makeItem('b', 100, 5, 600),   // mismatch
@@ -187,16 +187,16 @@ describe('getMismatchedLineItems', () => {
 });
 
 describe('getItemsWithBadTaxRate', () => {
-  const makeItem = (id: string, thue_suat: number | null): InvoiceLineItem => ({
+  const makeItem = (id: string, tax_rate: number | null): InvoiceLineItem => ({
     id,
     record_id: 'r1',
     line_number: 1,
-    mo_ta: null,
-    don_gia: 100,
-    so_luong: 1,
-    thue_suat,
-    thanh_tien_truoc_thue: 100,
-    thanh_tien: 100,
+    description: null,
+    unit_price: 100,
+    quantity: 1,
+    tax_rate,
+    subtotal: 100,
+    total_with_tax: 100,
     deleted_at: null,
   });
 
@@ -232,76 +232,76 @@ const makeFullItem = (overrides: Partial<InvoiceLineItem> = {}): InvoiceLineItem
   id: 'item1',
   record_id: 'r1',
   line_number: 1,
-  mo_ta: null,
-  don_gia: 100,
-  so_luong: 5,
-  thue_suat: 10,
-  thanh_tien_truoc_thue: 500,
-  thanh_tien: 550,
+  description: null,
+  unit_price: 100,
+  quantity: 5,
+  tax_rate: 10,
+  subtotal: 500,
+  total_with_tax: 550,
   deleted_at: null,
   ...overrides,
 });
 
 describe('deriveFieldValue', () => {
-  it('derives so_luong = before_tax / price', () => {
-    const item = makeFullItem({ don_gia: 200, so_luong: 2, thanh_tien_truoc_thue: 600 });
+  it('derives quantity = subtotal / unit_price', () => {
+    const item = makeFullItem({ unit_price: 200, quantity: 2, subtotal: 600 });
     // derived = 600/200 = 3, current = 2 → mismatch
-    expect(deriveFieldValue('so_luong', item)).toBe(3);
+    expect(deriveFieldValue('quantity', item)).toBe(3);
   });
 
-  it('derives don_gia = before_tax / qty', () => {
-    const item = makeFullItem({ so_luong: 4, don_gia: 100, thanh_tien_truoc_thue: 800 });
+  it('derives unit_price = subtotal / quantity', () => {
+    const item = makeFullItem({ quantity: 4, unit_price: 100, subtotal: 800 });
     // derived = 800/4 = 200, current = 100 → mismatch
-    expect(deriveFieldValue('don_gia', item)).toBe(200);
+    expect(deriveFieldValue('unit_price', item)).toBe(200);
   });
 
-  it('derives thue_suat from after/before tax ratio', () => {
-    const item = makeFullItem({ thanh_tien_truoc_thue: 1000, thanh_tien: 1100, thue_suat: 8 });
+  it('derives tax_rate from after/before tax ratio', () => {
+    const item = makeFullItem({ subtotal: 1000, total_with_tax: 1100, tax_rate: 8 });
     // derived = (1100/1000 - 1) * 100 = 10, current = 8 → mismatch
-    expect(deriveFieldValue('thue_suat', item)).toBe(10);
+    expect(deriveFieldValue('tax_rate', item)).toBe(10);
   });
 
-  it('fixes decimal thue_suat (0.08 -> 8)', () => {
-    const item = makeFullItem({ thue_suat: 0.08 });
-    expect(deriveFieldValue('thue_suat', item)).toBe(8);
+  it('fixes decimal tax_rate (0.08 -> 8)', () => {
+    const item = makeFullItem({ tax_rate: 0.08 });
+    expect(deriveFieldValue('tax_rate', item)).toBe(8);
   });
 
-  it('derives thanh_tien_truoc_thue = qty * price', () => {
-    const item = makeFullItem({ don_gia: 150, so_luong: 4, thanh_tien_truoc_thue: 500 });
+  it('derives subtotal = quantity * unit_price', () => {
+    const item = makeFullItem({ unit_price: 150, quantity: 4, subtotal: 500 });
     // derived = 150*4 = 600, current = 500 → mismatch
-    expect(deriveFieldValue('thanh_tien_truoc_thue', item)).toBe(600);
+    expect(deriveFieldValue('subtotal', item)).toBe(600);
   });
 
-  it('derives thanh_tien = before_tax * (1 + tax/100)', () => {
-    const item = makeFullItem({ thanh_tien_truoc_thue: 1000, thue_suat: 10, thanh_tien: 1000 });
+  it('derives total_with_tax = subtotal * (1 + tax_rate/100)', () => {
+    const item = makeFullItem({ subtotal: 1000, tax_rate: 10, total_with_tax: 1000 });
     // derived = 1000 * 1.1 = 1100, current = 1000 → mismatch
-    expect(deriveFieldValue('thanh_tien', item)).toBe(1100);
+    expect(deriveFieldValue('total_with_tax', item)).toBe(1100);
   });
 
   it('returns null when value already matches derived', () => {
-    const item = makeFullItem({ don_gia: 100, so_luong: 5, thanh_tien_truoc_thue: 500 });
+    const item = makeFullItem({ unit_price: 100, quantity: 5, subtotal: 500 });
     // derived = 100*5 = 500, current = 500 → no mismatch
-    expect(deriveFieldValue('thanh_tien_truoc_thue', item)).toBeNull();
+    expect(deriveFieldValue('subtotal', item)).toBeNull();
   });
 
-  it('returns null when inputs are missing for so_luong', () => {
-    const item = makeFullItem({ don_gia: null });
-    expect(deriveFieldValue('so_luong', item)).toBeNull();
+  it('returns null when inputs are missing for quantity', () => {
+    const item = makeFullItem({ unit_price: null });
+    expect(deriveFieldValue('quantity', item)).toBeNull();
   });
 
-  it('returns null when inputs are missing for don_gia', () => {
-    const item = makeFullItem({ so_luong: null });
-    expect(deriveFieldValue('don_gia', item)).toBeNull();
+  it('returns null when inputs are missing for unit_price', () => {
+    const item = makeFullItem({ quantity: null });
+    expect(deriveFieldValue('unit_price', item)).toBeNull();
   });
 
   it('returns null for unknown field', () => {
     const item = makeFullItem();
-    expect(deriveFieldValue('mo_ta', item)).toBeNull();
+    expect(deriveFieldValue('description', item)).toBeNull();
   });
 
-  it('returns null when price is 0 (division by zero)', () => {
-    const item = makeFullItem({ don_gia: 0 });
-    expect(deriveFieldValue('so_luong', item)).toBeNull();
+  it('returns null when unit_price is 0 (division by zero)', () => {
+    const item = makeFullItem({ unit_price: 0 });
+    expect(deriveFieldValue('quantity', item)).toBeNull();
   });
 });
 

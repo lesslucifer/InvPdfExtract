@@ -36,9 +36,9 @@ Your job is to judge whether the parser script correctly extracts the data.
 - Are amounts numeric (not strings)?
 - Are records being extracted (not empty)?
 - Does the output structure match ExtractionFileResult schema?
-- Are thue_suat values percentage INTEGERS (8, 10, 5)? If you see decimals like 0.08 or 0.1, the script must multiply by 100.
-- Are line item amounts correctly mapped? If only one amount column exists and it's ambiguous, it should go to thanh_tien_truoc_thue (before-tax), NOT thanh_tien. If all thanh_tien values are populated but thanh_tien_truoc_thue is all null, this is likely WRONG — the amounts are probably before-tax.
-- Cross-check: does tong_tien ≈ SUM(thanh_tien) or SUM(thanh_tien_truoc_thue × (1+rate/100))? Use this to verify correct before/after-tax mapping.
+- Are tax_rate values percentage INTEGERS (8, 10, 5)? If you see decimals like 0.08 or 0.1, the script must multiply by 100.
+- Are line item amounts correctly mapped? If only one amount column exists and it's ambiguous, it should go to subtotal (before-tax), NOT total_with_tax. If all total_with_tax values are populated but subtotal is all null, this is likely WRONG — the amounts are probably before-tax.
+- Cross-check: does total_amount ≈ SUM(total_with_tax) or SUM(subtotal × (1+rate/100))? Use this to verify correct before/after-tax mapping.
 
 ## Expected Output Schema
 
@@ -49,16 +49,16 @@ Your job is to judge whether the parser script correctly extracts the data.
     {
       "confidence": 1.0,
       "field_confidence": { "field": 1.0, ... },
-      "ngay": "YYYY-MM-DD",
+      "doc_date": "YYYY-MM-DD",
       "data": { ... },
       "line_items": [ ... ]
     }
   ]
 }
 
-### Bank Statement data fields: ten_ngan_hang, stk, mo_ta, so_tien, ten_doi_tac
-### Invoice data fields: so_hoa_don, tong_tien_truoc_thue, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac
-### Invoice line_items fields: mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien
+### Bank Statement data fields: bank_name, account_number, description, amount, counterparty_name
+### Invoice data fields: invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
+### Invoice line_items fields: description, unit_price, quantity, tax_rate, subtotal, total_with_tax
 
 ## Response Format
 
@@ -197,7 +197,7 @@ Judge whether the parser correctly extracts the data. Respond with APPROVED if c
       records: (output.records || []).slice(0, TRUNCATE_MAX_RECORDS).map(record => {
         const truncRecord: any = {
           confidence: record.confidence,
-          ngay: record.ngay,
+          doc_date: record.doc_date,
           data: this.truncateStrings(record.data),
         };
         if (record.field_confidence) {

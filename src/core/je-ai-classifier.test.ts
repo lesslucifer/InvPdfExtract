@@ -15,8 +15,8 @@ let _mockResponse = '';
 import { classifyWithAI } from './je-ai-classifier';
 
 const sampleItems = [
-  { id: 'li-1', recordId: 'r1', docType: 'invoice_in', moTa: 'Van phong pham' },
-  { id: 'li-2', recordId: 'r1', docType: 'invoice_in', moTa: 'Dich vu tu van' },
+  { id: 'li-1', recordId: 'r1', docType: 'invoice_in', description: 'Van phong pham' },
+  { id: 'li-2', recordId: 'r1', docType: 'invoice_in', description: 'Dich vu tu van' },
 ];
 
 describe('JE AI Classifier - response parsing', () => {

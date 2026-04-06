@@ -201,7 +201,74 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_records_je_status ON records(je_status);
   `,
 
-  // Migration 009: Relevance filter metadata on files
+  // Migration 009: Rename columns to English; fix thanh_tien semantic inversion
+  `
+  ALTER TABLE records RENAME COLUMN ngay TO doc_date;
+
+  ALTER TABLE bank_statement_data RENAME COLUMN ten_ngan_hang TO bank_name;
+  ALTER TABLE bank_statement_data RENAME COLUMN stk TO account_number;
+  ALTER TABLE bank_statement_data RENAME COLUMN mo_ta TO description;
+  ALTER TABLE bank_statement_data RENAME COLUMN so_tien TO amount;
+  ALTER TABLE bank_statement_data RENAME COLUMN ten_doi_tac TO counterparty_name;
+
+  ALTER TABLE invoice_data RENAME COLUMN so_hoa_don TO invoice_number;
+  ALTER TABLE invoice_data RENAME COLUMN tong_tien_truoc_thue TO total_before_tax;
+  ALTER TABLE invoice_data RENAME COLUMN tong_tien TO total_amount;
+  ALTER TABLE invoice_data RENAME COLUMN mst TO tax_id;
+  ALTER TABLE invoice_data RENAME COLUMN ten_doi_tac TO counterparty_name;
+  ALTER TABLE invoice_data RENAME COLUMN dia_chi_doi_tac TO counterparty_address;
+
+  ALTER TABLE invoice_line_items RENAME COLUMN mo_ta TO description;
+  ALTER TABLE invoice_line_items RENAME COLUMN don_gia TO unit_price;
+  ALTER TABLE invoice_line_items RENAME COLUMN so_luong TO quantity;
+  ALTER TABLE invoice_line_items RENAME COLUMN thue_suat TO tax_rate;
+  ALTER TABLE invoice_line_items RENAME COLUMN thanh_tien_truoc_thue TO subtotal;
+  ALTER TABLE invoice_line_items RENAME COLUMN thanh_tien TO total_with_tax;
+
+  DROP INDEX IF EXISTS idx_records_ngay;
+  CREATE INDEX IF NOT EXISTS idx_records_doc_date ON records(doc_date);
+  DROP INDEX IF EXISTS idx_invoice_data_so_hoa_don;
+  CREATE INDEX IF NOT EXISTS idx_invoice_data_invoice_number ON invoice_data(invoice_number);
+  DROP INDEX IF EXISTS idx_invoice_data_mst;
+  CREATE INDEX IF NOT EXISTS idx_invoice_data_tax_id ON invoice_data(tax_id);
+  DROP INDEX IF EXISTS idx_bank_statement_data_stk;
+  CREATE INDEX IF NOT EXISTS idx_bank_statement_data_account_number ON bank_statement_data(account_number);
+
+  UPDATE field_overrides SET field_name = 'invoice_number' WHERE field_name = 'so_hoa_don';
+  UPDATE field_overrides SET field_name = 'total_before_tax' WHERE field_name = 'tong_tien_truoc_thue';
+  UPDATE field_overrides SET field_name = 'total_amount' WHERE field_name = 'tong_tien';
+  UPDATE field_overrides SET field_name = 'tax_id' WHERE field_name = 'mst';
+  UPDATE field_overrides SET field_name = 'counterparty_name' WHERE field_name = 'ten_doi_tac';
+  UPDATE field_overrides SET field_name = 'counterparty_address' WHERE field_name = 'dia_chi_doi_tac';
+  UPDATE field_overrides SET field_name = 'bank_name' WHERE field_name = 'ten_ngan_hang';
+  UPDATE field_overrides SET field_name = 'account_number' WHERE field_name = 'stk';
+  UPDATE field_overrides SET field_name = 'description' WHERE field_name = 'mo_ta';
+  UPDATE field_overrides SET field_name = 'amount' WHERE field_name = 'so_tien';
+  UPDATE field_overrides SET field_name = 'unit_price' WHERE field_name = 'don_gia';
+  UPDATE field_overrides SET field_name = 'quantity' WHERE field_name = 'so_luong';
+  UPDATE field_overrides SET field_name = 'tax_rate' WHERE field_name = 'thue_suat';
+  UPDATE field_overrides SET field_name = 'subtotal' WHERE field_name = 'thanh_tien_truoc_thue';
+  UPDATE field_overrides SET field_name = 'total_with_tax' WHERE field_name = 'thanh_tien';
+  `,
+
+  // Migration 010: Recreate FTS5 virtual table with English column names
+  `
+  DROP TABLE IF EXISTS records_fts;
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
+    invoice_number,
+    tax_id,
+    counterparty_name,
+    counterparty_address,
+    description,
+    bank_name,
+    account_number,
+    content='',
+    tokenize='unicode61'
+  );
+  `,
+  
+  // Migration 010: Relevance filter metadata on files
   `
   ALTER TABLE files ADD COLUMN filter_score REAL;
   ALTER TABLE files ADD COLUMN filter_reason TEXT;

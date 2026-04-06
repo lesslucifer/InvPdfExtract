@@ -14,13 +14,13 @@ export interface TaxBracket {
 }
 
 /**
- * Validates that the sum of line item thanh_tien (after-tax) equals tong_tien.
+ * Validates that the sum of line item total_with_tax (after-tax) equals total_amount.
  */
 export function validateLineItemSum(
-  lineItems: { thanh_tien?: number }[],
+  lineItems: { total_with_tax?: number }[],
   total: number,
 ): ValidationWarning[] {
-  const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien ?? 0), 0);
+  const sum = lineItems.reduce((acc, item) => acc + (item.total_with_tax ?? 0), 0);
 
   if (Math.abs(sum - total) > 1) {
     return [{
@@ -35,13 +35,13 @@ export function validateLineItemSum(
 }
 
 /**
- * Validates that the sum of line item thanh_tien_truoc_thue equals tong_tien_truoc_thue.
+ * Validates that the sum of line item subtotal equals total_before_tax.
  */
 export function validateLineItemSumBeforeTax(
-  lineItems: { thanh_tien_truoc_thue?: number }[],
+  lineItems: { subtotal?: number }[],
   totalBeforeTax: number,
 ): ValidationWarning[] {
-  const sum = lineItems.reduce((acc, item) => acc + (item.thanh_tien_truoc_thue ?? 0), 0);
+  const sum = lineItems.reduce((acc, item) => acc + (item.subtotal ?? 0), 0);
 
   if (Math.abs(sum - totalBeforeTax) > 1) {
     return [{

@@ -20,7 +20,7 @@ import {
 import { readInstructions, writeInstructions } from '../core/je-instructions';
 import { FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
-import { isVault, clearVaultData } from '../core/vault';
+import { clearVaultData } from '../core/vault';
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 
@@ -314,18 +314,18 @@ export class OverlayWindow {
         upsertFieldOverride(input.recordId, input.tableName, input.fieldName, input.userValue, currentAiValue);
 
         // Update FTS index if applicable
-        const ftsFields = ['so_hoa_don', 'mst', 'ten_doi_tac', 'dia_chi_doi_tac', 'mo_ta', 'ten_ngan_hang', 'stk'];
+        const ftsFields = ['invoice_number', 'tax_id', 'counterparty_name', 'counterparty_address', 'description', 'bank_name', 'account_number'];
         if (ftsFields.includes(input.fieldName)) {
           const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(input.recordId) as any;
           const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(input.recordId) as any;
           updateFtsIndex(input.recordId, {
-            so_hoa_don: invoiceData?.so_hoa_don,
-            mst: invoiceData?.mst,
-            ten_doi_tac: invoiceData?.ten_doi_tac ?? bankData?.ten_doi_tac,
-            dia_chi_doi_tac: invoiceData?.dia_chi_doi_tac,
-            mo_ta: bankData?.mo_ta,
-            ten_ngan_hang: bankData?.ten_ngan_hang,
-            stk: bankData?.stk,
+            invoice_number: invoiceData?.invoice_number,
+            tax_id: invoiceData?.tax_id,
+            counterparty_name: invoiceData?.counterparty_name ?? bankData?.counterparty_name,
+            counterparty_address: invoiceData?.counterparty_address,
+            description: bankData?.description,
+            bank_name: bankData?.bank_name,
+            account_number: bankData?.account_number,
           });
         }
       } catch (err) {
@@ -375,7 +375,7 @@ export class OverlayWindow {
     ipcMain.handle('save-line-item-field', async (_event, input: LineItemFieldInput) => {
       try {
         const db = getDatabase();
-        const allowedFields = ['mo_ta', 'don_gia', 'so_luong', 'thue_suat', 'thanh_tien_truoc_thue', 'thanh_tien'];
+        const allowedFields = ['description', 'unit_price', 'quantity', 'tax_rate', 'subtotal', 'total_with_tax'];
         if (!allowedFields.includes(input.fieldName)) {
           throw new Error(`Invalid line item field: ${input.fieldName}`);
         }
@@ -386,7 +386,7 @@ export class OverlayWindow {
         const currentAiValue = String(row[input.fieldName] ?? '');
 
         // Update the field value
-        const numericFields = ['don_gia', 'so_luong', 'thue_suat', 'thanh_tien_truoc_thue', 'thanh_tien'];
+        const numericFields = ['unit_price', 'quantity', 'tax_rate', 'subtotal', 'total_with_tax'];
         const value = numericFields.includes(input.fieldName)
           ? (input.userValue === '' ? null : parseFloat(input.userValue))
           : input.userValue;

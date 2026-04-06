@@ -23,29 +23,29 @@ export function createBatch(fileId: string, status: BatchStatus, recordCount: nu
 
 export function insertRecord(
   batchId: string, fileId: string, docType: DocType, fingerprint: string,
-  confidence: number, ngay: string | null, fieldConfidence: object, rawExtraction: object
+  confidence: number, docDate: string | null, fieldConfidence: object, rawExtraction: object
 ): DbRecord {
   const db = getDatabase();
   const id = uuid();
   const now = new Date().toISOString();
 
   db.prepare(`
-    INSERT INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence, ngay, field_confidence, raw_extraction, created_at, updated_at)
+    INSERT INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence, doc_date, field_confidence, raw_extraction, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, batchId, fileId, docType, fingerprint, confidence, ngay, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), now, now);
+  `).run(id, batchId, fileId, docType, fingerprint, confidence, docDate, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), now, now);
 
   return db.prepare('SELECT * FROM records WHERE id = ?').get(id) as DbRecord;
 }
 
 export function updateRecord(
-  recordId: string, batchId: string, confidence: number, ngay: string | null,
+  recordId: string, batchId: string, confidence: number, docDate: string | null,
   fieldConfidence: object, rawExtraction: object
 ): void {
   const db = getDatabase();
   db.prepare(`
-    UPDATE records SET batch_id = ?, confidence = ?, ngay = ?, field_confidence = ?, raw_extraction = ?, updated_at = datetime('now')
+    UPDATE records SET batch_id = ?, confidence = ?, doc_date = ?, field_confidence = ?, raw_extraction = ?, updated_at = datetime('now')
     WHERE id = ?
-  `).run(batchId, confidence, ngay, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), recordId);
+  `).run(batchId, confidence, docDate, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), recordId);
 }
 
 export function getRecordsByFileId(fileId: string): DbRecord[] {
@@ -66,7 +66,7 @@ export function getJeQueueItems(): JeQueueItem[] {
   const db = getDatabase();
   return db.prepare(`
     SELECT r.id AS record_id, r.je_status, r.doc_type, r.created_at,
-      COALESCE(id2.so_hoa_don, bsd.mo_ta, '') AS description,
+      COALESCE(id2.invoice_number, bsd.description, '') AS description,
       f.relative_path
     FROM records r
     LEFT JOIN invoice_data id2 ON r.id = id2.record_id
@@ -82,7 +82,7 @@ export function getJeErrorItems(): JeErrorItem[] {
   const db = getDatabase();
   return db.prepare(`
     SELECT r.id AS record_id, r.doc_type, r.updated_at,
-      COALESCE(id2.so_hoa_don, bsd.mo_ta, '') AS description,
+      COALESCE(id2.invoice_number, bsd.description, '') AS description,
       f.relative_path
     FROM records r
     LEFT JOIN invoice_data id2 ON r.id = id2.record_id
@@ -111,15 +111,15 @@ export function softDeleteRecord(recordId: string): void {
 export function upsertBankStatementData(recordId: string, data: Partial<BankStatementData>): void {
   const db = getDatabase();
   db.prepare(`
-    INSERT INTO bank_statement_data (record_id, ten_ngan_hang, stk, mo_ta, so_tien, ten_doi_tac)
+    INSERT INTO bank_statement_data (record_id, bank_name, account_number, description, amount, counterparty_name)
     VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(record_id) DO UPDATE SET
-      ten_ngan_hang = excluded.ten_ngan_hang,
-      stk = excluded.stk,
-      mo_ta = excluded.mo_ta,
-      so_tien = excluded.so_tien,
-      ten_doi_tac = excluded.ten_doi_tac
-  `).run(recordId, data.ten_ngan_hang ?? null, data.stk ?? null, data.mo_ta ?? null, data.so_tien ?? null, data.ten_doi_tac ?? null);
+      bank_name = excluded.bank_name,
+      account_number = excluded.account_number,
+      description = excluded.description,
+      amount = excluded.amount,
+      counterparty_name = excluded.counterparty_name
+  `).run(recordId, data.bank_name ?? null, data.account_number ?? null, data.description ?? null, data.amount ?? null, data.counterparty_name ?? null);
 }
 
 // === Invoice Data ===
@@ -127,16 +127,16 @@ export function upsertBankStatementData(recordId: string, data: Partial<BankStat
 export function upsertInvoiceData(recordId: string, data: Partial<InvoiceData>): void {
   const db = getDatabase();
   db.prepare(`
-    INSERT INTO invoice_data (record_id, so_hoa_don, tong_tien_truoc_thue, tong_tien, mst, ten_doi_tac, dia_chi_doi_tac)
+    INSERT INTO invoice_data (record_id, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(record_id) DO UPDATE SET
-      so_hoa_don = excluded.so_hoa_don,
-      tong_tien_truoc_thue = excluded.tong_tien_truoc_thue,
-      tong_tien = excluded.tong_tien,
-      mst = excluded.mst,
-      ten_doi_tac = excluded.ten_doi_tac,
-      dia_chi_doi_tac = excluded.dia_chi_doi_tac
-  `).run(recordId, data.so_hoa_don ?? null, data.tong_tien_truoc_thue ?? null, data.tong_tien ?? null, data.mst ?? null, data.ten_doi_tac ?? null, data.dia_chi_doi_tac ?? null);
+      invoice_number = excluded.invoice_number,
+      total_before_tax = excluded.total_before_tax,
+      total_amount = excluded.total_amount,
+      tax_id = excluded.tax_id,
+      counterparty_name = excluded.counterparty_name,
+      counterparty_address = excluded.counterparty_address
+  `).run(recordId, data.invoice_number ?? null, data.total_before_tax ?? null, data.total_amount ?? null, data.tax_id ?? null, data.counterparty_name ?? null, data.counterparty_address ?? null);
 }
 
 // === Invoice Line Items ===
@@ -145,9 +145,9 @@ export function insertLineItem(recordId: string, lineNumber: number, data: Parti
   const db = getDatabase();
   const id = uuid();
   db.prepare(`
-    INSERT INTO invoice_line_items (id, record_id, line_number, mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien)
+    INSERT INTO invoice_line_items (id, record_id, line_number, description, unit_price, quantity, tax_rate, subtotal, total_with_tax)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, recordId, lineNumber, data.mo_ta ?? null, data.don_gia ?? null, data.so_luong ?? null, data.thue_suat ?? null, data.thanh_tien_truoc_thue ?? null, data.thanh_tien ?? null);
+  `).run(id, recordId, lineNumber, data.description ?? null, data.unit_price ?? null, data.quantity ?? null, data.tax_rate ?? null, data.subtotal ?? null, data.total_with_tax ?? null);
 
   return db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(id) as InvoiceLineItem;
 }
@@ -156,9 +156,9 @@ export function updateLineItem(lineItemId: string, data: Partial<InvoiceLineItem
   const db = getDatabase();
   db.prepare(`
     UPDATE invoice_line_items
-    SET mo_ta = ?, don_gia = ?, so_luong = ?, thue_suat = ?, thanh_tien_truoc_thue = ?, thanh_tien = ?
+    SET description = ?, unit_price = ?, quantity = ?, tax_rate = ?, subtotal = ?, total_with_tax = ?
     WHERE id = ?
-  `).run(data.mo_ta ?? null, data.don_gia ?? null, data.so_luong ?? null, data.thue_suat ?? null, data.thanh_tien_truoc_thue ?? null, data.thanh_tien ?? null, lineItemId);
+  `).run(data.description ?? null, data.unit_price ?? null, data.quantity ?? null, data.tax_rate ?? null, data.subtotal ?? null, data.total_with_tax ?? null, lineItemId);
 }
 
 export function softDeleteLineItem(lineItemId: string): void {
@@ -197,17 +197,17 @@ export function getLineItemsByRecord(recordId: string): InvoiceLineItem[] {
 // === FTS Index ===
 
 export function updateFtsIndex(recordId: string, data: {
-  so_hoa_don?: string; mst?: string; ten_doi_tac?: string; dia_chi_doi_tac?: string;
-  mo_ta?: string; ten_ngan_hang?: string; stk?: string;
+  invoice_number?: string; tax_id?: string; counterparty_name?: string; counterparty_address?: string;
+  description?: string; bank_name?: string; account_number?: string;
 }): void {
   const db = getDatabase();
   // Delete old entry if exists
-  db.prepare('DELETE FROM records_fts WHERE rowid = (SELECT rowid FROM records_fts WHERE so_hoa_don = ? OR mst = ? LIMIT 1)').run(data.so_hoa_don ?? '', data.mst ?? '');
+  db.prepare('DELETE FROM records_fts WHERE rowid = (SELECT rowid FROM records_fts WHERE invoice_number = ? OR tax_id = ? LIMIT 1)').run(data.invoice_number ?? '', data.tax_id ?? '');
   // Insert new
   db.prepare(`
-    INSERT INTO records_fts (rowid, so_hoa_don, mst, ten_doi_tac, dia_chi_doi_tac, mo_ta, ten_ngan_hang, stk)
+    INSERT INTO records_fts (rowid, invoice_number, tax_id, counterparty_name, counterparty_address, description, bank_name, account_number)
     VALUES ((SELECT rowid FROM records WHERE id = ?), ?, ?, ?, ?, ?, ?, ?)
-  `).run(recordId, data.so_hoa_don ?? '', data.mst ?? '', data.ten_doi_tac ?? '', data.dia_chi_doi_tac ?? '', data.mo_ta ?? '', data.ten_ngan_hang ?? '', data.stk ?? '');
+  `).run(recordId, data.invoice_number ?? '', data.tax_id ?? '', data.counterparty_name ?? '', data.counterparty_address ?? '', data.description ?? '', data.bank_name ?? '', data.account_number ?? '');
 }
 
 // === Processing Logs ===
@@ -456,11 +456,11 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     const ftsQuery = '"' + q.replace(/"/g, '""') + '"*';
     conditions.push(`(
       r.id IN (SELECT rowid FROM records_fts WHERE records_fts MATCH ?)
-      OR id2.so_hoa_don LIKE ?
-      OR id2.mst LIKE ?
-      OR id2.ten_doi_tac LIKE ?
-      OR bsd.ten_doi_tac LIKE ?
-      OR bsd.stk LIKE ?
+      OR id2.invoice_number LIKE ?
+      OR id2.tax_id LIKE ?
+      OR id2.counterparty_name LIKE ?
+      OR bsd.counterparty_name LIKE ?
+      OR bsd.account_number LIKE ?
     )`);
     params.push(ftsQuery, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
   }
@@ -474,8 +474,8 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     conditions.push("r.id IN (SELECT record_id FROM field_overrides WHERE status = 'conflict' AND resolved_at IS NULL)");
   } else if (parsed.status === 'mismatch') {
     conditions.push(`r.doc_type IN ('invoice_in', 'invoice_out')
-      AND ABS(COALESCE(id2.tong_tien, 0) - COALESCE(
-        (SELECT SUM(thanh_tien) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1
+      AND ABS(COALESCE(id2.total_amount, 0) - COALESCE(
+        (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1
       AND (SELECT COUNT(*) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) > 0`);
   } else if (parsed.status === 'review') {
     conditions.push("f.status = 'review'");
@@ -491,24 +491,24 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
 
   if (parsed.amountMin != null || parsed.amountMax != null) {
     if (parsed.amountMin != null && parsed.amountMax != null) {
-      conditions.push('(COALESCE(id2.tong_tien, bsd.so_tien, 0) BETWEEN ? AND ?)');
+      conditions.push('(COALESCE(id2.total_amount, bsd.amount, 0) BETWEEN ? AND ?)');
       params.push(parsed.amountMin, parsed.amountMax);
     } else if (parsed.amountMin != null) {
-      conditions.push('COALESCE(id2.tong_tien, bsd.so_tien, 0) > ?');
+      conditions.push('COALESCE(id2.total_amount, bsd.amount, 0) > ?');
       params.push(parsed.amountMin);
     } else {
-      conditions.push('COALESCE(id2.tong_tien, bsd.so_tien, 0) < ?');
+      conditions.push('COALESCE(id2.total_amount, bsd.amount, 0) < ?');
       params.push(parsed.amountMax!);
     }
   }
 
   if (parsed.dateFilter) {
-    conditions.push('r.ngay LIKE ?');
+    conditions.push('r.doc_date LIKE ?');
     params.push(`${parsed.dateFilter}%`);
   }
 
   if (parsed.mst) {
-    conditions.push('id2.mst = ?');
+    conditions.push('id2.tax_id = ?');
     params.push(parsed.mst);
   }
 
@@ -534,11 +534,11 @@ function filtersToParsed(filters: SearchFilters): ParsedQuery {
 
 const SORT_FIELD_SQL: Record<SortField, string> = {
   time: 'r.updated_at',
-  date: 'r.ngay',
+  date: 'r.doc_date',
   path: 'f.relative_path',
-  amount: 'COALESCE(id2.tong_tien, bsd.so_tien, 0)',
+  amount: 'COALESCE(id2.total_amount, bsd.amount, 0)',
   confidence: 'r.confidence',
-  shd: 'COALESCE(id2.so_hoa_don, \'\')',
+  shd: 'COALESCE(id2.invoice_number, \'\')',
 };
 
 function buildOrderByClause(parsed: ParsedQuery): string {
@@ -548,7 +548,7 @@ function buildOrderByClause(parsed: ParsedQuery): string {
   const dir = (parsed.sortDirection || SORT_DEFAULT_DIRECTIONS[parsed.sortField]).toUpperCase();
   // Push NULLs to end for date sort
   if (parsed.sortField === 'date') {
-    return `ORDER BY (r.ngay IS NULL) ASC, r.ngay ${dir}`;
+    return `ORDER BY (r.doc_date IS NULL) ASC, r.doc_date ${dir}`;
   }
   return `ORDER BY ${col} ${dir}`;
 }
@@ -570,18 +570,18 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
 
   const sql = `
     SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
-      COALESCE(id2.so_hoa_don, '') as so_hoa_don,
-      COALESCE(id2.tong_tien_truoc_thue, 0) as tong_tien_truoc_thue,
-      COALESCE(id2.tong_tien, 0) as tong_tien,
-      COALESCE(id2.mst, '') as mst,
-      COALESCE(id2.ten_doi_tac, bsd.ten_doi_tac, '') as ten_doi_tac,
-      COALESCE(id2.dia_chi_doi_tac, '') as dia_chi_doi_tac,
-      COALESCE(bsd.ten_ngan_hang, '') as ten_ngan_hang,
-      COALESCE(bsd.stk, '') as stk,
-      COALESCE(bsd.so_tien, 0) as so_tien,
-      COALESCE(bsd.mo_ta, '') as mo_ta,
-      (SELECT SUM(thanh_tien) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum,
-      (SELECT SUM(thanh_tien_truoc_thue) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum_truoc_thue
+      COALESCE(id2.invoice_number, '') as invoice_number,
+      COALESCE(id2.total_before_tax, 0) as total_before_tax,
+      COALESCE(id2.total_amount, 0) as total_amount,
+      COALESCE(id2.tax_id, '') as tax_id,
+      COALESCE(id2.counterparty_name, bsd.counterparty_name, '') as counterparty_name,
+      COALESCE(id2.counterparty_address, '') as counterparty_address,
+      COALESCE(bsd.bank_name, '') as bank_name,
+      COALESCE(bsd.account_number, '') as account_number,
+      COALESCE(bsd.amount, 0) as amount,
+      COALESCE(bsd.description, '') as description,
+      (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum,
+      (SELECT SUM(subtotal) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum_before_tax
     ${BASE_JOINS}
     WHERE ${conditions.join(' AND ')}
     ${buildOrderByClause(parsed)}
@@ -600,7 +600,7 @@ export function getAggregates(filters: SearchFilters): AggregateStats {
   const sql = `
     SELECT
       COUNT(*) AS totalRecords,
-      SUM(COALESCE(id2.tong_tien, bsd.so_tien, 0)) AS totalAmount
+      SUM(COALESCE(id2.total_amount, bsd.amount, 0)) AS totalAmount
     ${BASE_JOINS}
     WHERE ${conditions.join(' AND ')}
   `;
@@ -621,16 +621,16 @@ export function gatherFilteredExportData(filters: SearchFilters): { bankStatemen
   const whereClause = conditions.join(' AND ');
 
   const bankStatements = db.prepare(`
-    SELECT r.ngay, f.relative_path,
-      bsd.ten_ngan_hang, bsd.stk, bsd.mo_ta, bsd.so_tien, bsd.ten_doi_tac,
+    SELECT r.doc_date, f.relative_path,
+      bsd.bank_name, bsd.account_number, bsd.description, bsd.amount, bsd.counterparty_name,
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type = 'bank_statement'
   `).all(...params);
 
   const invoiceHeaders = db.prepare(`
-    SELECT r.id as record_id, r.doc_type, r.ngay, f.relative_path,
-      id2.so_hoa_don, id2.tong_tien_truoc_thue, id2.tong_tien, id2.mst, id2.ten_doi_tac, id2.dia_chi_doi_tac,
+    SELECT r.id as record_id, r.doc_type, r.doc_date, f.relative_path,
+      id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type IN ('invoice_in', 'invoice_out')
@@ -641,13 +641,13 @@ export function gatherFilteredExportData(filters: SearchFilters): { bankStatemen
   if (recordIds.length > 0) {
     const placeholders = recordIds.map(() => '?').join(',');
     invoiceLineItems = db.prepare(`
-      SELECT li.*, id2.so_hoa_don, r.doc_type, r.ngay
+      SELECT li.*, id2.invoice_number, r.doc_type, r.doc_date
       FROM invoice_line_items li
       JOIN records r ON li.record_id = r.id
       JOIN invoice_data id2 ON r.id = id2.record_id
       WHERE li.record_id IN (${placeholders})
         AND li.deleted_at IS NULL
-      ORDER BY r.doc_type, id2.so_hoa_don, li.line_number
+      ORDER BY r.doc_type, id2.invoice_number, li.line_number
     `).all(...recordIds);
   }
 

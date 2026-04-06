@@ -21,9 +21,9 @@ const JE_DOT_CLASSES: Record<string, string> = {
 };
 
 export const ResultDetail: React.FC<Props> = ({ result }) => {
-  const [localTotals, setLocalTotals] = useState<{ tong_tien: number; tong_tien_truoc_thue: number }>({
-    tong_tien: result.tong_tien,
-    tong_tien_truoc_thue: result.tong_tien_truoc_thue,
+  const [localTotals, setLocalTotals] = useState<{ total_amount: number; total_before_tax: number }>({
+    total_amount: result.total_amount,
+    total_before_tax: result.total_before_tax,
   });
   const [jeStatusRaw, setJeStatusRaw] = useState<JEClassificationStatus | null>(result.je_status);
   const isBank = result.doc_type === DocType.BankStatement;
@@ -31,10 +31,10 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
 
   useEffect(() => {
     setLocalTotals({
-      tong_tien: result.tong_tien,
-      tong_tien_truoc_thue: result.tong_tien_truoc_thue,
+      total_amount: result.total_amount,
+      total_before_tax: result.total_before_tax,
     });
-  }, [result.id, result.tong_tien, result.tong_tien_truoc_thue]);
+  }, [result.id, result.total_amount, result.total_before_tax]);
 
   const { data: detailData } = useResultDetail({ id: result.id });
   const overrides: FieldOverrideInfo[] = detailData?.overrides ?? [];
@@ -53,7 +53,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
 
   const handleSave = async (tableName: string, fieldName: string, userValue: string) => {
     await saveFieldOverride.mutateAsync({ recordId: result.id, tableName, fieldName, userValue });
-    if (fieldName === 'tong_tien' || fieldName === 'tong_tien_truoc_thue') {
+    if (fieldName === 'total_amount' || fieldName === 'total_before_tax') {
       const numVal = parseFloat(userValue) || 0;
       setLocalTotals(prev => ({ ...prev, [fieldName]: numVal }));
     }
@@ -84,22 +84,22 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   const hasConflicts = overrides.some(o => o.status === 'conflict');
 
   const totalMismatch = useMemo(
-    () => computeTotalMismatch(localTotals.tong_tien, lineItems),
-    [localTotals.tong_tien, lineItems],
+    () => computeTotalMismatch(localTotals.total_amount, lineItems),
+    [localTotals.total_amount, lineItems],
   );
 
   const beforeTaxTotalMismatch = useMemo(
-    () => computeBeforeTaxTotalMismatch(localTotals.tong_tien_truoc_thue, lineItems),
-    [localTotals.tong_tien_truoc_thue, lineItems],
+    () => computeBeforeTaxTotalMismatch(localTotals.total_before_tax, lineItems),
+    [localTotals.total_before_tax, lineItems],
   );
 
   const hasColumnIssues = useMemo(() => {
-    const beforeTax = lineItems.some(i => deriveFieldValue('thanh_tien_truoc_thue', i) != null);
-    const afterTax = lineItems.some(i => deriveFieldValue('thanh_tien', i) != null);
+    const beforeTax = lineItems.some(i => deriveFieldValue('subtotal', i) != null);
+    const afterTax = lineItems.some(i => deriveFieldValue('total_with_tax', i) != null);
     return { beforeTax, afterTax };
   }, [lineItems]);
 
-  const handleColumnFix = async (fieldName: 'thanh_tien_truoc_thue' | 'thanh_tien') => {
+  const handleColumnFix = async (fieldName: 'subtotal' | 'total_with_tax') => {
     for (const item of lineItems) {
       const derived = deriveFieldValue(fieldName, item);
       if (derived != null) {
@@ -139,10 +139,10 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
 
   const derivedTaxAmount = useMemo(() => {
     return lineItems
-      .filter(li => li.thue_suat != null && li.thue_suat > 0)
+      .filter(li => li.tax_rate != null && li.tax_rate > 0)
       .reduce((sum, li) => {
-        const before = li.thanh_tien_truoc_thue ?? 0;
-        const after = li.thanh_tien ?? 0;
+        const before = li.subtotal ?? 0;
+        const after = li.total_with_tax ?? 0;
         return sum + (after - before);
       }, 0);
   }, [lineItems]);
@@ -173,12 +173,12 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       {isBank && (
         <table className="w-full border-collapse">
           <tbody>
-            <EditableField label="Bank" value={result.ten_ngan_hang || ''} fieldName="ten_ngan_hang" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_ngan_hang')} onSave={(v) => handleSave('bank_statement_data', 'ten_ngan_hang', v)} onResolve={(a) => handleResolve('ten_ngan_hang', a)} />
-            <EditableField label="Account" value={result.stk || ''} fieldName="stk" tableName="bank_statement_data" recordId={result.id} override={getOverride('stk')} onSave={(v) => handleSave('bank_statement_data', 'stk', v)} onResolve={(a) => handleResolve('stk', a)} />
-            <EditableField label="Amount" value={String(result.so_tien || '')} fieldName="so_tien" tableName="bank_statement_data" recordId={result.id} override={getOverride('so_tien')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'so_tien', v)} onResolve={(a) => handleResolve('so_tien', a)} />
-            <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('bank_statement_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
-            <EditableField label="Description" value={result.mo_ta || ''} fieldName="mo_ta" tableName="bank_statement_data" recordId={result.id} override={getOverride('mo_ta')} onSave={(v) => handleSave('bank_statement_data', 'mo_ta', v)} onResolve={(a) => handleResolve('mo_ta', a)} />
-            <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.ngay || '-'}</td></tr>
+            <EditableField label="Bank" value={result.bank_name || ''} fieldName="bank_name" tableName="bank_statement_data" recordId={result.id} override={getOverride('bank_name')} onSave={(v) => handleSave('bank_statement_data', 'bank_name', v)} onResolve={(a) => handleResolve('bank_name', a)} />
+            <EditableField label="Account" value={result.account_number || ''} fieldName="account_number" tableName="bank_statement_data" recordId={result.id} override={getOverride('account_number')} onSave={(v) => handleSave('bank_statement_data', 'account_number', v)} onResolve={(a) => handleResolve('account_number', a)} />
+            <EditableField label="Amount" value={String(result.amount || '')} fieldName="amount" tableName="bank_statement_data" recordId={result.id} override={getOverride('amount')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'amount', v)} onResolve={(a) => handleResolve('amount', a)} />
+            <EditableField label="Counterparty" value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="bank_statement_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('bank_statement_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
+            <EditableField label="Description" value={result.description || ''} fieldName="description" tableName="bank_statement_data" recordId={result.id} override={getOverride('description')} onSave={(v) => handleSave('bank_statement_data', 'description', v)} onResolve={(a) => handleResolve('description', a)} />
+            <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
             <tr>
               <td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">
                 TK
@@ -202,13 +202,13 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
         <>
           <table className="w-full border-collapse">
             <tbody>
-              <EditableField label="Invoice #" value={result.so_hoa_don || ''} fieldName="so_hoa_don" tableName="invoice_data" recordId={result.id} override={getOverride('so_hoa_don')} onSave={(v) => handleSave('invoice_data', 'so_hoa_don', v)} onResolve={(a) => handleResolve('so_hoa_don', a)} />
-              <EditableField label="MST" value={result.mst || ''} fieldName="mst" tableName="invoice_data" recordId={result.id} override={getOverride('mst')} onSave={(v) => handleSave('invoice_data', 'mst', v)} onResolve={(a) => handleResolve('mst', a)} />
-              <EditableField label="Before-tax Total" value={String(localTotals.tong_tien_truoc_thue || '')} fieldName="tong_tien_truoc_thue" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien_truoc_thue')} inputType="number" derivedValue={beforeTaxTotalMismatch.hasMismatch ? beforeTaxTotalMismatch.sum : null} showMismatchIcon={beforeTaxTotalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'tong_tien_truoc_thue', v)} onResolve={(a) => handleResolve('tong_tien_truoc_thue', a)} />
-              <EditableField label="Total (incl. tax)" value={String(localTotals.tong_tien || '')} fieldName="tong_tien" tableName="invoice_data" recordId={result.id} override={getOverride('tong_tien')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'tong_tien', v)} onResolve={(a) => handleResolve('tong_tien', a)} />
-              <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('invoice_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
-              <EditableField label="Address" value={result.dia_chi_doi_tac || ''} fieldName="dia_chi_doi_tac" tableName="invoice_data" recordId={result.id} override={getOverride('dia_chi_doi_tac')} onSave={(v) => handleSave('invoice_data', 'dia_chi_doi_tac', v)} onResolve={(a) => handleResolve('dia_chi_doi_tac', a)} />
-              <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.ngay || '-'}</td></tr>
+              <EditableField label="Invoice #" value={result.invoice_number || ''} fieldName="invoice_number" tableName="invoice_data" recordId={result.id} override={getOverride('invoice_number')} onSave={(v) => handleSave('invoice_data', 'invoice_number', v)} onResolve={(a) => handleResolve('invoice_number', a)} />
+              <EditableField label="MST" value={result.tax_id || ''} fieldName="tax_id" tableName="invoice_data" recordId={result.id} override={getOverride('tax_id')} onSave={(v) => handleSave('invoice_data', 'tax_id', v)} onResolve={(a) => handleResolve('tax_id', a)} />
+              <EditableField label="Before-tax Total" value={String(localTotals.total_before_tax || '')} fieldName="total_before_tax" tableName="invoice_data" recordId={result.id} override={getOverride('total_before_tax')} inputType="number" derivedValue={beforeTaxTotalMismatch.hasMismatch ? beforeTaxTotalMismatch.sum : null} showMismatchIcon={beforeTaxTotalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_before_tax', v)} onResolve={(a) => handleResolve('total_before_tax', a)} />
+              <EditableField label="Total (incl. tax)" value={String(localTotals.total_amount || '')} fieldName="total_amount" tableName="invoice_data" recordId={result.id} override={getOverride('total_amount')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_amount', v)} onResolve={(a) => handleResolve('total_amount', a)} />
+              <EditableField label="Counterparty" value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('invoice_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
+              <EditableField label="Address" value={result.counterparty_address || ''} fieldName="counterparty_address" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_address')} onSave={(v) => handleSave('invoice_data', 'counterparty_address', v)} onResolve={(a) => handleResolve('counterparty_address', a)} />
+              <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">Date</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
             </tbody>
           </table>
 
@@ -235,7 +235,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                     <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Price</th>
                     <th
                       className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.beforeTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
-                      onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('thanh_tien_truoc_thue'); }}
+                      onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('subtotal'); }}
                       title={hasColumnIssues.beforeTax ? '⌘+click to fix column' : undefined}
                     >
                       Before tax{hasColumnIssues.beforeTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
@@ -243,7 +243,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                     <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">Tax %</th>
                     <th
                       className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.afterTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
-                      onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('thanh_tien'); }}
+                      onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('total_with_tax'); }}
                       title={hasColumnIssues.afterTax ? '⌘+click to fix column' : undefined}
                     >
                       After tax{hasColumnIssues.afterTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
@@ -261,12 +261,12 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                     return (
                       <tr key={item.id} className={hasRowIssue ? 'line-item-mismatch' : ''}>
                         <td className="px-1.5 py-[3px] border-b border-border">{item.line_number}</td>
-                        <EditableCell value={item.mo_ta || ''} fieldName="mo_ta" lineItemId={item.id} override={getLineItemOverride(item.id, 'mo_ta')} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.so_luong ?? '')} fieldName="so_luong" lineItemId={item.id} override={getLineItemOverride(item.id, 'so_luong')} inputType="number" derivedValue={deriveFieldValue('so_luong', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.don_gia ?? '')} fieldName="don_gia" lineItemId={item.id} override={getLineItemOverride(item.id, 'don_gia')} inputType="number" derivedValue={deriveFieldValue('don_gia', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.thanh_tien_truoc_thue ?? '')} fieldName="thanh_tien_truoc_thue" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien_truoc_thue')} inputType="number" derivedValue={deriveFieldValue('thanh_tien_truoc_thue', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={item.thue_suat != null ? String(item.thue_suat) : ''} fieldName="thue_suat" lineItemId={item.id} override={getLineItemOverride(item.id, 'thue_suat')} inputType="number" derivedValue={deriveFieldValue('thue_suat', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.thanh_tien ?? '')} fieldName="thanh_tien" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien')} inputType="number" derivedValue={deriveFieldValue('thanh_tien', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={item.description || ''} fieldName="description" lineItemId={item.id} override={getLineItemOverride(item.id, 'description')} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.quantity ?? '')} fieldName="quantity" lineItemId={item.id} override={getLineItemOverride(item.id, 'quantity')} inputType="number" derivedValue={deriveFieldValue('quantity', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.unit_price ?? '')} fieldName="unit_price" lineItemId={item.id} override={getLineItemOverride(item.id, 'unit_price')} inputType="number" derivedValue={deriveFieldValue('unit_price', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.subtotal ?? '')} fieldName="subtotal" lineItemId={item.id} override={getLineItemOverride(item.id, 'subtotal')} inputType="number" derivedValue={deriveFieldValue('subtotal', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={item.tax_rate != null ? String(item.tax_rate) : ''} fieldName="tax_rate" lineItemId={item.id} override={getLineItemOverride(item.id, 'tax_rate')} inputType="number" derivedValue={deriveFieldValue('tax_rate', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.total_with_tax ?? '')} fieldName="total_with_tax" lineItemId={item.id} override={getLineItemOverride(item.id, 'total_with_tax')} inputType="number" derivedValue={deriveFieldValue('total_with_tax', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <JeCell account={je?.account ?? null} onSave={(account) => handleSaveJeAccount('line', item.id, account)} />
                       </tr>
                     );
@@ -287,7 +287,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                   <span className="flex items-center gap-0.5 text-text-secondary">
                     TK <JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
                   </span>
-                  <span className="text-text ml-auto">{localTotals.tong_tien ? formatCurrency(localTotals.tong_tien) : '–'}</span>
+                  <span className="text-text ml-auto">{localTotals.total_amount ? formatCurrency(localTotals.total_amount) : '–'}</span>
                 </div>
               </div>
             </div>

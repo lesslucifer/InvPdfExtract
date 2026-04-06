@@ -136,34 +136,34 @@ For each file provided:
 ## Extraction Schemas
 
 ### Bank Statement (sao kê ngân hàng)
-- \`ten_ngan_hang\`: Bank name (TEXT)
-- \`stk\`: Account number (TEXT)
-- \`ngay\`: Transaction date (DATE, format YYYY-MM-DD)
-- \`mo_ta\`: Transaction description (TEXT)
-- \`so_tien\`: Amount — positive for credit, negative for debit (REAL)
-- \`ten_doi_tac\`: Beneficiary or sender name (TEXT)
+- \`bank_name\`: Bank name / Tên ngân hàng (TEXT)
+- \`account_number\`: Account number / Số tài khoản (TEXT)
+- \`doc_date\`: Transaction date / Ngày giao dịch (DATE, format YYYY-MM-DD)
+- \`description\`: Transaction description / Nội dung giao dịch (TEXT)
+- \`amount\`: Amount — positive for credit, negative for debit / Số tiền (REAL)
+- \`counterparty_name\`: Beneficiary or sender name / Tên đối tác (TEXT)
 
-**Fingerprint:** SHA-256 of: normalize(stk) + "|" + normalize(ngay) + "|" + normalize(so_tien)
+**Fingerprint:** SHA-256 of: normalize(account_number) + "|" + normalize(doc_date) + "|" + normalize(amount)
 
 ### Invoice (hóa đơn) — both đầu ra and đầu vào
 Invoice-level fields (bảng kê):
-- \`so_hoa_don\`: Invoice number (TEXT)
-- \`ngay\`: Invoice date (DATE, format YYYY-MM-DD)
-- \`tong_tien_truoc_thue\`: Total BEFORE tax / Tổng tiền trước thuế (REAL). Sum of line items before VAT.
-- \`tong_tien\`: Total AFTER tax / Tổng cộng thanh toán (REAL). Final payment amount including VAT.
-- \`mst\`: Tax identification number / MST (TEXT)
-- \`ten_doi_tac\`: Customer name (đầu ra) or Supplier name (đầu vào) (TEXT)
-- \`dia_chi_doi_tac\`: Customer/Supplier address (TEXT)
+- \`invoice_number\`: Invoice number / Số hóa đơn (TEXT)
+- \`doc_date\`: Invoice date / Ngày lập (DATE, format YYYY-MM-DD)
+- \`total_before_tax\`: Total BEFORE tax / Cộng tiền hàng / Tổng tiền trước thuế (REAL). Sum of line items before VAT.
+- \`total_amount\`: Total AFTER tax / Tổng cộng thanh toán (REAL). Final payment amount including VAT.
+- \`tax_id\`: Tax identification number / Mã số thuế (TEXT)
+- \`counterparty_name\`: Customer name (đầu ra) or Supplier name (đầu vào) / Tên đơn vị (TEXT)
+- \`counterparty_address\`: Customer/Supplier address / Địa chỉ (TEXT)
 
 Line item fields (chi tiết):
-- \`mo_ta\`: Item description (TEXT)
-- \`don_gia\`: Unit price before tax (REAL)
-- \`so_luong\`: Quantity (REAL)
-- \`thue_suat\`: Tax rate as a percentage INTEGER, e.g. 8 for 8%, 10 for 10% (REAL). NEVER use decimals like 0.08 — if the source shows 0.08, convert to 8.
-- \`thanh_tien_truoc_thue\`: Line total BEFORE tax / Thành tiền trước thuế (REAL). Usually = don_gia × so_luong.
-- \`thanh_tien\`: Line total AFTER tax / Thành tiền sau thuế (REAL). Usually = thanh_tien_truoc_thue × (1 + thue_suat/100).
+- \`description\`: Item description / Tên hàng hóa, dịch vụ (TEXT)
+- \`unit_price\`: Unit price before tax / Đơn giá (REAL)
+- \`quantity\`: Quantity / Số lượng (REAL)
+- \`tax_rate\`: Tax rate as a percentage INTEGER, e.g. 8 for 8%, 10 for 10% / Thuế suất (REAL). NEVER use decimals like 0.08 — if the source shows 0.08, convert to 8.
+- \`subtotal\`: Line total BEFORE tax / Thành tiền (REAL). Usually = unit_price × quantity. This is "Thành tiền" on official Vietnamese invoices.
+- \`total_with_tax\`: Line total AFTER tax / Thành tiền sau thuế (REAL). Usually = subtotal × (1 + tax_rate/100).
 
-**Fingerprint:** SHA-256 of: normalize(so_hoa_don) + "|" + normalize(mst) + "|" + normalize(ngay)
+**Fingerprint:** SHA-256 of: normalize(invoice_number) + "|" + normalize(tax_id) + "|" + normalize(doc_date)
 
 ## Output Format
 
@@ -179,31 +179,31 @@ Return ONLY valid JSON with no markdown fences or extra text. Use this exact str
         {
           "confidence": 0.92,
           "field_confidence": {
-            "so_hoa_don": 0.99,
-            "ngay": 0.95,
-            "tong_tien_truoc_thue": 0.90,
-            "tong_tien": 0.90,
-            "mst": 0.98,
-            "ten_doi_tac": 0.85,
-            "dia_chi_doi_tac": 0.80
+            "invoice_number": 0.99,
+            "doc_date": 0.95,
+            "total_before_tax": 0.90,
+            "total_amount": 0.90,
+            "tax_id": 0.98,
+            "counterparty_name": 0.85,
+            "counterparty_address": 0.80
           },
-          "ngay": "2024-03-15",
+          "doc_date": "2024-03-15",
           "data": {
-            "so_hoa_don": "HD-001",
-            "tong_tien_truoc_thue": 10000000,
-            "tong_tien": 11000000,
-            "mst": "0101234567",
-            "ten_doi_tac": "Công ty ABC",
-            "dia_chi_doi_tac": "123 Đường XYZ, Quận 1, TP.HCM"
+            "invoice_number": "HD-001",
+            "total_before_tax": 10000000,
+            "total_amount": 11000000,
+            "tax_id": "0101234567",
+            "counterparty_name": "Công ty ABC",
+            "counterparty_address": "123 Đường XYZ, Quận 1, TP.HCM"
           },
           "line_items": [
             {
-              "mo_ta": "Dịch vụ tư vấn",
-              "don_gia": 10000000,
-              "so_luong": 1,
-              "thue_suat": 10,
-              "thanh_tien_truoc_thue": 10000000,
-              "thanh_tien": 11000000
+              "description": "Dịch vụ tư vấn",
+              "unit_price": 10000000,
+              "quantity": 1,
+              "tax_rate": 10,
+              "subtotal": 10000000,
+              "total_with_tax": 11000000
             }
           ]
         }
@@ -223,20 +223,20 @@ Return ONLY valid JSON with no markdown fences or extra text. Use this exact str
 - Overall confidence = average of all field confidences
 - Return empty \`line_items\` array [] for bank statements
 - For invoices, always include line items even if only one item exists
-- IMPORTANT: Tax rate (\`thue_suat\`) must ALWAYS be a percentage integer (5, 8, 10). If the source document shows a decimal like 0.08 or 0.1, multiply by 100.
+- IMPORTANT: Tax rate (\`tax_rate\`) must ALWAYS be a percentage integer (5, 8, 10). If the source document shows a decimal like 0.08 or 0.1, multiply by 100.
 - CRITICAL: For invoice amounts, follow these rules strictly:
 
   **Line item amounts — STRONGLY prefer BEFORE-tax:**
-  - If both before-tax and after-tax amounts are visible, extract both (\`thanh_tien_truoc_thue\` and \`thanh_tien\`)
-  - If only ONE amount is available for line items, it is BEFORE-tax (\`thanh_tien_truoc_thue\`) UNLESS explicitly labeled as after-tax (look for: "đã bao gồm thuế", "sau thuế", "bao gồm VAT", "tổng cộng thanh toán")
+  - If both before-tax and after-tax amounts are visible, extract both (\`subtotal\` and \`total_with_tax\`)
+  - If only ONE amount is available for line items, it is BEFORE-tax (\`subtotal\`) UNLESS explicitly labeled as after-tax (look for: "đã bao gồm thuế", "sau thuế", "bao gồm VAT", "tổng cộng thanh toán")
   - If tax is applied only to the invoice total (not itemized per line), the line item amounts are ALWAYS before-tax
-  - Column headers like "Thành tiền", "Đơn giá × SL", "Cộng tiền hàng" → before-tax (\`thanh_tien_truoc_thue\`)
-  - When in doubt, set the amount as \`thanh_tien_truoc_thue\` and leave \`thanh_tien\` as null
+  - Column headers like "Thành tiền", "Đơn giá × SL", "Cộng tiền hàng" → before-tax (\`subtotal\`)
+  - When in doubt, set the amount as \`subtotal\` and leave \`total_with_tax\` as null
 
   **Invoice total — usually AFTER-tax:**
-  - \`tong_tien\` = the final payment amount (after VAT). This is the number labeled "Tổng cộng thanh toán", "Tổng tiền", "Total"
-  - \`tong_tien_truoc_thue\` = subtotal before VAT. Labeled "Cộng tiền hàng", "Tiền trước thuế"
+  - \`total_amount\` = the final payment amount (after VAT). This is the number labeled "Tổng cộng thanh toán", "Tổng tiền", "Total"
+  - \`total_before_tax\` = subtotal before VAT. Labeled "Cộng tiền hàng", "Tiền trước thuế"
   - Extract both if visible
 
-  **Cross-check signal:** If the document total (\`tong_tien\`) approximately equals the sum of line item amounts, those amounts are AFTER-tax. If \`tong_tien\` approximately equals SUM(line_amounts) × (1 + tax_rate/100), those amounts are BEFORE-tax. Use this to disambiguate.
+  **Cross-check signal:** If the document total (\`total_amount\`) approximately equals the sum of line item amounts, those amounts are AFTER-tax. If \`total_amount\` approximately equals SUM(line_amounts) × (1 + tax_rate/100), those amounts are BEFORE-tax. Use this to disambiguate.
 `;

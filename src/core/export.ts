@@ -23,37 +23,37 @@ export function gatherExportData(options: ExportOptions = {}): ExportData {
 
   // Bank statements
   const bankStatements = db.prepare(`
-    SELECT r.ngay, f.relative_path,
-      bsd.ten_ngan_hang, bsd.stk, bsd.mo_ta, bsd.so_tien, bsd.ten_doi_tac,
+    SELECT r.doc_date, f.relative_path,
+      bsd.bank_name, bsd.account_number, bsd.description, bsd.amount, bsd.counterparty_name,
       r.confidence
     FROM records r
     JOIN files f ON r.file_id = f.id
     JOIN bank_statement_data bsd ON r.id = bsd.record_id
     WHERE r.doc_type = ? ${deletedClause}
-    ORDER BY r.ngay, bsd.stk
+    ORDER BY r.doc_date, bsd.account_number
   `).all(DocType.BankStatement);
 
   // Invoice headers (both in and out)
   const invoiceHeaders = db.prepare(`
-    SELECT r.id as record_id, r.doc_type, r.ngay, f.relative_path,
-      id2.so_hoa_don, id2.tong_tien, id2.mst, id2.ten_doi_tac, id2.dia_chi_doi_tac,
+    SELECT r.id as record_id, r.doc_type, r.doc_date, f.relative_path,
+      id2.invoice_number, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
       r.confidence
     FROM records r
     JOIN files f ON r.file_id = f.id
     JOIN invoice_data id2 ON r.id = id2.record_id
     WHERE r.doc_type IN (?, ?) ${deletedClause}
-    ORDER BY r.doc_type, r.ngay, id2.so_hoa_don
+    ORDER BY r.doc_type, r.doc_date, id2.invoice_number
   `).all(DocType.InvoiceIn, DocType.InvoiceOut);
 
   // Invoice line items
   const invoiceLineItems = db.prepare(`
-    SELECT li.*, id2.so_hoa_don, r.doc_type, r.ngay
+    SELECT li.*, id2.invoice_number, r.doc_type, r.doc_date
     FROM invoice_line_items li
     JOIN records r ON li.record_id = r.id
     JOIN invoice_data id2 ON r.id = id2.record_id
     WHERE r.doc_type IN (?, ?) ${deletedClause}
       AND li.deleted_at IS NULL
-    ORDER BY r.doc_type, id2.so_hoa_don, li.line_number
+    ORDER BY r.doc_type, id2.invoice_number, li.line_number
   `).all(DocType.InvoiceIn, DocType.InvoiceOut);
 
   return { bankStatements, invoiceHeaders, invoiceLineItems };
@@ -70,7 +70,7 @@ export function exportToCsv(data: ExportData): Map<string, string> {
   if (data.bankStatements.length > 0) {
     const headers = ['Ngày', 'Ngân hàng', 'STK', 'Mô tả', 'Số tiền', 'Đối tác', 'Confidence', 'File'];
     const rows = data.bankStatements.map(r => [
-      r.ngay, r.ten_ngan_hang, r.stk, r.mo_ta, r.so_tien, r.ten_doi_tac, r.confidence, r.relative_path,
+      r.doc_date, r.bank_name, r.account_number, r.description, r.amount, r.counterparty_name, r.confidence, r.relative_path,
     ]);
     files.set('bank_statements.csv', toCsv(headers, rows));
   }
@@ -79,7 +79,7 @@ export function exportToCsv(data: ExportData): Map<string, string> {
   if (data.invoiceHeaders.length > 0) {
     const headers = ['Loại', 'Ngày', 'Số HĐ', 'Tổng tiền trước thuế', 'Tổng tiền', 'MST', 'Đối tác', 'Địa chỉ', 'Confidence', 'File'];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.tong_tien_truoc_thue, r.tong_tien, r.mst, r.ten_doi_tac, r.dia_chi_doi_tac, r.confidence, r.relative_path,
+      r.doc_type, r.doc_date, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);
     files.set('invoices.csv', toCsv(headers, rows));
   }
@@ -88,7 +88,7 @@ export function exportToCsv(data: ExportData): Map<string, string> {
   if (data.invoiceLineItems.length > 0) {
     const headers = ['Loại', 'Ngày', 'Số HĐ', '#', 'Mô tả', 'Đơn giá', 'Số lượng', 'Thuế suất', 'Thành tiền trước thuế', 'Thành tiền'];
     const rows = data.invoiceLineItems.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.line_number, r.mo_ta, r.don_gia, r.so_luong, r.thue_suat, r.thanh_tien_truoc_thue, r.thanh_tien,
+      r.doc_type, r.doc_date, r.invoice_number, r.line_number, r.description, r.unit_price, r.quantity, r.tax_rate, r.subtotal, r.total_with_tax,
     ]);
     files.set('line_items.csv', toCsv(headers, rows));
   }
@@ -123,7 +123,7 @@ export function exportToXlsx(data: ExportData): Buffer {
   if (data.bankStatements.length > 0) {
     const headers = ['Ngay', 'Ngan hang', 'STK', 'Mo ta', 'So tien', 'Doi tac', 'Confidence', 'File'];
     const rows = data.bankStatements.map(r => [
-      r.ngay, r.ten_ngan_hang, r.stk, r.mo_ta, r.so_tien, r.ten_doi_tac, r.confidence, r.relative_path,
+      r.doc_date, r.bank_name, r.account_number, r.description, r.amount, r.counterparty_name, r.confidence, r.relative_path,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Sao ke');
@@ -132,7 +132,7 @@ export function exportToXlsx(data: ExportData): Buffer {
   if (data.invoiceHeaders.length > 0) {
     const headers = ['Loai', 'Ngay', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'MST', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.tong_tien_truoc_thue, r.tong_tien, r.mst, r.ten_doi_tac, r.dia_chi_doi_tac, r.confidence, r.relative_path,
+      r.doc_type, r.doc_date, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Hoa don');
@@ -141,7 +141,7 @@ export function exportToXlsx(data: ExportData): Buffer {
   if (data.invoiceLineItems.length > 0) {
     const headers = ['Loai', 'Ngay', 'So HD', '#', 'Mo ta', 'Don gia', 'So luong', 'Thue suat', 'Thanh tien truoc thue', 'Thanh tien'];
     const rows = data.invoiceLineItems.map(r => [
-      r.doc_type, r.ngay, r.so_hoa_don, r.line_number, r.mo_ta, r.don_gia, r.so_luong, r.thue_suat, r.thanh_tien_truoc_thue, r.thanh_tien,
+      r.doc_type, r.doc_date, r.invoice_number, r.line_number, r.description, r.unit_price, r.quantity, r.tax_rate, r.subtotal, r.total_with_tax,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Chi tiet');

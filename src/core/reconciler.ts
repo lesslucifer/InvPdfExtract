@@ -91,7 +91,7 @@ export class Reconciler {
           // Update existing record
           updateRecord(
             existing.id, batch.id, extractedRecord.confidence,
-            extractedRecord.ngay, extractedRecord.field_confidence,
+            extractedRecord.doc_date, extractedRecord.field_confidence,
             extractedRecord
           );
           this.upsertExtensionData(existing.id, fileResult.doc_type, extractedRecord);
@@ -99,7 +99,7 @@ export class Reconciler {
           // Insert new record
           const newRecord = insertRecord(
             batch.id, file.id, fileResult.doc_type as DocType, fingerprint,
-            extractedRecord.confidence, extractedRecord.ngay,
+            extractedRecord.confidence, extractedRecord.doc_date,
             extractedRecord.field_confidence, extractedRecord
           );
           this.upsertExtensionData(newRecord.id, fileResult.doc_type, extractedRecord);
@@ -150,11 +150,11 @@ export class Reconciler {
     if (docType === DocType.BankStatement) {
       const bsd = data as ExtractionBankStatementData;
       const fields: Record<string, any> = {
-        ten_ngan_hang: bsd.ten_ngan_hang ?? null,
-        stk: bsd.stk ?? null,
-        mo_ta: bsd.mo_ta ?? null,
-        so_tien: bsd.so_tien ?? null,
-        ten_doi_tac: bsd.ten_doi_tac ?? null,
+        bank_name: bsd.bank_name ?? null,
+        account_number: bsd.account_number ?? null,
+        description: bsd.description ?? null,
+        amount: bsd.amount ?? null,
+        counterparty_name: bsd.counterparty_name ?? null,
       };
 
       // Respect locked fields
@@ -163,20 +163,20 @@ export class Reconciler {
       upsertBankStatementData(recordId, { record_id: recordId, ...fields });
 
       updateFtsIndex(recordId, {
-        ten_ngan_hang: fields.ten_ngan_hang,
-        stk: fields.stk,
-        mo_ta: fields.mo_ta,
-        ten_doi_tac: fields.ten_doi_tac,
+        bank_name: fields.bank_name,
+        account_number: fields.account_number,
+        description: fields.description,
+        counterparty_name: fields.counterparty_name,
       });
     } else {
       const inv = data as ExtractionInvoiceData;
       const fields: Record<string, any> = {
-        so_hoa_don: inv.so_hoa_don ?? null,
-        tong_tien_truoc_thue: inv.tong_tien_truoc_thue ?? null,
-        tong_tien: inv.tong_tien ?? null,
-        mst: inv.mst ?? null,
-        ten_doi_tac: inv.ten_doi_tac ?? null,
-        dia_chi_doi_tac: inv.dia_chi_doi_tac ?? null,
+        invoice_number: inv.invoice_number ?? null,
+        total_before_tax: inv.total_before_tax ?? null,
+        total_amount: inv.total_amount ?? null,
+        tax_id: inv.tax_id ?? null,
+        counterparty_name: inv.counterparty_name ?? null,
+        counterparty_address: inv.counterparty_address ?? null,
       };
 
       // Respect locked fields
@@ -188,10 +188,10 @@ export class Reconciler {
       this.reconcileLineItems(recordId, extractedRecord.line_items || []);
 
       updateFtsIndex(recordId, {
-        so_hoa_don: fields.so_hoa_don,
-        mst: fields.mst,
-        ten_doi_tac: fields.ten_doi_tac,
-        dia_chi_doi_tac: fields.dia_chi_doi_tac,
+        invoice_number: fields.invoice_number,
+        tax_id: fields.tax_id,
+        counterparty_name: fields.counterparty_name,
+        counterparty_address: fields.counterparty_address,
       });
     }
   }
@@ -215,22 +215,22 @@ export class Reconciler {
       const existing = existingByLineNumber.get(lineNumber);
 
       // Normalize decimal tax rates (0.08 → 8) before any computation
-      const normalizedRate = normalizeTaxRate(items[i].thue_suat);
+      const normalizedRate = normalizeTaxRate(items[i].tax_rate);
 
       // Compute missing before/after-tax amounts from available fields
       const computed = computeMissingTaxField({
-        beforeTax: items[i].thanh_tien_truoc_thue,
-        afterTax: items[i].thanh_tien,
+        beforeTax: items[i].subtotal,
+        afterTax: items[i].total_with_tax,
         taxRate: normalizedRate,
       });
 
       const newData = {
-        mo_ta: items[i].mo_ta ?? null,
-        don_gia: items[i].don_gia ?? null,
-        so_luong: items[i].so_luong ?? null,
-        thue_suat: normalizedRate,
-        thanh_tien_truoc_thue: computed.beforeTax,
-        thanh_tien: computed.afterTax,
+        description: items[i].description ?? null,
+        unit_price: items[i].unit_price ?? null,
+        quantity: items[i].quantity ?? null,
+        tax_rate: normalizedRate,
+        subtotal: computed.beforeTax,
+        total_with_tax: computed.afterTax,
       };
 
       if (existing && hasLockedFields(existing.id)) {
@@ -292,9 +292,9 @@ export class Reconciler {
       case DocType.BankStatement: {
         const bsd = data as ExtractionBankStatementData;
         hash.update(
-          normalize(bsd.stk) + '|' +
-          normalize(record.ngay) + '|' +
-          normalize(String(bsd.so_tien))
+          normalize(bsd.account_number) + '|' +
+          normalize(record.doc_date) + '|' +
+          normalize(String(bsd.amount))
         );
         break;
       }
@@ -302,9 +302,9 @@ export class Reconciler {
       case DocType.InvoiceIn: {
         const inv = data as ExtractionInvoiceData;
         hash.update(
-          normalize(inv.so_hoa_don) + '|' +
-          normalize(inv.mst) + '|' +
-          normalize(record.ngay)
+          normalize(inv.invoice_number) + '|' +
+          normalize(inv.tax_id) + '|' +
+          normalize(record.doc_date)
         );
         break;
       }

@@ -26,13 +26,13 @@ function seedRecord(id = 'rec-1', fileId = 'file-1'): void {
   _testDb.exec(`INSERT OR IGNORE INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence) VALUES ('${id}', 'batch-1', '${fileId}', 'invoice_in', 'fp-${id}', 0.9)`);
 }
 
-function seedLineItem(id: string, recordId: string, moTa: string): void {
-  _testDb.exec(`INSERT OR IGNORE INTO invoice_line_items (id, record_id, line_number, mo_ta) VALUES ('${id}', '${recordId}', 1, '${moTa}')`);
+function seedLineItem(id: string, recordId: string, description: string): void {
+  _testDb.exec(`INSERT OR IGNORE INTO invoice_line_items (id, record_id, line_number, description) VALUES ('${id}', '${recordId}', 1, '${description}')`);
 }
 
-function seedBankData(recordId: string, moTa: string): void {
+function seedBankData(recordId: string, description: string): void {
   _testDb.exec(`INSERT OR IGNORE INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence) VALUES ('${recordId}', 'batch-1', 'file-1', 'bank_statement', 'fp-bank-${recordId}', 0.9)`);
-  _testDb.exec(`INSERT OR IGNORE INTO bank_statement_data (record_id, mo_ta, so_tien) VALUES ('${recordId}', '${moTa}', 1000000)`);
+  _testDb.exec(`INSERT OR IGNORE INTO bank_statement_data (record_id, description, amount) VALUES ('${recordId}', '${description}', 1000000)`);
 }
 
 describe('journal-entries DB layer', () => {
@@ -115,7 +115,7 @@ describe('journal-entries DB layer', () => {
 
     const items = getRecentClassifiedLineItems(100);
     expect(items).toHaveLength(1);
-    expect(items[0].mo_ta).toBe('Van phong pham');
+    expect(items[0].description).toBe('Van phong pham');
     expect(items[0].account).toBe('6422');
   });
 
@@ -136,7 +136,7 @@ describe('journal-entries DB layer', () => {
 
     const items = getRecentClassifiedBankItems(100);
     expect(items).toHaveLength(1);
-    expect(items[0].mo_ta).toBe('Thanh toan tien hang');
+    expect(items[0].description).toBe('Thanh toan tien hang');
     expect(items[0].account).toBe('331');
   });
 

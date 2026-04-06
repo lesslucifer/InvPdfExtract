@@ -31,9 +31,9 @@ function seedData() {
   _testDb.exec(`INSERT INTO files (id, relative_path, file_hash, file_type, status) VALUES ('file-1', 'test.pdf', 'hash1', 'pdf', 'done')`);
   _testDb.exec(`INSERT INTO extraction_batches (id, file_id, status, record_count, overall_confidence) VALUES ('batch-1', 'file-1', 'success', 1, 0.9)`);
   _testDb.exec(`INSERT INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence) VALUES ('rec-1', 'batch-1', 'file-1', 'invoice_in', 'fp-1', 0.9)`);
-  _testDb.exec(`INSERT INTO invoice_data (record_id, so_hoa_don, mst, ten_doi_tac, tong_tien) VALUES ('rec-1', 'INV-001', '0123456789', 'Cong ty ABC', 770000)`);
-  _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien) VALUES ('li-1', 'rec-1', 1, 'Van phong pham', 50000, 10, 10, 500000, 550000)`);
-  _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien) VALUES ('li-2', 'rec-1', 2, 'Dich vu tu van', 200000, 1, 10, 200000, 220000)`);
+  _testDb.exec(`INSERT INTO invoice_data (record_id, invoice_number, tax_id, counterparty_name, total_amount) VALUES ('rec-1', 'INV-001', '0123456789', 'Cong ty ABC', 770000)`);
+  _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, description, unit_price, quantity, tax_rate, subtotal, total_with_tax) VALUES ('li-1', 'rec-1', 1, 'Van phong pham', 50000, 10, 10, 500000, 550000)`);
+  _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, description, unit_price, quantity, tax_rate, subtotal, total_with_tax) VALUES ('li-2', 'rec-1', 2, 'Dich vu tu van', 200000, 1, 10, 200000, 220000)`);
 }
 
 describe('JEGenerator', () => {
@@ -120,10 +120,10 @@ describe('JEGenerator', () => {
     expect(mockClassifyWithAI).toHaveBeenCalledTimes(1);
     const items = mockClassifyWithAI.mock.calls[0][0];
     expect(items).toHaveLength(2);
-    expect(items[0].moTa).toBe('Van phong pham');
-    expect(items[0].tenDoiTac).toBe('Cong ty ABC');
-    expect(items[0].mst).toBe('0123456789');
-    expect(items[0].thueSuat).toBe(10);
+    expect(items[0].description).toBe('Van phong pham');
+    expect(items[0].counterpartyName).toBe('Cong ty ABC');
+    expect(items[0].taxId).toBe('0123456789');
+    expect(items[0].taxRate).toBe(10);
   });
 
   it('handles empty record gracefully', async () => {
@@ -136,7 +136,7 @@ describe('JEGenerator', () => {
 
   it('handles bank statement records', async () => {
     _testDb.exec(`INSERT INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence) VALUES ('bank-1', 'batch-1', 'file-1', 'bank_statement', 'fp-bank', 0.9)`);
-    _testDb.exec(`INSERT INTO bank_statement_data (record_id, mo_ta, so_tien, ten_doi_tac) VALUES ('bank-1', 'Thanh toan tien hang', 5000000, 'NCC XYZ')`);
+    _testDb.exec(`INSERT INTO bank_statement_data (record_id, description, amount, counterparty_name) VALUES ('bank-1', 'Thanh toan tien hang', 5000000, 'NCC XYZ')`);
 
     mockClassifyWithAI.mockResolvedValue(new Map([
       ['bank-1', { lineItemId: 'bank-1', account: '331', cashFlow: 'operating' }],
@@ -168,8 +168,8 @@ describe('JEGenerator', () => {
 
   it('generates invoice_out entries with correct default accounts', async () => {
     _testDb.exec(`INSERT INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence) VALUES ('rec-out', 'batch-1', 'file-1', 'invoice_out', 'fp-out', 0.9)`);
-    _testDb.exec(`INSERT INTO invoice_data (record_id, so_hoa_don, tong_tien) VALUES ('rec-out', 'OUT-001', 550000)`);
-    _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien) VALUES ('li-out', 'rec-out', 1, 'Ban hang', 500000, 1, 10, 500000, 550000)`);
+    _testDb.exec(`INSERT INTO invoice_data (record_id, invoice_number, total_amount) VALUES ('rec-out', 'OUT-001', 550000)`);
+    _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, description, unit_price, quantity, tax_rate, subtotal, total_with_tax) VALUES ('li-out', 'rec-out', 1, 'Ban hang', 500000, 1, 10, 500000, 550000)`);
 
     mockClassifyWithAI.mockResolvedValue(new Map([
       ['li-out', { lineItemId: 'li-out', account: '511', cashFlow: 'operating' }],
@@ -188,8 +188,8 @@ describe('JEGenerator', () => {
 
   it('does not create tax entry when no taxable line items', async () => {
     _testDb.exec(`INSERT INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence) VALUES ('rec-notax', 'batch-1', 'file-1', 'invoice_in', 'fp-notax', 0.9)`);
-    _testDb.exec(`INSERT INTO invoice_data (record_id, so_hoa_don, tong_tien) VALUES ('rec-notax', 'NT-001', 100000)`);
-    _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, mo_ta, don_gia, so_luong, thue_suat, thanh_tien_truoc_thue, thanh_tien) VALUES ('li-notax', 'rec-notax', 1, 'Hang hoa', 100000, 1, 0, 100000, 100000)`);
+    _testDb.exec(`INSERT INTO invoice_data (record_id, invoice_number, total_amount) VALUES ('rec-notax', 'NT-001', 100000)`);
+    _testDb.exec(`INSERT INTO invoice_line_items (id, record_id, line_number, description, unit_price, quantity, tax_rate, subtotal, total_with_tax) VALUES ('li-notax', 'rec-notax', 1, 'Hang hoa', 100000, 1, 0, 100000, 100000)`);
 
     mockClassifyWithAI.mockResolvedValue(new Map([
       ['li-notax', { lineItemId: 'li-notax', account: '156', cashFlow: 'operating' }],

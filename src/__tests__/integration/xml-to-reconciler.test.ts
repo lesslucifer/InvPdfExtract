@@ -49,16 +49,16 @@ describe('Integration: XML to Reconciler', () => {
     // Verify invoice_data
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(records[0].id) as any;
     expect(invoiceData).toBeTruthy();
-    expect(invoiceData.so_hoa_don).toBe('911');
-    expect(invoiceData.tong_tien).toBe(351000);
-    expect(invoiceData.mst).toBe('0310989626');
+    expect(invoiceData.invoice_number).toBe('911');
+    expect(invoiceData.total_amount).toBe(351000);
+    expect(invoiceData.tax_id).toBe('0310989626');
 
     // Verify invoice_line_items
     const lineItems = db.prepare('SELECT * FROM invoice_line_items WHERE record_id = ? ORDER BY line_number').all(records[0].id) as any[];
     expect(lineItems).toHaveLength(1);
-    expect(lineItems[0].mo_ta).toBe('In Kỹ Thuật Số ( PP dán Formax - 3 tấm )');
-    expect(lineItems[0].thanh_tien_truoc_thue).toBe(325000);
-    expect(lineItems[0].thanh_tien).toBe(351000); // 325000 * 1.08
+    expect(lineItems[0].description).toBe('In Kỹ Thuật Số ( PP dán Formax - 3 tấm )');
+    expect(lineItems[0].subtotal).toBe(325000);
+    expect(lineItems[0].total_with_tax).toBe(351000); // 325000 * 1.08
 
     // Verify file status updated to 'done' (confidence 1.0 > threshold 0.8)
     const updatedFile = db.prepare('SELECT * FROM files WHERE id = ?').get(file.id) as any;
@@ -82,8 +82,8 @@ describe('Integration: XML to Reconciler', () => {
     expect(records).toHaveLength(1);
 
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(records[0].id) as any;
-    expect(invoiceData.so_hoa_don).toBe('1');
-    expect(invoiceData.tong_tien).toBe(8100000);
+    expect(invoiceData.invoice_number).toBe('1');
+    expect(invoiceData.total_amount).toBe(8100000);
 
     // Verify 7 line items (TChat=4 excluded by parser)
     const lineItems = db.prepare(
@@ -97,10 +97,10 @@ describe('Integration: XML to Reconciler', () => {
     }
 
     // Verify first and last items
-    expect(lineItems[0].mo_ta).toBe('Backdrop  Bạt 2 da xám in KTS');
-    expect(lineItems[0].thanh_tien_truoc_thue).toBe(1800000);
-    expect(lineItems[0].thanh_tien).toBe(1944000); // 1800000 * 1.08
-    expect(lineItems[6].don_gia).toBe(500000);
+    expect(lineItems[0].description).toBe('Backdrop  Bạt 2 da xám in KTS');
+    expect(lineItems[0].subtotal).toBe(1800000);
+    expect(lineItems[0].total_with_tax).toBe(1944000); // 1800000 * 1.08
+    expect(lineItems[6].unit_price).toBe(500000);
   });
 
   it('end-to-end: re-extraction with same data is idempotent', () => {

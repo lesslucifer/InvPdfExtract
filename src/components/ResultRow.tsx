@@ -57,11 +57,11 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
   const isBank = result.doc_type === DocType.BankStatement;
 
   const primaryLabel = isBank
-    ? result.ten_ngan_hang || 'Bank Statement'
-    : result.so_hoa_don || 'Invoice';
+    ? result.bank_name || 'Bank Statement'
+    : result.invoice_number || 'Invoice';
 
-  const amount = isBank ? result.so_tien : result.tong_tien;
-  const counterparty = result.ten_doi_tac;
+  const amount = isBank ? result.amount : result.total_amount;
+  const counterparty = result.counterparty_name;
 
   const { folder, folderFull, filename } = splitPath(result.relative_path);
 
@@ -83,35 +83,35 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <span className="font-semibold whitespace-nowrap overflow-hidden text-ellipsis">{primaryLabel}</span>
-            {result.mst && (
+            {result.tax_id && (
               <span
                 className="text-2.75 text-text-secondary whitespace-nowrap cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
                 title="Ctrl+Click to filter by this MST"
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     e.stopPropagation();
-                    useSearchStore.getState().applyMstFilter(result.mst);
+                    useSearchStore.getState().applyMstFilter(result.tax_id);
                   }
                 }}
-              >MST: {result.mst}</span>
+              >MST: {result.tax_id}</span>
             )}
           </div>
           <div className="flex gap-3 mt-0.5 text-3 text-text-secondary">
             {counterparty && <span className="overflow-hidden text-ellipsis whitespace-nowrap">{counterparty}</span>}
-            {result.ngay && (
+            {result.doc_date && (
               <span
                 className="cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
                 title="⌘+Click: filter by date · ⌥+Click: filter by month"
                 onClick={(e) => {
                   if (e.altKey) {
                     e.stopPropagation();
-                    useSearchStore.getState().applyDateFilter(result.ngay?.slice(0, 7) || '');
+                    useSearchStore.getState().applyDateFilter(result.doc_date?.slice(0, 7) || '');
                   } else if (e.ctrlKey || e.metaKey) {
                     e.stopPropagation();
-                    useSearchStore.getState().applyDateFilter(result.ngay || '');
+                    useSearchStore.getState().applyDateFilter(result.doc_date || '');
                   }
                 }}
-              >{result.ngay}</span>
+              >{result.doc_date}</span>
             )}
           </div>
         </div>
@@ -119,7 +119,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           {amount > 0 && (
             <span className="font-semibold tabular-nums text-3.25">
               {formatCurrency(amount)}
-              {!isBank && result.line_item_sum != null && result.tong_tien > 0 && Math.abs(result.line_item_sum - result.tong_tien) > 1 && (
+              {!isBank && result.line_item_sum != null && result.total_amount > 0 && Math.abs(result.line_item_sum - result.total_amount) > 1 && (
                 <span className="text-confidence-low text-2.75 font-bold ml-[3px]" title={`Sum of items: ${formatCurrency(result.line_item_sum)}`}>!</span>
               )}
             </span>
