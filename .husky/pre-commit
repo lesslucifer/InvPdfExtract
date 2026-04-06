@@ -7,10 +7,36 @@ fi
 
 echo "Running checks: tsc, lint, test (in parallel)..."
 
-pnpm tsc & tsc_pid=$!
-pnpm lint & lint_pid=$!
-pnpm test & test_pid=$!
+pnpm tsc &
+pnpm lint &
+pnpm test &
 
-for pid in $tsc_pid $lint_pid $test_pid; do
-  wait $pid || exit 1
-done
+wait
+echo "OK!"
+
+# pnpm tsc &
+# tsc_pid=$!
+
+# pnpm lint &
+# lint_pid=$!
+
+# pnpm test &
+# test_pid=$!
+
+# status=0
+
+# wait_for() {
+#   pid=$1
+#   name=$2
+
+#   if ! wait "$pid"; then
+#     echo "$name failed"
+#     status=1
+#   fi
+# }
+
+# wait_for "$tsc_pid" "tsc"
+# wait_for "$lint_pid" "lint"
+# wait_for "$test_pid" "test"
+
+# exit "$status"

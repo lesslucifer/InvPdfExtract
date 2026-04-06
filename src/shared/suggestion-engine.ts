@@ -29,10 +29,6 @@ export function getActiveToken(input: string, cursorPos: number): ActiveToken {
   return { text, startIndex: start };
 }
 
-/**
- * Check if a filter category already has an active pill.
- * Returns true if the suggestion should be excluded.
- */
 function isFilterActive(filterKey: keyof ParsedQuery, filters: ParsedQuery): boolean {
   switch (filterKey) {
     case 'docType': return !!filters.docType;
