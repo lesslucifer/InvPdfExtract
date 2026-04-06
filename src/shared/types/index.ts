@@ -15,6 +15,7 @@ export enum FileStatus {
   Done = 'done',
   Review = 'review',
   Error = 'error',
+  Skipped = 'skipped',
 }
 
 export enum BatchStatus {
@@ -92,6 +93,9 @@ export interface VaultFile {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  filter_score: number | null;
+  filter_reason: string | null;
+  filter_layer: number | null;
 }
 
 export interface ExtractionBatch {
@@ -532,6 +536,34 @@ export interface InvoiceVaultAPI {
   onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEClassificationStatus }) => void) => () => void;
 }
 
+// === Relevance Filter Types ===
+
+export interface FilterKeyword {
+  term: string;
+  weight: number;
+  category: 'invoice' | 'bank_statement' | 'general_accounting';
+}
+
+export interface RelevanceFilterConfig {
+  skipThreshold: number;
+  processThreshold: number;
+  customKeywords: FilterKeyword[];
+  customPathPatterns: string[];
+  sizeMinBytes: number;
+  sizeMaxBytes: number;
+  sizePenalty: number;
+  aiTriageEnabled: boolean;
+  aiTriageBatchSize: number;
+}
+
+export interface FilterResult {
+  score: number;
+  reason: string;
+  layer: 1 | 2 | 3;
+  decision: 'skip' | 'process' | 'uncertain';
+  category?: 'invoice' | 'bank_statement' | 'irrelevant';
+}
+
 // === Event Types ===
 
 export interface AppEvents {
@@ -549,4 +581,5 @@ export interface AppEvents {
   'je:updated': { recordId: string };
   'je:status-changed': { recordIds: string[]; status: JEClassificationStatus };
   'je:instructions-changed': Record<string, never>;
+  'file:filtered': { fileId: string; relativePath: string; score: number; reason: string };
 }

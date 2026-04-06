@@ -3,10 +3,10 @@ import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, J
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useOverlayStore } from '../stores';
-import { useQueueData, useProcessedData, useErrorData } from '../lib/queries';
+import { useQueueData, useProcessedData, useErrorData, useSkippedData } from '../lib/queries';
 import { useCancelQueueItem, useClearPendingQueue } from '../lib/mutations';
 
-type TabId = 'queue' | 'processed' | 'errors';
+type TabId = 'queue' | 'processed' | 'errors' | 'skipped';
 
 const JE_STATUS_CLASSES: Record<string, string> = {
   pending:    'bg-confidence-medium animate-je-dot-pulse-slow',
@@ -52,6 +52,7 @@ export const ProcessingStatusPanel: React.FC = () => {
   const { data: queueData, isLoading: queueLoading } = useQueueData(undefined, { enabled: activeTab === 'queue' });
   const { data: processedFiles = [], isLoading: processedLoading } = useProcessedData(undefined, { enabled: activeTab === 'processed' });
   const { data: errorData, isLoading: errorsLoading } = useErrorData(undefined, { enabled: activeTab === 'errors' });
+  const { data: skippedFiles = [], isLoading: skippedLoading } = useSkippedData(undefined, { enabled: activeTab === 'skipped' });
 
   const queueFiles = queueData?.files ?? [];
   const jeQueueItems = queueData?.jeItems ?? [];
@@ -60,12 +61,14 @@ export const ProcessingStatusPanel: React.FC = () => {
 
   const loading = (activeTab === 'queue' && queueLoading)
     || (activeTab === 'processed' && processedLoading)
-    || (activeTab === 'errors' && errorsLoading);
+    || (activeTab === 'errors' && errorsLoading)
+    || (activeTab === 'skipped' && skippedLoading);
 
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: 'queue', label: 'Queue', count: queueFiles.length + jeQueueItems.length },
     { id: 'processed', label: 'Processed', count: processedFiles.length },
     { id: 'errors', label: 'Errors', count: errorLogs.length + jeErrorItems.length },
+    { id: 'skipped', label: 'Skipped', count: skippedFiles.length },
   ];
 
   return (
@@ -101,6 +104,8 @@ export const ProcessingStatusPanel: React.FC = () => {
           <QueueTab files={queueFiles} jeItems={jeQueueItems} />
         ) : activeTab === 'processed' ? (
           <ProcessedTab files={processedFiles} />
+        ) : activeTab === 'skipped' ? (
+          <SkippedTab files={skippedFiles} />
         ) : (
           <ErrorsTab logs={errorLogs} jeErrors={jeErrorItems} />
         )}
@@ -237,6 +242,43 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
         })}
       </ul>
     </>
+  );
+};
+
+const SkippedTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
+  if (files.length === 0) {
+    return <div className="px-8 py-8 text-center text-text-muted text-3">No skipped files</div>;
+  }
+  return (
+    <ul className="list-none m-0 p-0">
+      {files.map(file => (
+        <li key={file.id} className="group flex items-start gap-2 px-4 py-2 text-3 border-b border-border transition-colors hover:bg-bg-hover">
+          <StatusDot status={FileStatus.Skipped} />
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
+              {file.relative_path}
+            </span>
+            {file.filter_reason && (
+              <span className="text-2.75 text-text-muted overflow-hidden text-ellipsis whitespace-nowrap" title={file.filter_reason}>
+                {file.filter_reason}
+              </span>
+            )}
+            {file.filter_score != null && (
+              <span className="text-2.5 text-text-muted">
+                Score: {Math.round(file.filter_score * 100)}% · Layer {file.filter_layer}
+              </span>
+            )}
+          </div>
+          <button
+            className="bg-transparent border border-border rounded text-text-muted text-2.75 px-2 py-[2px] cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-[opacity,background,color,border-color] hover:bg-bg-hover hover:text-text"
+            onClick={() => window.api.reprocessFile(file.relative_path)}
+            title="Force reprocess this file"
+          >
+            Reprocess
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 };
 

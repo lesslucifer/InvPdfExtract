@@ -8,6 +8,7 @@ import {
   listRecentFolders, listTopFolders,
   getAggregates, gatherFilteredExportData,
   getErrorLogsWithPath, getProcessedFilesWithStats,
+  updateJeStatus, getJeQueueItems, getJeErrorItems,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
@@ -770,7 +771,6 @@ export class OverlayWindow {
     ipcMain.handle('reclassify-record', async (_event, recordId: string) => {
       try {
         if (!this.callbacks) return;
-        const { updateJeStatus } = require('../core/db/records');
         updateJeStatus([recordId], 'pending');
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
         // Fire and forget — status updates come via events
@@ -784,7 +784,6 @@ export class OverlayWindow {
 
     ipcMain.handle('get-je-queue-items', async () => {
       try {
-        const { getJeQueueItems } = require('../core/db/records');
         return getJeQueueItems();
       } catch (err) {
         console.error('[JournalEntry] Get JE queue items failed:', err);
@@ -794,7 +793,6 @@ export class OverlayWindow {
 
     ipcMain.handle('get-je-error-items', async () => {
       try {
-        const { getJeErrorItems } = require('../core/db/records');
         return getJeErrorItems();
       } catch (err) {
         console.error('[JournalEntry] Get JE error items failed:', err);

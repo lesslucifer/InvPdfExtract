@@ -7,6 +7,7 @@ const STATUS_TITLES: Record<FileStatus, string> = {
   [FileStatus.Done]: 'Processed',
   [FileStatus.Review]: 'Needs review',
   [FileStatus.Error]: 'Error',
+  [FileStatus.Skipped]: 'Skipped (filtered)',
 };
 
 const STATUS_CLASSES: Record<FileStatus, string> = {
@@ -15,6 +16,7 @@ const STATUS_CLASSES: Record<FileStatus, string> = {
   [FileStatus.Done]:       'bg-confidence-high',
   [FileStatus.Review]:     'bg-confidence-medium',
   [FileStatus.Error]:      'bg-confidence-low',
+  [FileStatus.Skipped]:    'bg-text-muted opacity-50',
 };
 
 interface Props {

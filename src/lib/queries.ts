@@ -59,6 +59,13 @@ export const useErrorData = queryHook
   }))
   .create();
 
+export const useSkippedData = queryHook
+  .ofKey<void, ['skipped']>(() => ['skipped'] as const)
+  .useQuery(() => ({
+    queryFn: () => window.api.getFilesByStatuses([FileStatus.Skipped]) as Promise<VaultFile[]>
+  }))
+  .create();
+
 export const useResultDetail = queryHook
   .ofKey<{ id: string }, ['resultDetail', string]>(({ id }) => ['resultDetail', id] as const)
   .useQuery(({ params }) => ({
