@@ -14,6 +14,7 @@ function makeConfig(overrides?: Partial<AppConfig>): AppConfig {
     vaultPaths: [],
     autoStart: false,
     claudeModels: DEFAULT_CLAUDE_MODELS,
+    locale: 'en',
     ...overrides,
   };
 }

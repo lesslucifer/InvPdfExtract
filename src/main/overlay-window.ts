@@ -430,6 +430,14 @@ export class OverlayWindow {
       return loadAppConfig();
     });
 
+    ipcMain.handle('get-locale', async () => {
+      return loadAppConfig().locale ?? 'en';
+    });
+
+    ipcMain.handle('set-locale', async (_event, locale: 'en' | 'vi') => {
+      saveAppConfig({ locale });
+    });
+
     ipcMain.handle('pick-folder', async () => {
       const result = await dialog.showOpenDialog({
         title: t('select_folder', 'Select folder'),

@@ -18,6 +18,7 @@ export function loadAppConfig(): AppConfig {
     vaultPaths: [],
     autoStart: false,
     claudeModels: DEFAULT_CLAUDE_MODELS,
+    locale: 'en',
   };
 
   if (!fs.existsSync(configPath)) {

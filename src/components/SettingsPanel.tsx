@@ -1,7 +1,7 @@
 import { t } from '../lib/i18n';
 import React, { useState, useCallback } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
-import { useOverlayStore } from '../stores';
+import { useOverlayStore, useLocaleStore } from '../stores';
 import { useAppConfig, useCliStatus } from '../lib/queries';
 
 interface Props {
@@ -16,6 +16,8 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const goBack = useOverlayStore(s => s.goBack);
   const { data: config = null } = useAppConfig();
   const { data: cliStatus = null } = useCliStatus();
+  const locale = useLocaleStore(s => s.locale);
+  const changeLocale = useLocaleStore(s => s.changeLocale);
   const [confirmReprocess, setConfirmReprocess] = useState(false);
   const [reprocessResult, setReprocessResult] = useState<string | null>(null);
   const [switchConfirm, setSwitchConfirm] = useState<string | null>(null);
@@ -181,6 +183,22 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
             : cliStatus.available
               ? `${t('found', 'Found')} (${cliStatus.version || t('unknown_version', 'unknown version')})`
               : `${t('not_found_install_claude_code_cli_and_ensure_its_in_your_path', 'Not found — install Claude Code CLI and ensure it\'s in your PATH')}.`}
+        </div>
+      </div>
+
+      <div className="h-[1px] bg-border mx-4 my-1" />
+
+      <div className="px-4 py-2.5">
+        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('language', 'Language')}</div>
+        <div className="flex gap-1.5">
+          <button
+            className={locale === 'en' ? confirmBtnClass : settingsBtnClass}
+            onClick={() => changeLocale('en')}
+          >{t('locale_en', 'EN')}</button>
+          <button
+            className={locale === 'vi' ? confirmBtnClass : settingsBtnClass}
+            onClick={() => changeLocale('vi')}
+          >{t('locale_vi', 'VI')}</button>
         </div>
       </div>
 

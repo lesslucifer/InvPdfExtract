@@ -266,6 +266,7 @@ describe('Overlay State Machine', () => {
         vaultPaths: [],
         autoStart: false,
         claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
+        locale: 'en',
       };
       expect(determineInitialState(config)).toBe(OverlayState.NoVault);
     });
@@ -277,6 +278,7 @@ describe('Overlay State Machine', () => {
         vaultPaths: [],
         autoStart: false,
         claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
+        locale: 'en',
       };
       expect(determineInitialState(config)).toBe(OverlayState.NoVault);
     });
@@ -288,6 +290,7 @@ describe('Overlay State Machine', () => {
         vaultPaths: ['/Users/test/vault'],
         autoStart: false,
         claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
+        locale: 'en',
       };
       expect(determineInitialState(config)).toBe(OverlayState.Home);
     });

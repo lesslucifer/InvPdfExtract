@@ -236,6 +236,7 @@ export interface AppConfig {
   vaultPaths: string[];
   autoStart: boolean;
   claudeModels: ClaudeModelConfig;
+  locale: 'en' | 'vi';
 }
 
 // === Claude CLI Extraction Types ===
@@ -486,6 +487,8 @@ export interface InvoiceVaultAPI {
   getLineItemOverrides: (lineItemIds: string[]) => Promise<{ [lineItemId: string]: FieldOverrideInfo[] }>;
   // Spotlight UX additions
   getAppConfig: () => Promise<AppConfig>;
+  getLocale: () => Promise<'en' | 'vi'>;
+  setLocale: (locale: 'en' | 'vi') => Promise<void>;
   initVault: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
   switchVault: (vaultPath: string) => Promise<{ success: boolean }>;
   removeVault: (vaultPath: string) => Promise<void>;
