@@ -20,7 +20,7 @@ import {
   deleteJournalEntry as dbDeleteJE, findExistingEntry,
 } from '../core/db/journal-entries';
 import { readInstructions, writeInstructions } from '../core/je-instructions';
-import { FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus } from '../shared/types';
+import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { clearVaultData } from '../core/vault';
 import { eventBus } from '../core/event-bus';
@@ -312,7 +312,7 @@ export class OverlayWindow {
       try {
         const db = getDatabase();
         // Get the current AI value for this field
-        const row = db.prepare(`SELECT * FROM ${input.tableName} WHERE record_id = ?`).get(input.recordId) as any;
+        const row = db.prepare(`SELECT * FROM ${input.tableName} WHERE record_id = ?`).get(input.recordId) as Record<string, unknown> | undefined;
         const currentAiValue = row ? String(row[input.fieldName] ?? '') : '';
 
         // Update the field value in the extension table
@@ -325,8 +325,8 @@ export class OverlayWindow {
         // Update FTS index if applicable
         const ftsFields = ['invoice_number', 'tax_id', 'counterparty_name', 'counterparty_address', 'description', 'bank_name', 'account_number'];
         if (ftsFields.includes(input.fieldName)) {
-          const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(input.recordId) as any;
-          const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(input.recordId) as any;
+          const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(input.recordId) as InvoiceData | undefined;
+          const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(input.recordId) as BankStatementData | undefined;
           updateFtsIndex(input.recordId, {
             invoice_number: invoiceData?.invoice_number,
             tax_id: invoiceData?.tax_id,
@@ -346,7 +346,7 @@ export class OverlayWindow {
     ipcMain.handle('get-field-overrides', async (_event, recordId: string) => {
       try {
         const overrides = getFieldOverrides(recordId);
-        return overrides.map((o: any) => ({
+        return overrides.map((o: FieldOverrideInfo) => ({
           field_name: o.field_name,
           status: o.status,
           user_value: o.user_value,
@@ -390,7 +390,7 @@ export class OverlayWindow {
         }
 
         // Get current AI value
-        const row = db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(input.lineItemId) as any;
+        const row = db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(input.lineItemId) as InvoiceLineItem | undefined;
         if (!row) throw new Error(`Line item not found: ${input.lineItemId}`);
         const currentAiValue = String(row[input.fieldName] ?? '');
 
@@ -412,11 +412,11 @@ export class OverlayWindow {
 
     ipcMain.handle('get-line-item-overrides', async (_event, lineItemIds: string[]) => {
       try {
-        const result: Record<string, any[]> = {};
+        const result: Record<string, FieldOverrideInfo[]> = {};
         for (const id of lineItemIds) {
           const overrides = getFieldOverridesByLineItemId(id);
           if (overrides.length > 0) {
-            result[id] = overrides.map((o: any) => ({
+            result[id] = overrides.map((o: FieldOverrideInfo) => ({
               field_name: o.field_name,
               status: o.status,
               user_value: o.user_value,

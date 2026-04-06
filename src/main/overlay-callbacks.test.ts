@@ -66,7 +66,6 @@ describe('OverlayCallbacks contract', () => {
   describe('remove-vault handler logic', () => {
     it('calls onStopVault when removing the active vault', async () => {
       // Simulate the remove-vault handler logic
-      const activeVaultPath = '/Users/test/vault';
       const isActive = true;
 
       if (isActive) {

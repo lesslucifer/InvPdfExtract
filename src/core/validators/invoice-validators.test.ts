@@ -4,7 +4,6 @@ import {
   validateLineItemSumBeforeTax,
   detectInvoiceNumberGaps,
   validateTaxAmount,
-  type ValidationWarning,
   type TaxBracket,
 } from './invoice-validators';
 

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { XML_FILES } from '../../__tests__/helpers/fixtures';
-import { DocType, ExtractionFileResult, ExtractionInvoiceData } from '../../shared/types';
+import { DocType, ExtractionInvoiceData } from '../../shared/types';
 import { parseXmlInvoice } from './xml-invoice-parser';
 
 describe('XML Invoice Parser', () => {

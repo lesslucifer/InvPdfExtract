@@ -19,7 +19,7 @@ interface Props {
 }
 
 export const EditableField: React.FC<Props> = ({
-  label, value, fieldName, tableName, recordId, override, inputType = 'text', derivedValue, showMismatchIcon = false, onSave, onResolve,
+  label, value, fieldName: _fieldName, tableName: _tableName, recordId: _recordId, override, inputType = 'text', derivedValue, showMismatchIcon = false, onSave, onResolve,
 }) => {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);

@@ -1,14 +1,8 @@
 import * as fs from 'fs';
 import { ClaudeCodeRunner } from './claude-cli';
 import { executeScript } from './script-sandbox';
-import { SpreadsheetMetadata, ExtractionFileResult, VerificationResult, DocType } from '../shared/types';
+import { SpreadsheetMetadata, ExtractionFileResult, VerificationResult } from '../shared/types';
 import { SCRIPT_VERIFY_MAX_RETRIES } from '../shared/constants';
-
-const VALID_DOC_TYPES = new Set([
-  DocType.BankStatement,
-  DocType.InvoiceOut,
-  DocType.InvoiceIn,
-]);
 
 /** Max records to include in truncated output sent to Claude */
 const TRUNCATE_MAX_RECORDS = 3;
@@ -16,6 +10,8 @@ const TRUNCATE_MAX_RECORDS = 3;
 const TRUNCATE_FIELD_MAX_CHARS = 200;
 /** Max total chars for the JSON output sent to Claude */
 const TRUNCATE_OUTPUT_MAX_CHARS = 4000;
+
+type JsonObject = Record<string, unknown>;
 
 export interface VerifyOptions {
   maxRetries?: number;
@@ -191,11 +187,11 @@ Judge whether the parser correctly extracts the data. Respond with APPROVED if c
 
   private truncateOutput(output: ExtractionFileResult): string {
     // Create a truncated copy with limited records and capped string fields
-    const truncated: any = {
+    const truncated: JsonObject = {
       relative_path: output.relative_path,
       doc_type: output.doc_type,
       records: (output.records || []).slice(0, TRUNCATE_MAX_RECORDS).map(record => {
-        const truncRecord: any = {
+        const truncRecord: JsonObject = {
           confidence: record.confidence,
           doc_date: record.doc_date,
           data: this.truncateStrings(record.data),
@@ -224,9 +220,9 @@ Judge whether the parser correctly extracts the data. Respond with APPROVED if c
     return json;
   }
 
-  private truncateStrings(obj: any): any {
+  private truncateStrings(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') return obj;
-    const result: any = {};
+    const result: JsonObject = {};
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string' && value.length > TRUNCATE_FIELD_MAX_CHARS) {
         result[key] = value.substring(0, TRUNCATE_FIELD_MAX_CHARS) + '...';

@@ -6,7 +6,7 @@ import { t } from '../lib/i18n';
 
 export class NotificationManager {
   init(): void {
-    eventBus.on('extraction:completed', ({ batchId, fileId, recordCount, confidence }) => {
+    eventBus.on('extraction:completed', ({ fileId, recordCount, confidence }) => {
       const file = getFileById(fileId);
       const filename = file?.relative_path || 'unknown';
       const pct = Math.round(confidence * 100);

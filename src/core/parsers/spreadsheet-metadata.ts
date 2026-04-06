@@ -28,8 +28,6 @@ export function extractMetadata(filePath: string): SpreadsheetMetadata {
     }
 
     const range = XLSX.utils.decode_range(ws['!ref']);
-    const totalRowsInSheet = range.e.r - range.s.r; // exclude header row
-
     // Convert to JSON with headers from first row, preserving empty cells
     const allRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
     const headers = allRows.length > 0

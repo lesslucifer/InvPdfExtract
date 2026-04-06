@@ -13,7 +13,7 @@ import { extractMetadata } from './parsers/spreadsheet-metadata';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
-import { DEFAULT_BATCH_SIZE, DEFAULT_CLAUDE_MODELS, INVOICEVAULT_DIR } from '../shared/constants';
+import { DEFAULT_BATCH_SIZE, DEFAULT_CLAUDE_MODELS } from '../shared/constants';
 
 const STRUCTURED_EXTENSIONS = new Set(['.xml', '.xlsx', '.csv']);
 const SPREADSHEET_EXTENSIONS = new Set(['.xlsx', '.csv']);
@@ -119,7 +119,7 @@ export class ExtractionQueue {
           this.reconciler.reconcileResults(extraction, 'xml-parser');
           console.log(`[ExtractionQueue] XML parsed directly: ${file.relative_path}`);
           return;
-        } catch (err) {
+        } catch {
           console.log(`[ExtractionQueue] Built-in XML parser failed for ${file.relative_path}, trying cached scripts`);
         }
       }

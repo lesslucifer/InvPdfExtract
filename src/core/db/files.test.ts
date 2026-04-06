@@ -51,7 +51,7 @@ describe('resetStaleProcessingFiles', () => {
   it('does not touch files in other statuses', () => {
     const f1 = insertFile('a.pdf', 'hash1', 'pdf', 100);
     const f2 = insertFile('b.pdf', 'hash2', 'pdf', 200);
-    const f3 = insertFile('c.pdf', 'hash3', 'pdf', 300);
+    insertFile('c.pdf', 'hash3', 'pdf', 300);
     updateFileStatus(f1.id, FileStatus.Done);
     updateFileStatus(f2.id, FileStatus.Error);
     // f3 stays pending

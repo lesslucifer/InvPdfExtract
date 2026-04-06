@@ -6,15 +6,18 @@ import {
 import { computeMissingTaxField, normalizeTaxRate } from '../shared/tax-utils';
 import {
   createBatch, insertRecord, updateRecord, getRecordsByFileId,
-  getRecordByFingerprint, softDeleteRecord, upsertBankStatementData,
-  upsertInvoiceData, insertLineItem, deleteLineItemsByRecord,
-  getLineItemsByRecord, updateLineItem, deleteUnlockedLineItemsByRecord,
+  softDeleteRecord, upsertBankStatementData,
+  upsertInvoiceData, insertLineItem,
+  getLineItemsByRecord, updateLineItem,
   updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict,
 } from './db/records';
 import { getFileByPath, updateFileStatus, updateFileDocType } from './db/files';
 import { getDatabase } from './db/database';
 import { eventBus } from './event-bus';
 import { FileStatus } from '../shared/types';
+
+type ReconciledFieldValue = string | number | null;
+type ReconciledFields = Record<string, ReconciledFieldValue>;
 
 export class Reconciler {
   private confidenceThreshold: number;
@@ -24,8 +27,6 @@ export class Reconciler {
   }
 
   reconcileResults(extraction: ExtractionResult, sessionLog: string): void {
-    const db = getDatabase();
-
     for (const fileResult of extraction.results) {
       try {
         this.reconcileFileResult(fileResult, sessionLog);
@@ -136,7 +137,7 @@ export class Reconciler {
     // Check for conflicts after reconciliation
     const conflictCount = getDatabase().prepare(
       "SELECT COUNT(*) as cnt FROM field_overrides fo JOIN records r ON fo.record_id = r.id WHERE r.file_id = ? AND fo.status = 'conflict' AND fo.resolved_at IS NULL"
-    ).get(file.id) as any;
+    ).get(file.id) as { cnt: number } | undefined;
 
     if (conflictCount?.cnt > 0) {
       eventBus.emit('conflicts:detected', { fileId: file.id, conflictCount: conflictCount.cnt });
@@ -149,7 +150,7 @@ export class Reconciler {
 
     if (docType === DocType.BankStatement) {
       const bsd = data as ExtractionBankStatementData;
-      const fields: Record<string, any> = {
+      const fields: ReconciledFields = {
         bank_name: bsd.bank_name ?? null,
         account_number: bsd.account_number ?? null,
         description: bsd.description ?? null,
@@ -170,7 +171,7 @@ export class Reconciler {
       });
     } else {
       const inv = data as ExtractionInvoiceData;
-      const fields: Record<string, any> = {
+      const fields: ReconciledFields = {
         invoice_number: inv.invoice_number ?? null,
         total_before_tax: inv.total_before_tax ?? null,
         total_amount: inv.total_amount ?? null,
@@ -236,7 +237,7 @@ export class Reconciler {
       if (existing && hasLockedFields(existing.id)) {
         // Apply locked field logic: keep user values, detect conflicts
         const lockedFields = getLockedFieldsForRecord(existing.id);
-        const fields: Record<string, any> = { ...newData };
+        const fields: ReconciledFields = { ...newData };
         this.applyLockedFields(existing.id, 'invoice_line_items', fields, lockedFields);
         updateLineItem(existing.id, fields);
       } else if (existing) {
@@ -265,7 +266,7 @@ export class Reconciler {
   private applyLockedFields(
     recordId: string,
     tableName: string,
-    fields: Record<string, any>,
+    fields: ReconciledFields,
     lockedFields: Map<string, { tableName: string; userValue: string; aiValueAtLock: string }>
   ): void {
     for (const [fieldName, lock] of lockedFields) {

@@ -4,7 +4,70 @@ import {
   ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
   FolderInfo, JEClassificationStatus, JeQueueItem, JeErrorItem,
+  FieldOverrideInfo, SearchFilters, AggregateStats, SearchResult,
 } from '../../shared/types';
+
+interface ProcessingLogWithPath extends ProcessingLog {
+  relative_path: string | null;
+}
+
+interface ProcessedFileWithStats {
+  id: string;
+  relative_path: string;
+  status: string;
+  doc_type: string | null;
+  updated_at: string;
+  record_count: number;
+  overall_confidence: number;
+}
+
+interface FieldOverrideRow extends FieldOverrideInfo {
+  id: string;
+  record_id: string;
+  table_name: string;
+  locked_at: string | null;
+  conflict_at: string | null;
+  resolved_at: string | null;
+  line_item_id: string | null;
+}
+
+interface AggregateRow {
+  totalRecords: number | null;
+  totalAmount: number | null;
+}
+
+type SqlParam = string | number | null;
+
+interface ExportBankStatementRow {
+  doc_date: string | null;
+  relative_path: string;
+  bank_name: string | null;
+  account_number: string | null;
+  description: string | null;
+  amount: number | null;
+  counterparty_name: string | null;
+  confidence: number;
+}
+
+interface ExportInvoiceHeaderRow {
+  record_id: string;
+  doc_type: DocType;
+  doc_date: string | null;
+  relative_path: string;
+  invoice_number: string | null;
+  total_before_tax: number | null;
+  total_amount: number | null;
+  tax_id: string | null;
+  counterparty_name: string | null;
+  counterparty_address: string | null;
+  confidence: number;
+}
+
+interface ExportInvoiceLineItemRow extends InvoiceLineItem {
+  invoice_number: string | null;
+  doc_type: DocType;
+  doc_date: string | null;
+}
 
 // === Extraction Batches ===
 
@@ -236,7 +299,7 @@ export function getErrorLogsWithPath(): Array<ProcessingLog & { relative_path: s
     WHERE pl.level = 'error'
     ORDER BY pl.timestamp DESC
     LIMIT 100
-  `).all() as any[];
+  `).all() as ProcessingLogWithPath[];
 }
 
 export function getSessionLogForFile(fileId: string): string | null {
@@ -266,35 +329,35 @@ export function getProcessedFilesWithStats(): Array<{
     ) eb ON eb.file_id = f.id AND eb.rn = 1
     WHERE f.status IN ('done', 'review') AND f.deleted_at IS NULL
     ORDER BY f.updated_at DESC
-  `).all() as any[];
+  `).all() as ProcessedFileWithStats[];
 }
 
 // === Field Overrides ===
 
-export function getFieldOverrides(recordId: string): any[] {
+export function getFieldOverrides(recordId: string): FieldOverrideRow[] {
   const db = getDatabase();
   return db.prepare(
     'SELECT * FROM field_overrides WHERE record_id = ? AND resolved_at IS NULL'
-  ).all(recordId) as any[];
+  ).all(recordId) as FieldOverrideRow[];
 }
 
-export function getFieldOverridesByLineItemId(lineItemId: string): any[] {
+export function getFieldOverridesByLineItemId(lineItemId: string): FieldOverrideRow[] {
   const db = getDatabase();
   return db.prepare(
     'SELECT * FROM field_overrides WHERE line_item_id = ? AND resolved_at IS NULL'
-  ).all(lineItemId) as any[];
+  ).all(lineItemId) as FieldOverrideRow[];
 }
 
-export function getFieldOverrideByField(recordId: string, tableName: string, fieldName: string, lineItemId?: string): any | undefined {
+export function getFieldOverrideByField(recordId: string, tableName: string, fieldName: string, lineItemId?: string): FieldOverrideRow | undefined {
   const db = getDatabase();
   if (lineItemId) {
     return db.prepare(
       'SELECT * FROM field_overrides WHERE record_id = ? AND table_name = ? AND field_name = ? AND line_item_id = ? AND resolved_at IS NULL'
-    ).get(recordId, tableName, fieldName, lineItemId) as any | undefined;
+    ).get(recordId, tableName, fieldName, lineItemId) as FieldOverrideRow | undefined;
   }
   return db.prepare(
     'SELECT * FROM field_overrides WHERE record_id = ? AND table_name = ? AND field_name = ? AND line_item_id IS NULL AND resolved_at IS NULL'
-  ).get(recordId, tableName, fieldName) as any | undefined;
+  ).get(recordId, tableName, fieldName) as FieldOverrideRow | undefined;
 }
 
 export function upsertFieldOverride(
@@ -341,7 +404,7 @@ export function resolveConflictAccept(recordId: string, fieldName: string): void
   const db = getDatabase();
   const override = db.prepare(
     'SELECT * FROM field_overrides WHERE record_id = ? AND field_name = ? AND resolved_at IS NULL'
-  ).get(recordId, fieldName) as any;
+  ).get(recordId, fieldName) as FieldOverrideRow | undefined;
 
   if (!override) return;
 
@@ -370,7 +433,7 @@ export function resolveAllConflictsForRecord(recordId: string, action: 'keep' | 
   const db = getDatabase();
   const conflicts = db.prepare(
     "SELECT * FROM field_overrides WHERE record_id = ? AND status = 'conflict' AND resolved_at IS NULL"
-  ).all(recordId) as any[];
+  ).all(recordId) as FieldOverrideRow[];
 
   for (const override of conflicts) {
     if (action === 'keep') {
@@ -385,7 +448,7 @@ export function getLockedFieldsForRecord(recordId: string): Map<string, { tableN
   const db = getDatabase();
   const overrides = db.prepare(
     "SELECT * FROM field_overrides WHERE record_id = ? AND resolved_at IS NULL AND status IN ('locked', 'conflict')"
-  ).all(recordId) as any[];
+  ).all(recordId) as FieldOverrideRow[];
 
   const map = new Map<string, { tableName: string; userValue: string; aiValueAtLock: string }>();
   for (const o of overrides) {
@@ -452,12 +515,11 @@ export function listTopFolders(): FolderInfo[] {
 // === Search ===
 
 import { parseSearchQuery, ParsedQuery, SortField, SORT_DEFAULT_DIRECTIONS } from '../../shared/parse-query';
-import { SearchFilters, AggregateStats } from '../../shared/types';
 
 /** Shared filter-building logic used by search and aggregation queries. */
-function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params: any[] } {
+function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params: SqlParam[] } {
   const conditions: string[] = ['r.deleted_at IS NULL'];
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   if (parsed.text.trim()) {
     const q = parsed.text.trim();
@@ -570,7 +632,7 @@ const BASE_JOINS = `
   LEFT JOIN invoice_data id2 ON r.id = id2.record_id
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 
-export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null): any[] {
+export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null): SearchResult[] {
   const db = getDatabase();
   const parsed = parseSearchQuery(query);
   if (filePath) parsed.filePath = filePath;
@@ -599,7 +661,7 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
     LIMIT ? OFFSET ?
   `;
 
-  return db.prepare(sql).all(...params);
+  return db.prepare(sql).all(...params) as SearchResult[];
 }
 
 /** Returns aggregate stats (count + total amount) for the given filters. */
@@ -616,7 +678,7 @@ export function getAggregates(filters: SearchFilters): AggregateStats {
     WHERE ${conditions.join(' AND ')}
   `;
 
-  const row = db.prepare(sql).get(...params) as any;
+  const row = db.prepare(sql).get(...params) as AggregateRow | undefined;
   return {
     totalRecords: row?.totalRecords ?? 0,
     totalAmount: row?.totalAmount ?? 0,
@@ -624,7 +686,11 @@ export function getAggregates(filters: SearchFilters): AggregateStats {
 }
 
 /** Gathers export data filtered by SearchFilters. */
-export function gatherFilteredExportData(filters: SearchFilters): { bankStatements: any[]; invoiceHeaders: any[]; invoiceLineItems: any[] } {
+export function gatherFilteredExportData(filters: SearchFilters): {
+  bankStatements: ExportBankStatementRow[];
+  invoiceHeaders: ExportInvoiceHeaderRow[];
+  invoiceLineItems: ExportInvoiceLineItemRow[];
+} {
   const db = getDatabase();
   const parsed = filtersToParsed(filters);
   const { conditions, params } = buildFilterClauses(parsed);
@@ -637,7 +703,7 @@ export function gatherFilteredExportData(filters: SearchFilters): { bankStatemen
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type = 'bank_statement'
-  `).all(...params);
+  `).all(...params) as ExportBankStatementRow[];
 
   const invoiceHeaders = db.prepare(`
     SELECT r.id as record_id, r.doc_type, r.doc_date, f.relative_path,
@@ -645,10 +711,10 @@ export function gatherFilteredExportData(filters: SearchFilters): { bankStatemen
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type IN ('invoice_in', 'invoice_out')
-  `).all(...params);
+  `).all(...params) as ExportInvoiceHeaderRow[];
 
-  const recordIds = invoiceHeaders.map((h: any) => h.record_id);
-  let invoiceLineItems: any[] = [];
+  const recordIds = invoiceHeaders.map(h => h.record_id);
+  let invoiceLineItems: ExportInvoiceLineItemRow[] = [];
   if (recordIds.length > 0) {
     const placeholders = recordIds.map(() => '?').join(',');
     invoiceLineItems = db.prepare(`
@@ -659,7 +725,7 @@ export function gatherFilteredExportData(filters: SearchFilters): { bankStatemen
       WHERE li.record_id IN (${placeholders})
         AND li.deleted_at IS NULL
       ORDER BY r.doc_type, id2.invoice_number, li.line_number
-    `).all(...recordIds);
+    `).all(...recordIds) as ExportInvoiceLineItemRow[];
   }
 
   return { bankStatements, invoiceHeaders, invoiceLineItems };

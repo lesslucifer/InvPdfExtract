@@ -47,6 +47,10 @@ export function closeDatabase(db?: Database.Database): void {
 }
 
 function runMigrations(database: Database.Database): void {
+  interface MigrationRow {
+    id: number;
+  }
+
   // Ensure _migrations table exists (it's part of migration 0 but we need it first)
   database.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
@@ -56,7 +60,7 @@ function runMigrations(database: Database.Database): void {
   `);
 
   const applied = new Set(
-    database.prepare('SELECT id FROM _migrations').all().map((r: any) => r.id as number)
+    (database.prepare('SELECT id FROM _migrations').all() as MigrationRow[]).map(r => r.id)
   );
 
   for (let i = 0; i < MIGRATIONS.length; i++) {

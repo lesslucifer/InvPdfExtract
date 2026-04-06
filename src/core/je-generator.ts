@@ -9,7 +9,7 @@ import {
 import { JESimilarityEngine } from './je-similarity';
 import { classifyWithAI, UnclassifiedItem } from './je-ai-classifier';
 import { eventBus } from './event-bus';
-import { DocType, InvoiceLineItem, BankStatementData, DbRecord } from '../shared/types';
+import { CashFlowType, DocType, BankStatementData, DbRecord } from '../shared/types';
 import { JE_AI_BATCH_SIZE } from '../shared/constants';
 import { getDefaultAccount } from '../shared/je-utils';
 
@@ -85,7 +85,7 @@ export class JEGenerator {
       try {
         const unmatched = this.classifyRecord(recordId);
         allUnmatched.push(...unmatched);
-      } catch (err) {
+      } catch {
         updateJeStatus([recordId], 'error');
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'error' });
         this.processing.delete(recordId);
@@ -111,7 +111,7 @@ export class JEGenerator {
         updateJeStatus([recordId], 'done');
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'done' });
         eventBus.emit('je:generated', { recordId, count: entries.length, source: 'ai' });
-      } catch (err) {
+      } catch {
         updateJeStatus([recordId], 'error');
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'error' });
       } finally {
@@ -182,7 +182,7 @@ export class JEGenerator {
         insertJournalEntry(
           record.id, item.id, 'line',
           match.account,
-          match.cashFlow as any ?? 'operating',
+          (match.cashFlow ?? 'operating') as CashFlowType,
           'similarity', match.score, match.matchedDescription,
         );
       } else {
@@ -218,7 +218,7 @@ export class JEGenerator {
       insertJournalEntry(
         record.id, null, 'bank',
         match.account,
-        match.cashFlow as any ?? 'operating',
+        (match.cashFlow ?? 'operating') as CashFlowType,
         'similarity', match.score, match.matchedDescription,
       );
       return [];

@@ -47,15 +47,6 @@ function isFilterActive(filterKey: keyof ParsedQuery, filters: ParsedQuery): boo
 }
 
 /**
- * Match a token against a suggestion item's keywords.
- * Returns true if the token matches the item.
- */
-function matchesKeywords(token: string, item: SuggestionItem): boolean {
-  const lower = token.toLowerCase();
-  return item.keywords.some(kw => kw.startsWith(lower));
-}
-
-/**
  * Get suggestions for the current input state.
  *
  * Returns an array of SuggestionItems to display, or an empty array if

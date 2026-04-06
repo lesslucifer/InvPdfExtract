@@ -1,4 +1,4 @@
-import { AppConfig, FilterPreset, FolderInfo, AggregateStats, SearchFilters, FileStatus, VaultFile, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem, FieldOverrideInfo, JournalEntry, InvoiceLineItem } from '../shared/types';
+import { AppConfig, FilterPreset, SearchFilters, FileStatus, VaultFile, FieldOverrideInfo, InvoiceLineItem } from '../shared/types';
 import { queryHook } from './queryHook';
 
 const ALL_FILTERS: SearchFilters = {};

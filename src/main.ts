@@ -11,7 +11,7 @@ import { ExtractionQueue } from './core/extraction-queue';
 import { ClaudeCodeRunner } from './core/claude-cli';
 import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
-import { VaultHandle, FileStatus } from './shared/types';
+import { VaultFile, VaultHandle, FileStatus } from './shared/types';
 import { startIpcBridge, stopIpcBridge } from './main/ipc-bridge';
 import { JESimilarityEngine } from './core/je-similarity';
 import { JEGenerator } from './core/je-generator';
@@ -155,7 +155,7 @@ app.on('ready', async () => {
         updateFileStatus(file.id, FileStatus.Pending);
       }
       // Also scan filesystem for untracked files in this folder
-      const trackedPaths = new Set(files.map((f: any) => f.relative_path));
+      const trackedPaths = new Set(files.map((f: VaultFile) => f.relative_path));
       let newCount = 0;
       const scanDir = (dir: string) => {
         try {
@@ -185,7 +185,7 @@ app.on('ready', async () => {
       if (!currentVault) return 0;
       // Count both tracked DB files and untracked filesystem files
       const dbFiles = getFilesByFolder(folderPrefix);
-      const trackedPaths = new Set(dbFiles.map((f: any) => f.relative_path));
+      const trackedPaths = new Set(dbFiles.map((f: VaultFile) => f.relative_path));
       let total = dbFiles.length;
       const scanDir = (dir: string) => {
         try {
@@ -341,7 +341,7 @@ async function startVault(vaultPath: string): Promise<void> {
       // Mark records as pending for JE classification
       const records = getRecordsByFileId(data.fileId);
       if (records.length > 0) {
-        const ids = records.map((r: any) => r.id);
+        const ids = records.map(r => r.id);
         updateJeStatus(ids, 'pending');
         eventBus.emit('je:status-changed', { recordIds: ids, status: 'pending' });
       }

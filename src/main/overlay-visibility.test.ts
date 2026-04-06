@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 /**
  * Tests for overlay show/hide/toggle logic.
@@ -16,7 +16,7 @@ function createOverlay(): OverlayVisibility {
   return { visible: false, blurHandlerEnabled: true };
 }
 
-function show(state: OverlayVisibility): OverlayVisibility {
+function show(_state: OverlayVisibility): OverlayVisibility {
   // During show, blur handler is temporarily disabled to prevent
   // spurious blur events from immediately hiding the window
   return { visible: true, blurHandlerEnabled: true };

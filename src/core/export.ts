@@ -1,4 +1,5 @@
 import { getDatabase } from './db/database';
+import { gatherFilteredExportData } from './db/records';
 import { DocType } from '../shared/types';
 import * as XLSX from 'xlsx';
 import { t } from '../lib/i18n';
@@ -8,11 +9,7 @@ export interface ExportOptions {
   includeDeleted?: boolean;
 }
 
-interface ExportData {
-  bankStatements: any[];
-  invoiceHeaders: any[];
-  invoiceLineItems: any[];
-}
+type ExportData = ReturnType<typeof gatherFilteredExportData>;
 
 /**
  * Gathers export data from the database, optionally filtered.
@@ -97,8 +94,8 @@ export function exportToCsv(data: ExportData): Map<string, string> {
   return files;
 }
 
-function toCsv(headers: string[], rows: any[][]): string {
-  const escape = (val: any): string => {
+function toCsv(headers: string[], rows: unknown[][]): string {
+  const escape = (val: unknown): string => {
     if (val === null || val === undefined) return '';
     const str = String(val);
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {

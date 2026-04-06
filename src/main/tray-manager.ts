@@ -8,7 +8,7 @@ interface TrayManagerOptions {
 
 export class TrayManager {
   private tray: Tray | null = null;
-  private icon: Electron.NativeImage = null as any;
+  private icon = nativeImage.createEmpty();
   private showOverlayFn: (() => void) | null = null;
   private onQuit: () => void;
 

@@ -18,6 +18,18 @@ const HOST = '127.0.0.1';
 
 let server: http.Server | null = null;
 
+interface IpcInvokeHandler {
+  (event: unknown, ...args: unknown[]): unknown;
+}
+
+interface IpcMainWithHandlers {
+  _invokeHandlers?: Map<string, IpcInvokeHandler>;
+}
+
+interface ErrorWithCode extends Error {
+  code?: string;
+}
+
 /**
  * Get all registered ipcMain handler channel names.
  * Electron doesn't expose a public API for this, so we track them
@@ -25,7 +37,7 @@ let server: http.Server | null = null;
  */
 function getRegisteredChannels(): string[] {
   // ipcMain._invokeHandlers is a Map<string, Function> in Electron internals
-  const handlers = (ipcMain as any)._invokeHandlers;
+  const handlers = (ipcMain as IpcMainWithHandlers)._invokeHandlers;
   if (handlers && typeof handlers.keys === 'function') {
     return Array.from(handlers.keys());
   }
@@ -35,8 +47,8 @@ function getRegisteredChannels(): string[] {
 /**
  * Invoke an ipcMain handler by channel name, as if called from ipcRenderer.invoke().
  */
-async function invokeHandler(channel: string, ...args: any[]): Promise<any> {
-  const handlers = (ipcMain as any)._invokeHandlers;
+async function invokeHandler(channel: string, ...args: unknown[]): Promise<unknown> {
+  const handlers = (ipcMain as IpcMainWithHandlers)._invokeHandlers;
   if (!handlers || !handlers.has(channel)) {
     throw new Error(`No handler registered for channel: ${channel}`);
   }
@@ -89,7 +101,7 @@ export function startIpcBridge(): void {
         body += chunk;
       }
 
-      let args: any[] = [];
+      let args: unknown[] = [];
       try {
         const parsed = JSON.parse(body || '{}');
         args = Array.isArray(parsed.args) ? parsed.args : [];
@@ -128,7 +140,7 @@ export function startIpcBridge(): void {
     console.log(`[IPC Bridge] HTTP bridge listening on http://${HOST}:${PORT}`);
   });
 
-  server.on('error', (err: any) => {
+  server.on('error', (err: ErrorWithCode) => {
     if (err.code === 'EADDRINUSE') {
       console.warn(`[IPC Bridge] Port ${PORT} already in use — bridge may already be running`);
     } else {

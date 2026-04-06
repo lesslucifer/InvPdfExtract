@@ -17,7 +17,6 @@ export const ResultList: React.FC<Props> = ({
   const results = useSearchStore(s => s.results);
   const selectedIndex = useSearchStore(s => s.selectedIndex);
   const expandedId = useSearchStore(s => s.expandedId);
-  const hasMore = useSearchStore(s => s.hasMore);
   const isLoadingMore = useSearchStore(s => s.isLoadingMore);
 
   const listRef = useRef<HTMLDivElement>(null);

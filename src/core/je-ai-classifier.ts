@@ -14,6 +14,8 @@ export interface UnclassifiedItem {
   subtotal?: number;
 }
 
+type ParsedJEResponse = Array<Record<string, unknown>> | { results?: Array<Record<string, unknown>>; entries?: Array<Record<string, unknown>> };
+
 const SYSTEM_PROMPT_SUFFIX = `
 
 You are an accounting assistant classifying Vietnamese invoice line items into journal entry accounts.
@@ -95,7 +97,7 @@ Return a JSON array with one entry per item.`;
  * Extract and parse JSON from an AI response that may contain markdown fences,
  * prose, or other wrapping.
  */
-function parseJEResponse(raw: string): any {
+function parseJEResponse(raw: string): ParsedJEResponse {
   const cleaned = raw.replace(/^```\w*\n?/gm, '').replace(/\n?```$/gm, '').trim();
 
   try {

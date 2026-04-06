@@ -41,10 +41,16 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
 
   const { data: detailData } = useResultDetail({ id: result.id });
   const overrides: FieldOverrideInfo[] = detailData?.overrides ?? [];
-  const journalEntries: JournalEntry[] = detailData?.journalEntries ?? [];
+  const journalEntries = useMemo<JournalEntry[]>(
+    () => detailData?.journalEntries ?? [],
+    [detailData?.journalEntries],
+  );
 
   const { data: lineItemData } = useLineItems({ id: result.id });
-  const lineItems: InvoiceLineItem[] = lineItemData?.lineItems ?? [];
+  const lineItems = useMemo<InvoiceLineItem[]>(
+    () => lineItemData?.lineItems ?? [],
+    [lineItemData?.lineItems],
+  );
   const lineItemOverrides: Record<string, FieldOverrideInfo[]> = lineItemData?.lineItemOverrides ?? {};
 
   const saveFieldOverride = useSaveFieldOverride();

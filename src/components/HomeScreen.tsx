@@ -16,7 +16,7 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onFolderBrowse,
   onOpenFolder,
-  onSettingsClick,
+  onSettingsClick: _onSettingsClick,
   onReprocessFolder,
 }) => {
   const { data: homeData, isLoading: homeLoading } = useHomeData();

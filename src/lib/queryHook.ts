@@ -5,9 +5,10 @@ import { useMemo } from "react";
 type UseQueryOptions<T, E, ST, K extends readonly unknown[]> = Parameters<typeof useQuery<T, E, ST, K>>[0]
 export type CustomQueryHookOptions<T, K extends readonly unknown[]> = Omit<UseQueryOptions<T, Error, T, K>, 'queryFn' | 'queryKey' | 'select' | 'query'>
 
-type SelectFn<T, P, D, ST> = (data: T | undefined, params: P, qData: D) => ST
+type EmptyObject = Record<string, never>;
+type SelectFn<T, P, D, ST extends object> = (data: T | undefined, params: P, qData: D) => ST
 
-export type QueryHookFn<T, P = void, D = void, ST = {}, K extends readonly unknown[] = readonly unknown[], UR = UseQueryResult<T>> = (undefined extends P ? {
+export type QueryHookFn<T, P = void, D = void, ST extends object = EmptyObject, K extends readonly unknown[] = readonly unknown[], UR = UseQueryResult<T>> = (undefined extends P ? {
     (params?: P, opts?: CustomQueryHookOptions<T, K>): UR & ST;
 } : {
     (params: P, opts?: CustomQueryHookOptions<T, K>): UR & ST;
@@ -49,7 +50,7 @@ interface IQueryFnContext<P, D> {
     data: D
 }
 
-function createHookWrapper<T, P = void, D = void, ST = {}, K extends readonly unknown[] = readonly unknown[], UR = UseQueryResult<T>>(
+function createHookWrapper<T, P = void, D = void, ST extends object = EmptyObject, K extends readonly unknown[] = readonly unknown[], UR = UseQueryResult<T>>(
     hookFn: (params?: P, opts?: CustomQueryHookOptions<T, K>, _selFn?: SelectFn<T, P, D, ST>) => UseQueryResult<T> & ST,
     keyFn: (params?: P, data?: D) => K,
     prefetchFn: (params?: P, data?: D) => T,
@@ -100,7 +101,7 @@ function createHookWrapper<T, P = void, D = void, ST = {}, K extends readonly un
                 (result, params, data) => selectFn(result, fn(params), data)
             )
         },
-        extend<ST2>(fn: (result: T | undefined, extResult: ST) => ST2) {
+        extend<ST2 extends object>(fn: (result: T | undefined, extResult: ST) => ST2) {
             const newSelectFn: SelectFn<T, P, D, ST2> = (result, params, data) => fn(result, selectFn(result, params, data))
             return createHookWrapper<T, P, D, ST2, K, UR>(
                 (params, opts, _selectFn) => hookFn(params, opts, (_selectFn ?? newSelectFn) as unknown as SelectFn<T, P, D, ST>),
@@ -127,7 +128,7 @@ abstract class BaseQueryBuilder<T, P = void, D = void, K extends readonly unknow
         return this;
     }
 
-    extend<ST>(selectFn: SelectFn<T, P, D, ST>) {
+    extend<ST extends object>(selectFn: SelectFn<T, P, D, ST>) {
         return this.build(selectFn);
     }
 
@@ -141,7 +142,7 @@ abstract class BaseQueryBuilder<T, P = void, D = void, K extends readonly unknow
         opts?: CustomQueryHookOptions<T, K>
     ): UseQueryResult<T>;
 
-    build<ST>(selectFn: SelectFn<T, P, D, ST>): QueryHookFn<T, P, D, ST, K, UR> {
+    build<ST extends object>(selectFn: SelectFn<T, P, D, ST>): QueryHookFn<T, P, D, ST, K, UR> {
         const { keyFn, dataFn, queryOptionsFn } = this;
         const executeQuery = this.executeQuery.bind(this);
 

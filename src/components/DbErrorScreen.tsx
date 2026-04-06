@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n';
 import React, { useCallback } from 'react';
 import { OverlayState } from '../shared/types';
 import { useOverlayStore, useProcessingStore } from '../stores';
@@ -28,10 +29,8 @@ export const DbErrorScreen: React.FC = () => {
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
         </div>
-        <div className="text-4 font-semibold mb-2">Database Error</div>
-        <p className="text-3.25 text-text-secondary leading-[1.5] mb-2">
-          InvoiceVault failed to open its database.
-        </p>
+        <div className="text-4 font-semibold mb-2">{t('Database_Error', 'Database Error')}</div>
+        <p className="text-3.25 text-text-secondary leading-[1.5] mb-2">{`${t('InvoiceVault_failed_to_open_its_database', 'InvoiceVault failed to open its database')}.`}</p>
         {error && (
           <p className="text-3 text-confidence-low font-mono bg-bg-secondary rounded-lg px-3 py-2 mb-5 text-left break-all">
             {error}
@@ -41,15 +40,11 @@ export const DbErrorScreen: React.FC = () => {
           <button
             className="bg-accent text-white border-none rounded-lg px-5 py-2 text-3.25 font-semibold cursor-pointer transition-opacity hover:opacity-85"
             onClick={handleRetry}
-          >
-            Retry
-          </button>
+          >{t('Retry', 'Retry')}</button>
           <button
             className="bg-bg-secondary text-text border border-border rounded-lg px-5 py-2 text-3.25 font-semibold cursor-pointer transition-colors hover:bg-bg-hover"
             onClick={handleOpenSettings}
-          >
-            Switch Vault
-          </button>
+          >{t('Switch_Vault', 'Switch Vault')}</button>
         </div>
       </div>
     </div>

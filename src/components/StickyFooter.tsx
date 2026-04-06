@@ -1,6 +1,5 @@
 import { t } from '../lib/i18n';
 import React, { useState, useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { SearchFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useSearchStore } from '../stores';
@@ -24,23 +23,23 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
   const folderScope = useSearchStore(s => s.folderScope);
   const fileScope = useSearchStore(s => s.fileScope);
 
-  const filters: SearchFilters = {
-    text: query.trim() || undefined,
-    folder: folderScope || undefined,
-    filePath: fileScope || undefined,
-    docType: storeFilters.docType,
-    status: storeFilters.status,
-    taxId: storeFilters.taxId,
-    amountMin: storeFilters.amountMin,
-    amountMax: storeFilters.amountMax,
-    dateFilter: storeFilters.dateFilter,
-  };
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<{ message: string; filePath: string } | null>(null);
 
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
+      const filters = {
+        text: query.trim() || undefined,
+        folder: folderScope || undefined,
+        filePath: fileScope || undefined,
+        docType: storeFilters.docType,
+        status: storeFilters.status,
+        taxId: storeFilters.taxId,
+        amountMin: storeFilters.amountMin,
+        amountMax: storeFilters.amountMax,
+        dateFilter: storeFilters.dateFilter,
+      };
       const result = await window.api.exportFiltered(filters);
       if (result.filePath) {
         setToast({ message: `Exported ${stats.totalRecords} records`, filePath: result.filePath });
@@ -49,7 +48,7 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
     } finally {
       setExporting(false);
     }
-  }, [filters, stats.totalRecords]);
+  }, [fileScope, folderScope, query, stats.totalRecords, storeFilters]);
 
   useImperativeHandle(ref, () => ({ triggerExport: handleExport }), [handleExport]);
 

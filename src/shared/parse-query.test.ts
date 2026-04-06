@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseSearchQuery, buildQueryString, ParsedQuery } from './parse-query';
+import { parseSearchQuery, buildQueryString } from './parse-query';
 
 describe('parseSearchQuery', () => {
   describe('text search', () => {

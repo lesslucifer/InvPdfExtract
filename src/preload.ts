@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus } from './shared/types';
+import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus, JEClassificationStatus } from './shared/types';
 
 const api: InvoiceVaultAPI = {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => ipcRenderer.invoke('search', query, offset ?? 0, folder ?? null, filePath ?? null),
@@ -78,7 +78,7 @@ const api: InvoiceVaultAPI = {
   getJeQueueItems: () => ipcRenderer.invoke('get-je-queue-items'),
   getJeErrorItems: () => ipcRenderer.invoke('get-je-error-items'),
   onJeStatusChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: { recordIds: string[]; status: string }) => callback(data as any);
+    const listener = (_event: Electron.IpcRendererEvent, data: { recordIds: string[]; status: JEClassificationStatus }) => callback(data);
     ipcRenderer.on('je-status-changed', listener);
     return () => ipcRenderer.removeListener('je-status-changed', listener);
   },

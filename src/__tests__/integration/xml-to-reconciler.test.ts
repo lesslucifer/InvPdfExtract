@@ -118,8 +118,6 @@ describe('Integration: XML to Reconciler', () => {
       'SELECT * FROM records WHERE file_id = ? AND deleted_at IS NULL',
     ).all(file.id) as any[];
     expect(recordsAfterFirst).toHaveLength(1);
-    const firstRecordId = recordsAfterFirst[0].id;
-
     // Second extraction (same data)
     reconciler.reconcileResults({ results: [fileResult] }, 'log-2');
 

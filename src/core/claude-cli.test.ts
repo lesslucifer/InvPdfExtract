@@ -172,7 +172,7 @@ describe('ClaudeCodeRunner', () => {
     it('succeeds on retry when first response has text around JSON that cannot be extracted', async () => {
       // Simulates garbled output where brace extraction still fails
       const garbled = 'thinking { partial json here } and more { broken';
-      const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')
+      vi.spyOn(runner as any, 'invokeClaudeCLI')
         .mockResolvedValueOnce(garbled)
         .mockResolvedValueOnce(VALID_JSON);
 
@@ -250,7 +250,7 @@ describe('invokeRaw', () => {
 describe('model tier configuration', () => {
   it('includes --model flag when modelTier is set', async () => {
     const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, 'heavy');
-    const spy = vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(VALID_JSON);
+    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(VALID_JSON);
 
     await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
 

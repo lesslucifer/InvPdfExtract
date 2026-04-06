@@ -33,9 +33,6 @@ export const SearchOverlay: React.FC = () => {
   const filters = useSearchStore(s => s.filters);
   const folderScope = useSearchStore(s => s.folderScope);
   const fileScope = useSearchStore(s => s.fileScope);
-  const results = useSearchStore(s => s.results);
-  const selectedIndex = useSearchStore(s => s.selectedIndex);
-  const expandedId = useSearchStore(s => s.expandedId);
   const hasSearched = useSearchStore(s => s.hasSearched);
   const aggregates = useSearchStore(s => s.aggregates);
 

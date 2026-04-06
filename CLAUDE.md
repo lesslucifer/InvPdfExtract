@@ -36,6 +36,15 @@ pnpm lint:fix          # Auto-fix what ESLint can
 
 Plugins: `typescript-eslint` (recommended), `eslint-plugin-react-hooks`, `@spaced-out/eslint-plugin-i18n`.
 
+## i18n
+
+- Use `t(key, fallback)` for all user-facing UI text in the app. Avoid hardcoded display strings in components, labels, tooltips, empty states, and buttons.
+- Keep `src/components/lib/i18n/translations/en.json` and `src/components/lib/i18n/translations/vi.json` in sync, using flat `snake_case` keys.
+
+## TypeScript
+
+- Prefer strict, explicit TypeScript types throughout the app. Avoid `any` as much as possible; use concrete types, generics, unions, or `unknown` with narrowing instead.
+
 ## Styling
 
 **Tailwind CSS v3** — all component styling uses utility classes inline in JSX `className` props. No component-level CSS files.
