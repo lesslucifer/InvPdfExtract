@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FileStatus, JEClassificationStatus } from '../shared/types';
+import { FileStatus, JEClassificationStatus, OverlayState } from '../shared/types';
 import { useHomeData, useFolderStatuses, useQueueData, useProcessedData, useErrorData, useResultDetail } from '../lib/queries';
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
@@ -11,6 +11,8 @@ interface ProcessingStore {
   jeStatusVersion: number;
   /** Last JE status change data — consumed by ResultDetail to update per-record JE state */
   lastJeUpdate: { recordIds: string[]; status: JEClassificationStatus } | null;
+  /** Set when the vault DB fails to open */
+  dbError: string | null;
 
   /** Subscribe to all 3 IPC events. Call once from App.tsx. Returns cleanup function. */
   startSubscriptions: () => () => void;
@@ -20,6 +22,7 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
   status: 'idle',
   jeStatusVersion: 0,
   lastJeUpdate: null,
+  dbError: null,
 
   startSubscriptions: () => {
     const unsubStatus = window.api.onStatusUpdate((status) => {
@@ -56,10 +59,17 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
       }
     });
 
+    const unsubDbError = window.api.onDbError(async (error: string) => {
+      set({ dbError: error });
+      const { useOverlayStore } = await import('./overlayStore');
+      useOverlayStore.getState().setOverlayState(OverlayState.DbError);
+    });
+
     return () => {
       unsubStatus();
       unsubFile();
       unsubJe();
+      unsubDbError();
     };
   },
 }));

@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { getFilesByStatus, updateFileStatus } from './db/files';
 import { addLog } from './db/records';
-import { ClaudeCodeRunner } from './claude-cli';
+import { ClaudeCodeRunner, CliError, getSessionLogPath } from './claude-cli';
 import { Reconciler } from './reconciler';
 import { ScriptRegistry } from './script-registry';
 import { MatcherEvaluator } from './matcher-evaluator';
@@ -265,9 +265,19 @@ export class ExtractionQueue {
       }
     } catch (err) {
       console.error('[ExtractionQueue] Batch processing error:', err);
+      const isCliErr = err instanceof CliError;
+      const sessionLogPath = (isCliErr && err.sessionId)
+        ? getSessionLogPath(this.vault.rootPath, err.sessionId)
+        : null;
+      const detail = JSON.stringify({
+        exitCode: isCliErr ? err.exitCode : null,
+        stderr: isCliErr ? err.stderr : null,
+        partialStdout: isCliErr ? err.partialStdout : null,
+        sessionLogPath,
+      });
       for (const file of processable) {
         updateFileStatus(file.id, FileStatus.Error);
-        addLog(null, LogLevel.Error, `Batch error for ${file.relative_path}: ${(err as Error).message}`);
+        addLog(null, LogLevel.Error, `Batch error for ${file.relative_path}: ${(err as Error).message}`, detail, file.id);
         eventBus.emit('extraction:error', {
           fileId: file.id,
           error: (err as Error).message,

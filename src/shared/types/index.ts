@@ -44,6 +44,7 @@ export enum TrayState {
 
 export enum OverlayState {
   NoVault = 'no-vault',
+  DbError = 'db-error',
   Home = 'home',
   Search = 'search',
   PathSearch = 'path-search',
@@ -384,6 +385,7 @@ export interface ErrorLogEntry {
   batch_id: string | null;
   level: LogLevel;
   message: string;
+  detail: string | null;
   timestamp: string;
   relative_path: string | null;
 }
@@ -537,6 +539,11 @@ export interface InvoiceVaultAPI {
   getJeQueueItems: () => Promise<JeQueueItem[]>;
   getJeErrorItems: () => Promise<JeErrorItem[]>;
   onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEClassificationStatus }) => void) => () => void;
+  onDbError: (callback: (error: string) => void) => () => void;
+  getDbError: () => Promise<string | null>;
+  // Debug / session logs
+  getSessionLogForFile: (fileId: string) => Promise<string | null>;
+  readCliSessionLog: (sessionLogPath: string) => Promise<string | null>;
 }
 
 // === Relevance Filter Types ===
@@ -580,6 +587,7 @@ export interface AppEvents {
   'conflicts:detected': { fileId: string; conflictCount: number };
   'vault:initialized': { path: string };
   'vault:opened': { path: string };
+  'vault:db-error': { error: string };
   'je:generated': { recordId: string; count: number; source: JESource };
   'je:updated': { recordId: string };
   'je:status-changed': { recordIds: string[]; status: JEClassificationStatus };

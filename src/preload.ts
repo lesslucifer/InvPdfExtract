@@ -64,6 +64,9 @@ const api: InvoiceVaultAPI = {
     ipcRenderer.on('file-status-changed', listener);
     return () => ipcRenderer.removeListener('file-status-changed', listener);
   },
+  // Debug / session logs
+  getSessionLogForFile: (fileId: string) => ipcRenderer.invoke('get-session-log-for-file', fileId),
+  readCliSessionLog: (sessionLogPath: string) => ipcRenderer.invoke('read-cli-session-log', sessionLogPath),
   // Journal entries
   getJournalEntries: (recordId: string) => ipcRenderer.invoke('get-journal-entries', recordId),
   saveJournalEntry: (input: JournalEntryInput) => ipcRenderer.invoke('save-journal-entry', input),
@@ -79,6 +82,12 @@ const api: InvoiceVaultAPI = {
     ipcRenderer.on('je-status-changed', listener);
     return () => ipcRenderer.removeListener('je-status-changed', listener);
   },
+  onDbError: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, error: string) => callback(error);
+    ipcRenderer.on('db-error', listener);
+    return () => ipcRenderer.removeListener('db-error', listener);
+  },
+  getDbError: () => ipcRenderer.invoke('get-db-error'),
 };
 
 contextBridge.exposeInMainWorld('api', api);

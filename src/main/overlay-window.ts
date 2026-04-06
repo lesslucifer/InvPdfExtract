@@ -1,4 +1,5 @@
 import { BrowserWindow, globalShortcut, screen, ipcMain, shell, dialog, app, nativeImage } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import {
@@ -9,6 +10,7 @@ import {
   getAggregates, gatherFilteredExportData,
   getErrorLogsWithPath, getProcessedFilesWithStats,
   updateJeStatus, getJeQueueItems, getJeErrorItems,
+  getSessionLogForFile,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
@@ -55,6 +57,7 @@ export class OverlayWindow {
   private spawnedWindows: Set<BrowserWindow> = new Set();
   private initialStateMap: Map<number, string> = new Map();
   private blurTimeout: ReturnType<typeof setTimeout> | null = null;
+  private pendingDbError: string | null = null;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
     this.callbacks = callbacks;
@@ -85,6 +88,11 @@ export class OverlayWindow {
 
   setVaultPath(vaultPath: string | null): void {
     this.vaultPath = vaultPath;
+  }
+
+  notifyDbError(error: string): void {
+    this.pendingDbError = error;
+    this.broadcastToAll('db-error', error);
   }
 
   toggle(): void {
@@ -614,6 +622,12 @@ export class OverlayWindow {
       return state ?? null;
     });
 
+    ipcMain.handle('get-db-error', async () => {
+      const error = this.pendingDbError;
+      this.pendingDbError = null;
+      return error;
+    });
+
     ipcMain.handle('close-window', async (event) => {
       if (!event.sender) return;
       const senderWin = BrowserWindow.fromWebContents(event.sender);
@@ -654,6 +668,25 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Overlay] get-error-logs-with-path failed:', err);
         return [];
+      }
+    });
+
+    ipcMain.handle('get-session-log-for-file', async (_event, fileId: string) => {
+      try {
+        return getSessionLogForFile(fileId);
+      } catch (err) {
+        console.error('[Overlay] get-session-log-for-file failed:', err);
+        return null;
+      }
+    });
+
+    ipcMain.handle('read-cli-session-log', async (_event, sessionLogPath: string) => {
+      try {
+        if (!sessionLogPath.includes('/.claude/projects/')) return null;
+        return fs.existsSync(sessionLogPath) ? fs.readFileSync(sessionLogPath, 'utf-8') : null;
+      } catch (err) {
+        console.error('[Overlay] read-cli-session-log failed:', err);
+        return null;
       }
     });
 

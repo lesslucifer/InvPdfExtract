@@ -278,6 +278,8 @@ app.on('ready', async () => {
       await startVault(appConfig.lastVaultPath);
     } catch (err) {
       console.error('[InvoiceVault] Failed to open last vault:', err);
+      overlayWindow.showOverlay();
+      overlayWindow.notifyDbError((err as Error).message);
     }
   } else {
     // No vault configured — show overlay immediately so user can set one up

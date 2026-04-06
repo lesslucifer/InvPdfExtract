@@ -212,12 +212,12 @@ export function updateFtsIndex(recordId: string, data: {
 
 // === Processing Logs ===
 
-export function addLog(batchId: string | null, level: LogLevel, message: string): void {
+export function addLog(batchId: string | null, level: LogLevel, message: string, detail?: string, fileId?: string): void {
   const db = getDatabase();
   db.prepare(`
-    INSERT INTO processing_logs (id, batch_id, level, message, timestamp)
-    VALUES (?, ?, ?, ?, datetime('now'))
-  `).run(uuid(), batchId, level, message);
+    INSERT INTO processing_logs (id, batch_id, level, message, detail, file_id, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(uuid(), batchId, level, message, detail ?? null, fileId ?? null);
 }
 
 export function getRecentLogs(limit: number = 50): ProcessingLog[] {
@@ -228,14 +228,25 @@ export function getRecentLogs(limit: number = 50): ProcessingLog[] {
 export function getErrorLogsWithPath(): Array<ProcessingLog & { relative_path: string | null }> {
   const db = getDatabase();
   return db.prepare(`
-    SELECT pl.*, f.relative_path
+    SELECT pl.*, COALESCE(f1.relative_path, f2.relative_path) as relative_path
     FROM processing_logs pl
     LEFT JOIN extraction_batches eb ON pl.batch_id = eb.id
-    LEFT JOIN files f ON eb.file_id = f.id
+    LEFT JOIN files f1 ON eb.file_id = f1.id
+    LEFT JOIN files f2 ON pl.file_id = f2.id
     WHERE pl.level = 'error'
     ORDER BY pl.timestamp DESC
     LIMIT 100
   `).all() as any[];
+}
+
+export function getSessionLogForFile(fileId: string): string | null {
+  const db = getDatabase();
+  const row = db.prepare(`
+    SELECT claude_session_log FROM extraction_batches
+    WHERE file_id = ? AND claude_session_log IS NOT NULL
+    ORDER BY processed_at DESC LIMIT 1
+  `).get(fileId) as { claude_session_log: string } | undefined;
+  return row?.claude_session_log ?? null;
 }
 
 export function getProcessedFilesWithStats(): Array<{
