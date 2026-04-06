@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { FileStatus } from '../shared/types';
 import { StickyFooter } from './StickyFooter';
-import { StatusDot } from './StatusDot';
+import { StatusIcon } from './StatusIcon';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useHomeData, useFolderStatuses } from '../lib/queries';
 
@@ -167,7 +167,7 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
     <>
       <div className="group flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-colors hover:bg-bg-hover" onClick={() => onBrowse(folder.path)} role="button" tabIndex={0}>
         <span className="inline-flex items-center shrink-0 w-5 text-center"><Icons.folder size={ICON_SIZE.MD} /></span>
-        {folderStatus && <StatusDot status={folderStatus} />}
+        {folderStatus && <StatusIcon status={folderStatus} />}
         <span className="flex-1 text-3.25 text-text overflow-hidden text-ellipsis whitespace-nowrap min-w-0">{folder.path}/</span>
         <span className="text-2.75 text-text-muted whitespace-nowrap shrink-0">{folder.recordCount} rec</span>
         <div className="flex gap-1 shrink-0 opacity-0 transition-opacity group-hover:opacity-100">

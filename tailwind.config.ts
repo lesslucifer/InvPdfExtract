@@ -98,10 +98,6 @@ const config: Config = {
           from: { opacity: '0', maxHeight: '0' },
           to:   { opacity: '1', maxHeight: '400px' },
         },
-        'status-pulse': {
-          '0%, 100%': { opacity: '1' },
-          '50%':       { opacity: '0.35' },
-        },
         'settings-notification-fade': {
           '0%':   { opacity: '0', transform: 'translateY(-4px)' },
           '10%':  { opacity: '1', transform: 'translateY(0)' },
@@ -112,19 +108,13 @@ const config: Config = {
           from: { opacity: '0' },
           to:   { opacity: '1' },
         },
-        'je-dot-pulse': {
-          '0%, 100%': { opacity: '1' },
-          '50%':       { opacity: '0.4' },
-        },
       },
       animation: {
         'overlay-in':                    'overlay-in 0.15s ease-out',
         'detail-in':                     'detail-in 0.15s ease-out',
-        'status-pulse':                  'status-pulse 1.2s ease-in-out infinite',
         'settings-notification-fade':    'settings-notification-fade 4s ease-in-out',
         'suggestion-in':                 'suggestion-in 0.1s ease-out',
-        'je-dot-pulse-slow':             'je-dot-pulse 1.5s ease-in-out infinite',
-        'je-dot-pulse-fast':             'je-dot-pulse 1s ease-in-out infinite',
+        'spin-slow':                     'spin 2s linear infinite',
       },
     },
   },
