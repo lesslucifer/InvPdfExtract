@@ -113,12 +113,12 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
 
 ---
 
-### Phase B — Medium Components
+### Phase B — Medium Components ✅
 
 **Goal:** Replace version-counter `useEffect` refresh loops with query invalidation.
 
-**Steps:**
-1. Add to `src/lib/queries.ts`:
+**Completed:**
+1. Added to `src/lib/queries.ts`:
    ```typescript
    const useHomeData = queryHook
      .ofKey<void, ['homeData']>(() => ['homeData'] as const)
@@ -145,13 +145,15 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
      .useQuery(() => ({ queryFn: () => loadErrorsTab() }))
      .create();
    ```
-2. Refactor `HomeScreen`:
-   - Use `useHomeData()` + `useFolderStatuses()` hooks
-   - Remove `useEffect([fileStatusVersion])` refresh loop
-3. Refactor `ProcessingStatusPanel`:
-   - Use `useQueueData()`, `useProcessedData()`, `useErrorData()` with `enabled` based on `activeTab`
-   - Remove `useEffect([fileStatusVersion, jeStatusVersion])` refresh loop
-   - Add mutations to `src/lib/mutations.ts`:
+2. ✅ Refactored `HomeScreen`:
+   - Uses `useHomeData()` + `useFolderStatuses()` hooks
+   - Removed `useEffect([fileStatusVersion])` refresh loop
+   - Optimistic folder status updates via `useFolderStatuses.setData()`
+3. ✅ Refactored `ProcessingStatusPanel`:
+   - Uses `useQueueData()`, `useProcessedData()`, `useErrorData()` with `enabled` based on `activeTab`
+   - Removed `useEffect([fileStatusVersion, jeStatusVersion])` refresh loop
+   - Uses `useCancelQueueItem` and `useClearPendingQueue` mutation hooks
+   - Added mutations to `src/lib/mutations.ts`:
      ```typescript
      const useCancelQueueItem = mutationHook
        .mutate<string>(id => window.api.cancelQueueItem(id))
@@ -161,15 +163,17 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
        .mutate<void>(() => window.api.clearPendingQueue())
        .onSuccess(() => useQueueData.invalidate());
      ```
-4. Wire `processingStore` → query invalidation:
-   - In `onFileStatusChanged`: `useFolderStatuses.invalidate()` + `useQueueData.invalidate()`
-   - In `onJeStatusChanged`: `useQueueData.invalidate()` + `useErrorData.invalidate()`
-   - Remove version-counter bumps that components no longer watch
+4. ✅ Wired `processingStore` → query invalidation:
+   - In `onFileStatusChanged`: invalidates `useHomeData`, `useFolderStatuses`, `useQueueData`, `useProcessedData`, `useErrorData`
+   - In `onJeStatusChanged`: invalidates `useQueueData`, `useErrorData`
+   - Kept version counters for `PathResultsList` (Phase D)
 
-**After Phase B:**
-- Run `pnpm test`
-- Run `pnpm tsc --noEmit`
-- Update CLAUDE.md with lessons learned
+**Lessons:**
+- Multi-fetch queries use `Promise.all` inside `queryFn` — keeps data loading atomic
+- `processingStore` can import query hooks directly and call `.invalidate()` — no need to import `queryClient`
+- Optimistic updates via `.setData()` work well for folder status dots
+- `mutationHook.mutate<TParams, TResponse>` — must specify both type params when IPC returns typed response
+- Version counters (`fileStatusVersion`) kept for components not yet migrated (PathResultsList)
 
 ---
 
@@ -225,7 +229,8 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
 - Run `pnpm test`
 - Run `pnpm tsc --noEmit`
 - Update CLAUDE.md with lessons learned
-
+- Commit code
+  
 ---
 
 ### Phase D — Optional
@@ -235,7 +240,7 @@ Use `staleTime: Infinity` globally — SQLite data only changes via explicit IPC
 **Consideration:** The path search query is debounced with a 300ms timer and is also refreshed on `fileStatusVersion`. This can work with React Query using:
 ```typescript
 const useVaultPaths = queryHook
-  .ofKey<{ query: string }, ['vaultPaths', string]>(({ query }) => ['vaultPaths', query] as const)
+  .ofKey(({ query }) => ['vaultPaths', query] as const)
   .useQuery(({ params }) => ({ queryFn: () => window.api.listVaultPaths(params.query) }))
   .create();
 ```
@@ -246,6 +251,7 @@ Only do this if the manual cancellation token pattern in PathResultsList causes 
 - Run `pnpm test`
 - Run `pnpm tsc --noEmit`
 - Update CLAUDE.md with lessons learned
+- Commit code
 
 ---
 
@@ -258,7 +264,7 @@ After each phase, add lessons to the **QueryHook / MutationHook Conventions** se
 ## Completion Criteria
 
 - [x] Phase A: PresetList + SettingsPanel migrated, tests pass, tsc clean
-- [ ] Phase B: HomeScreen + ProcessingStatusPanel migrated, processingStore wired to query invalidation, tests pass, tsc clean
+- [x] Phase B: HomeScreen + ProcessingStatusPanel migrated, processingStore wired to query invalidation, tests pass, tsc clean
 - [ ] Phase C: ResultDetail migrated, tests pass, tsc clean
 - [ ] Phase D: PathResultsList migrated (optional)
 - [ ] CLAUDE.md updated after each phase

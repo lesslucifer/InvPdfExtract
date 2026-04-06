@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { FolderInfo, AggregateStats, SearchFilters, FileStatus } from '../shared/types';
+import React, { useState, useCallback } from 'react';
+import { FileStatus } from '../shared/types';
 import { StickyFooter } from './StickyFooter';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
-import { useProcessingStore } from '../stores';
-
-const ALL_FILTERS: SearchFilters = {};
+import { useHomeData, useFolderStatuses } from '../lib/queries';
 
 interface HomeScreenProps {
   onFolderBrowse: (folder: string) => void;
@@ -20,55 +18,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSettingsClick,
   onReprocessFolder,
 }) => {
-  const [recentFolders, setRecentFolders] = useState<FolderInfo[]>([]);
-  const [topFolders, setTopFolders] = useState<FolderInfo[]>([]);
-  const [aggregates, setAggregates] = useState<AggregateStats>({ totalRecords: 0, totalAmount: 0 });
-  const [folderStatuses, setFolderStatuses] = useState<Record<string, FileStatus>>({});
-  const [loading, setLoading] = useState(true);
+  const { data: homeData, isLoading: homeLoading } = useHomeData();
+  const { data: folderStatuses = {} } = useFolderStatuses();
 
-  const refreshFolderStatuses = useCallback(async () => {
-    try {
-      const statuses = await window.api.getFolderStatuses();
-      setFolderStatuses(statuses);
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [recent, top, agg, statuses] = await Promise.all([
-          window.api.listRecentFolders(5),
-          window.api.listTopFolders(),
-          window.api.getAggregates(ALL_FILTERS),
-          window.api.getFolderStatuses(),
-        ]);
-        if (cancelled) return;
-        setRecentFolders(recent);
-        setTopFolders(top);
-        setAggregates(agg);
-        setFolderStatuses(statuses);
-      } catch (err) {
-        console.error('[HomeScreen] Failed to load folders:', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Re-fetch folder statuses when file processing status changes (centralized via store)
-  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
-  useEffect(() => {
-    if (fileStatusVersion === 0) return; // skip initial mount (data loaded above)
-    refreshFolderStatuses();
-  }, [fileStatusVersion, refreshFolderStatuses]);
+  const recentFolders = homeData?.recentFolders ?? [];
+  const topFolders = homeData?.topFolders ?? [];
 
   const handleOptimisticFolderUpdate = useCallback((folderPath: string) => {
-    setFolderStatuses(prev => ({ ...prev, [folderPath]: FileStatus.Pending }));
+    useFolderStatuses.setData(undefined, undefined, (old) => ({
+      ...old,
+      [folderPath]: FileStatus.Pending,
+    }));
   }, []);
 
-  if (loading) {
+  if (homeLoading) {
     return (
       <div className="home-screen">
         <div className="home-loading">Loading...</div>
@@ -161,7 +124,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 };
 
 interface FolderRowProps {
-  folder: FolderInfo;
+  folder: { path: string; recordCount: number };
   folderStatus?: FileStatus;
   onBrowse: (folder: string) => void;
   onOpen: (relativePath: string) => void;

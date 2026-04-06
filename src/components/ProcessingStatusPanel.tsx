@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { VaultFile, FileStatus, ProcessedFileInfo, ErrorLogEntry, JeQueueItem, JeErrorItem } from '../shared/types';
 import { StatusDot } from './StatusDot';
 import { Icons, ICON_SIZE } from '../shared/icons';
-import { useProcessingStore, useOverlayStore } from '../stores';
+import { useOverlayStore } from '../stores';
+import { useQueueData, useProcessedData, useErrorData } from '../lib/queries';
+import { useCancelQueueItem, useClearPendingQueue } from '../lib/mutations';
 
 type TabId = 'queue' | 'processed' | 'errors';
 
@@ -30,52 +32,19 @@ function formatTime(iso: string): string {
 export const ProcessingStatusPanel: React.FC = () => {
   const goBack = useOverlayStore(s => s.goBack);
   const [activeTab, setActiveTab] = useState<TabId>('queue');
-  const [queueFiles, setQueueFiles] = useState<VaultFile[]>([]);
-  const [jeQueueItems, setJeQueueItems] = useState<JeQueueItem[]>([]);
-  const [processedFiles, setProcessedFiles] = useState<ProcessedFileInfo[]>([]);
-  const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([]);
-  const [jeErrorItems, setJeErrorItems] = useState<JeErrorItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const loadTab = async (tab: TabId) => {
-    if (tab === 'queue') {
-      const [files, jeItems] = await Promise.all([
-        window.api.getFilesByStatuses([FileStatus.Pending, FileStatus.Processing]),
-        window.api.getJeQueueItems(),
-      ]);
-      setQueueFiles(files);
-      setJeQueueItems(jeItems);
-    } else if (tab === 'processed') {
-      const files = await window.api.getProcessedFilesWithStats();
-      setProcessedFiles(files);
-    } else {
-      const [logs, jeErrors] = await Promise.all([
-        window.api.getErrorLogsWithPath(),
-        window.api.getJeErrorItems(),
-      ]);
-      setErrorLogs(logs);
-      setJeErrorItems(jeErrors);
-    }
-  };
+  const { data: queueData, isLoading: queueLoading } = useQueueData(undefined, { enabled: activeTab === 'queue' });
+  const { data: processedFiles = [], isLoading: processedLoading } = useProcessedData(undefined, { enabled: activeTab === 'processed' });
+  const { data: errorData, isLoading: errorsLoading } = useErrorData(undefined, { enabled: activeTab === 'errors' });
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
+  const queueFiles = queueData?.files ?? [];
+  const jeQueueItems = queueData?.jeItems ?? [];
+  const errorLogs = errorData?.logs ?? [];
+  const jeErrorItems = errorData?.jeErrors ?? [];
 
-    loadTab(activeTab)
-      .catch(err => console.error('[ProcessingStatusPanel] Load failed:', err))
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [activeTab]);
-
-  // Refresh active tab when file or JE status changes (centralized via store)
-  const fileStatusVersion = useProcessingStore(s => s.fileStatusVersion);
-  const jeStatusVersion = useProcessingStore(s => s.jeStatusVersion);
-  useEffect(() => {
-    if (fileStatusVersion === 0 && jeStatusVersion === 0) return; // skip initial mount
-    loadTab(activeTab).catch(() => { /* ignore */ });
-  }, [fileStatusVersion, jeStatusVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const loading = (activeTab === 'queue' && queueLoading)
+    || (activeTab === 'processed' && processedLoading)
+    || (activeTab === 'errors' && errorsLoading);
 
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: 'queue', label: 'Queue', count: queueFiles.length + jeQueueItems.length },
@@ -109,7 +78,7 @@ export const ProcessingStatusPanel: React.FC = () => {
         {loading ? (
           <div className="settings-loading">Loading...</div>
         ) : activeTab === 'queue' ? (
-          <QueueTab files={queueFiles} jeItems={jeQueueItems} onRefresh={() => loadTab('queue')} />
+          <QueueTab files={queueFiles} jeItems={jeQueueItems} />
         ) : activeTab === 'processed' ? (
           <ProcessedTab files={processedFiles} />
         ) : (
@@ -120,9 +89,11 @@ export const ProcessingStatusPanel: React.FC = () => {
   );
 };
 
-const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[]; onRefresh: () => Promise<void> }> = ({ files, jeItems, onRefresh }) => {
+const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ files, jeItems }) => {
   const pendingFiles = files.filter(f => f.status === FileStatus.Pending);
   const { copiedId, copy } = useCopyFeedback();
+  const cancelItem = useCancelQueueItem();
+  const clearPending = useClearPendingQueue();
 
   const formatEntry = (file: VaultFile) =>
     `File: ${file.relative_path} | Status: ${file.status === FileStatus.Processing ? 'Processing' : 'Pending'}`;
@@ -132,16 +103,6 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[]; onRefresh
     copy('__all__', text);
   };
 
-  const handleCancel = async (fileId: string) => {
-    await window.api.cancelQueueItem(fileId);
-    await onRefresh();
-  };
-
-  const handleClearAll = async () => {
-    await window.api.clearPendingQueue();
-    await onRefresh();
-  };
-
   if (files.length === 0 && jeItems.length === 0) {
     return <div className="processing-status-empty">No items in queue</div>;
   }
@@ -149,7 +110,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[]; onRefresh
     <>
       <div className="processing-queue-actions">
         {pendingFiles.length > 1 && (
-          <button className="processing-queue-clear-btn" onClick={handleClearAll}>
+          <button className="processing-queue-clear-btn" onClick={() => clearPending.mutate()}>
             Clear all pending ({pendingFiles.length})
           </button>
         )}
@@ -181,7 +142,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[]; onRefresh
             {file.status === FileStatus.Pending && (
               <button
                 className="processing-queue-cancel-btn"
-                onClick={() => handleCancel(file.id)}
+                onClick={() => cancelItem.mutate(file.id)}
                 title="Remove from queue"
               >
                 <Icons.close size={ICON_SIZE.SM} />

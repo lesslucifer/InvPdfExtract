@@ -122,7 +122,7 @@ Webpack replaces `__dirname` with `"/"` in the bundled output. This means any co
 - Always use selectors: `useStore(s => s.field)`, never bare `useStore()` — prevents unnecessary re-renders.
 - Cross-store access outside React: `useOtherStore.getState()` — standard Zustand pattern.
 - All IPC event subscriptions (`onStatusUpdate`, `onFileStatusChanged`, `onJeStatusChanged`) live in `processingStore` only — never subscribe in components.
-- Components react to IPC events via store selectors (`fileStatusVersion`, `lastJeUpdate`), not direct listeners.
+- Components react to IPC events via React Query invalidation (processingStore calls `.invalidate()`) or store selectors (`lastJeUpdate`), not direct listeners.
 - Use `immer` middleware only for stores with complex nested state updates (e.g. `searchStore`).
 - For imperative handlers (keyboard, timers), use `getState()` — avoids stale closures and dependency arrays.
 
@@ -178,6 +178,10 @@ Chainable transforms: `.params()` (remap params), `.extend()` (add computed fiel
 - IPC calls returning `{ success }` don't fit `mutationHook` — use static `.invalidate()` with conditional check.
 - When parent owns IPC call via prop, use static `.invalidate()` in child — avoid double-calling.
 - `setQueryHookContext({ queryClient })` must run before any component renders (module-level in App.tsx).
+- Multi-fetch queries (e.g. `useHomeData` combining 3 IPC calls) use `Promise.all` inside `queryFn`.
+- `processingStore` imports query hooks and calls `.invalidate()` directly in IPC event handlers — no `queryClient` import needed.
+- Optimistic updates use `.setData()` (e.g. `useFolderStatuses.setData(undefined, undefined, updater)`) — keep `useState` only for local UI state.
+- `mutationHook.mutate<TParams, TResponse>` — specify both type params when IPC returns a typed response (e.g. `{ success: boolean }`).
 
 ## SQLite Schema
 

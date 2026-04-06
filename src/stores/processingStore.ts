@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { FileStatus, JEClassificationStatus } from '../shared/types';
+import { useHomeData, useFolderStatuses, useQueueData, useProcessedData, useErrorData } from '../lib/queries';
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -30,6 +31,12 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
 
     const unsubFile = window.api.onFileStatusChanged(async (_data: { fileIds: string[]; status: FileStatus }) => {
       set((s) => ({ fileStatusVersion: s.fileStatusVersion + 1 }));
+      // Invalidate React Query caches
+      useHomeData.invalidate();
+      useFolderStatuses.invalidate();
+      useQueueData.invalidate();
+      useProcessedData.invalidate();
+      useErrorData.invalidate();
       // Cross-store: update search results' file_status
       const { useSearchStore } = await import('./searchStore');
       const results = useSearchStore.getState().results;
@@ -45,6 +52,9 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
         jeStatusVersion: s.jeStatusVersion + 1,
         lastJeUpdate: data,
       }));
+      // Invalidate React Query caches
+      useQueueData.invalidate();
+      useErrorData.invalidate();
     });
 
     return () => {
