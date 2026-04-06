@@ -8,8 +8,7 @@ interface NormalizedCacheEntry extends CacheEntry {
 }
 
 export interface SimilarityMatch {
-  tkNo: string;
-  tkCo: string;
+  account: string;
   cashFlow: string | null;
   entryType: string;
   score: number;
@@ -34,7 +33,6 @@ export class JESimilarityEngine {
     this.initialized = true;
     this.refresh();
 
-    // Subscribe to events for cache refresh
     const onExtraction = () => this.scheduleRefresh();
     const onJeGenerated = () => this.scheduleRefresh();
     const onJeUpdated = () => this.scheduleRefresh();
@@ -43,7 +41,6 @@ export class JESimilarityEngine {
     eventBus.on('je:generated', onJeGenerated);
     eventBus.on('je:updated', onJeUpdated);
 
-    // Store unsubscribe functions
     this.listeners = [
       () => eventBus.off('extraction:completed', onExtraction),
       () => eventBus.off('je:generated', onJeGenerated),
@@ -80,7 +77,7 @@ export class JESimilarityEngine {
 
   findMatch(moTa: string): SimilarityMatch | null {
     const normalized = normalize(moTa);
-    if (normalized.length < 2) return null; // dice needs at least 2 chars
+    if (normalized.length < 2) return null;
 
     let bestMatch: NormalizedCacheEntry | null = null;
     let bestScore = 0;
@@ -90,14 +87,13 @@ export class JESimilarityEngine {
       if (score > bestScore) {
         bestScore = score;
         bestMatch = entry;
-        if (score === 1.0) break; // exact match, no need to continue
+        if (score === 1.0) break;
       }
     }
 
     if (bestMatch && bestScore >= this.threshold) {
       return {
-        tkNo: bestMatch.tk_no,
-        tkCo: bestMatch.tk_co,
+        account: bestMatch.account,
         cashFlow: bestMatch.cash_flow,
         entryType: bestMatch.entry_type,
         score: bestScore,

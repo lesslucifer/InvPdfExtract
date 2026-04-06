@@ -4,12 +4,14 @@ import {
   insertJournalEntry,
   deleteJournalEntriesByRecord,
   getJournalEntriesByRecord,
+  findExistingEntry,
 } from './db/journal-entries';
 import { JESimilarityEngine } from './je-similarity';
 import { classifyWithAI, UnclassifiedItem } from './je-ai-classifier';
 import { eventBus } from './event-bus';
 import { DocType, InvoiceLineItem, BankStatementData, DbRecord } from '../shared/types';
 import { JE_AI_BATCH_SIZE } from '../shared/constants';
+import { getDefaultAccount } from '../shared/je-utils';
 
 export class JEGenerator {
   private similarityEngine: JESimilarityEngine;
@@ -25,7 +27,7 @@ export class JEGenerator {
 
   /**
    * Generate JEs for a single record. Used by manual UI trigger.
-   * Flushes unmatched items to AI immediately (user expects instant result).
+   * Flushes unmatched items to AI immediately.
    */
   async generateForRecord(recordId: string): Promise<number> {
     if (this.processing.has(recordId)) return 0;
@@ -36,6 +38,8 @@ export class JEGenerator {
       if (unmatched.length > 0) {
         await this.flushUnclassified(unmatched);
       }
+      // Auto-generate tax + settlement after all line items are classified
+      this.generateAutoEntries(recordId);
       const entries = getJournalEntriesByRecord(recordId);
       eventBus.emit('je:generated', { recordId, count: entries.length, source: 'ai' });
       return entries.length;
@@ -46,7 +50,6 @@ export class JEGenerator {
 
   /**
    * Generate JEs for all records in a file. Used by auto-trigger after extraction.
-   * Accumulates unmatched items across records, then flushes in batches.
    */
   async generateForFile(fileId: string): Promise<number> {
     const records = getRecordsByFileId(fileId);
@@ -55,8 +58,7 @@ export class JEGenerator {
   }
 
   /**
-   * Generate JEs for multiple records. Used by regenerateAll and bulk operations.
-   * Accumulates unmatched items, flushes in batches of JE_AI_BATCH_SIZE.
+   * Generate JEs for multiple records. Accumulates unmatched items, flushes in batches.
    */
   async generateBatch(recordIds: string[]): Promise<number> {
     const allUnmatched: UnclassifiedItem[] = [];
@@ -81,8 +83,9 @@ export class JEGenerator {
       }
     }
 
-    // Count total JEs and emit events
+    // Generate auto entries and count
     for (const recordId of recordIds) {
+      this.generateAutoEntries(recordId);
       const entries = getJournalEntriesByRecord(recordId);
       totalCount += entries.length;
       eventBus.emit('je:generated', { recordId, count: entries.length, source: 'ai' });
@@ -109,7 +112,6 @@ export class JEGenerator {
 
   /**
    * Phase 1: Classify a single record using similarity matching.
-   * Inserts matched JEs and tax entries immediately.
    * Returns unmatched items for AI fallback.
    */
   private classifyRecord(recordId: string): UnclassifiedItem[] {
@@ -141,18 +143,17 @@ export class JEGenerator {
     for (const item of lineItems) {
       if (!item.mo_ta) continue;
 
-      // Check if user already has a manually edited JE for this line item
+      // Skip if user already has a manually edited JE for this line item
       const existingUserEdited = db.prepare(
         "SELECT id FROM journal_entries WHERE line_item_id = ? AND user_edited = 1"
       ).get(item.id);
-      if (existingUserEdited) continue; // Skip — preserved by deleteJournalEntriesByRecord
+      if (existingUserEdited) continue;
 
       const match = this.similarityEngine.findMatch(item.mo_ta);
       if (match) {
         insertJournalEntry(
           record.id, item.id, 'line',
-          match.tkNo, match.tkCo,
-          item.thanh_tien_truoc_thue ?? item.thanh_tien,
+          match.account,
           match.cashFlow as any ?? 'operating',
           'similarity', match.score, match.matchedDescription,
         );
@@ -169,22 +170,6 @@ export class JEGenerator {
           thanhTienTruocThue: item.thanh_tien_truoc_thue ?? undefined,
         });
       }
-
-      // Tax entry for items with tax rate
-      if (item.thue_suat != null && item.thue_suat > 0) {
-        const taxAmount = this.computeTaxAmount(item);
-        if (taxAmount > 0) {
-          const isInput = record.doc_type === DocType.InvoiceIn;
-          insertJournalEntry(
-            record.id, item.id, 'tax',
-            isInput ? '1331' : '3331',
-            isInput ? '331' : '33311',
-            taxAmount,
-            'operating',
-            'similarity', null, null,
-          );
-        }
-      }
     }
 
     return unmatched;
@@ -195,7 +180,6 @@ export class JEGenerator {
     const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(record.id) as BankStatementData | undefined;
     if (!bankData || !bankData.mo_ta) return [];
 
-    // Check for existing user-edited JE
     const existingUserEdited = db.prepare(
       "SELECT id FROM journal_entries WHERE record_id = ? AND line_item_id IS NULL AND entry_type = 'bank' AND user_edited = 1"
     ).get(record.id);
@@ -205,8 +189,7 @@ export class JEGenerator {
     if (match) {
       insertJournalEntry(
         record.id, null, 'bank',
-        match.tkNo, match.tkCo,
-        bankData.so_tien,
+        match.account,
         match.cashFlow as any ?? 'operating',
         'similarity', match.score, match.matchedDescription,
       );
@@ -234,30 +217,57 @@ export class JEGenerator {
       const classification = results.get(item.id);
       if (!classification) continue;
 
-      // Determine if this is a line item or bank record
       const isBank = item.docType === DocType.BankStatement;
       const entryType = isBank ? 'bank' : 'line';
       const lineItemId = isBank ? null : item.id;
 
       insertJournalEntry(
         item.recordId, lineItemId, entryType,
-        classification.tkNo, classification.tkCo,
-        item.thanhTienTruocThue ?? item.thanhTien ?? null,
+        classification.account,
         classification.cashFlow ?? 'operating',
         'ai', null, null,
       );
     }
   }
 
-  private computeTaxAmount(item: InvoiceLineItem): number {
-    const beforeTax = item.thanh_tien_truoc_thue;
-    const afterTax = item.thanh_tien;
-    if (beforeTax != null && afterTax != null) {
-      return afterTax - beforeTax;
+  /**
+   * Auto-generate tax and settlement entries for invoice records.
+   * Skips if user-edited entries already exist.
+   */
+  private generateAutoEntries(recordId: string): void {
+    const db = getDatabase();
+    const record = db.prepare('SELECT * FROM records WHERE id = ? AND deleted_at IS NULL').get(recordId) as DbRecord | undefined;
+    if (!record) return;
+
+    const isInvoice = record.doc_type === DocType.InvoiceIn || record.doc_type === DocType.InvoiceOut;
+    if (!isInvoice) return;
+
+    const lineItems = getLineItemsByRecord(recordId);
+    if (lineItems.length === 0) return;
+
+    // Tax entry — combined across all taxable line items
+    const existingTax = findExistingEntry(recordId, null, 'tax');
+    if (!existingTax || !existingTax.user_edited) {
+      const hasTaxableItems = lineItems.some(li => li.thue_suat != null && li.thue_suat > 0);
+      if (hasTaxableItems) {
+        // Delete stale auto tax entry if exists
+        if (existingTax) {
+          db.prepare('DELETE FROM journal_entries WHERE id = ?').run(existingTax.id);
+        }
+        const taxAccount = getDefaultAccount(record.doc_type as DocType, 'tax');
+        insertJournalEntry(recordId, null, 'tax', taxAccount, 'operating', 'auto', null, null);
+      }
     }
-    if (beforeTax != null && item.thue_suat != null) {
-      return beforeTax * (item.thue_suat / 100);
+
+    // Settlement entry — total including tax
+    const existingSettlement = findExistingEntry(recordId, null, 'settlement');
+    if (!existingSettlement || !existingSettlement.user_edited) {
+      // Delete stale auto settlement entry if exists
+      if (existingSettlement) {
+        db.prepare('DELETE FROM journal_entries WHERE id = ?').run(existingSettlement.id);
+      }
+      const settlementAccount = getDefaultAccount(record.doc_type as DocType, 'settlement');
+      insertJournalEntry(recordId, null, 'settlement', settlementAccount, 'operating', 'auto', null, null);
     }
-    return 0;
   }
 }

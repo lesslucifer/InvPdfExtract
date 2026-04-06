@@ -41,8 +41,8 @@ export interface OverlayCallbacks {
   getVaultRoot: () => string | null;
 }
 
-const OVERLAY_WIDTH = 700;
-const OVERLAY_MAX_HEIGHT = 500;
+const OVERLAY_WIDTH = 860;
+const OVERLAY_MAX_HEIGHT = 560;
 
 export class OverlayWindow {
   private window: BrowserWindow | null = null;
@@ -736,7 +736,7 @@ export class OverlayWindow {
       try {
         const existing = findExistingEntry(input.recordId, input.lineItemId ?? null, input.entryType);
         if (existing) {
-          updateJournalEntry(existing.id, input.tkNo, input.tkCo, input.amount ?? null, input.cashFlow ?? null);
+          updateJournalEntry(existing.id, input.account, input.cashFlow ?? null);
           const db = getDatabase();
           const updated = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(existing.id);
           eventBus.emit('je:updated', { recordId: input.recordId });
@@ -744,7 +744,7 @@ export class OverlayWindow {
         }
         const entry = insertJournalEntry(
           input.recordId, input.lineItemId ?? null, input.entryType,
-          input.tkNo, input.tkCo, input.amount ?? null, input.cashFlow ?? null,
+          input.account, input.cashFlow ?? null,
           'user', null, null,
         );
         eventBus.emit('je:updated', { recordId: input.recordId });

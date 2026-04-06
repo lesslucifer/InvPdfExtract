@@ -25,43 +25,50 @@ export function writeDefaultInstructions(vaultRoot: string): void {
   fs.writeFileSync(p, DEFAULT_JE_INSTRUCTIONS, 'utf-8');
 }
 
-const DEFAULT_JE_INSTRUCTIONS = `HUONG DAN PHAN LOAI BUT TOAN (Journal Entry Instructions)
-==========================================================
+const DEFAULT_JE_INSTRUCTIONS = `HUONG DAN PHAN LOAI TAI KHOAN (Account Classification Instructions)
+=====================================================================
 
-Day la huong dan cho AI phan loai but toan No/Co cho cac dong
-hoa don va sao ke ngan hang. Ban co the chinh sua file nay de
-thay doi cach AI phan loai.
-
-
-QUY TAC CHUNG
--------------
-- Hoa don dau vao (mua hang): No TK 156 (hang hoa) / Co TK 331 (phai tra NCC)
-- Hoa don dau ra (ban hang): No TK 131 (phai thu KH) / Co TK 511 (doanh thu)
-- Thue GTGT dau vao: No TK 1331 / Co TK 331
-- Thue GTGT dau ra: No TK 3331 / Co TK 33311
-- Sao ke ngan hang thu: No TK 112 / Co TK 131
-- Sao ke ngan hang chi: No TK 331 / Co TK 112
+Day la huong dan cho AI phan loai tai khoan cho cac dong hoa don
+va sao ke ngan hang. Moi dong chi can 1 tai khoan duy nhat — tai
+khoan chi phi/tai san (dau vao) hoac doanh thu (dau ra). Tai
+khoan thue va doi ung (331, 131) duoc tu dong tao boi he thong.
 
 
-PHAN LOAI THEO MO TA
----------------------
-Mo ta chua "dich vu tu van" hoac "tu van":
-  No TK 642 (chi phi quan ly) / Co TK 331
+PHAN LOAI TAI KHOAN DAU VAO (invoice_in)
+-----------------------------------------
+Moi dong hoa don dau vao can tai khoan NO (debit):
+  - Hang hoa: TK 156
+  - Nguyen vat lieu: TK 152
+  - Chi phi dich vu tu van: TK 642
+  - Van phong pham (VPP): TK 6422
+  - Dien, nuoc: TK 6427 (dich vu mua ngoai)
+  - Van chuyen, cuoc phi: TK 641 (chi phi ban hang)
+  - Thue nha, mat bang: TK 6427
+  - Tai san co dinh: TK 211
 
-Mo ta chua "van phong pham" hoac "VPP":
-  No TK 6422 (chi phi quan ly - VPP) / Co TK 331
+He thong se tu dong tao:
+  - But toan thue: No TK 1331 (tong thue cac dong)
+  - But toan doi ung: Co TK 331 (tong tien bao gom thue)
 
-Mo ta chua "dien", "tien dien":
-  No TK 6427 (chi phi dich vu mua ngoai) / Co TK 331
 
-Mo ta chua "nuoc", "tien nuoc":
-  No TK 6427 (chi phi dich vu mua ngoai) / Co TK 331
+PHAN LOAI TAI KHOAN DAU RA (invoice_out)
+-----------------------------------------
+Moi dong hoa don dau ra can tai khoan CO (credit):
+  - Doanh thu ban hang: TK 511
+  - Doanh thu tai chinh: TK 515
+  - Doanh thu khac: TK 711
 
-Mo ta chua "van chuyen", "cuoc phi":
-  No TK 641 (chi phi ban hang) / Co TK 331
+He thong se tu dong tao:
+  - But toan thue: Co TK 3331 (tong thue cac dong)
+  - But toan doi ung: No TK 131 (tong tien bao gom thue)
 
-Mo ta chua "thue nha", "mat bang":
-  No TK 6427 (chi phi dich vu mua ngoai) / Co TK 331
+
+PHAN LOAI SAO KE NGAN HANG
+----------------------------
+  - Thanh toan NCC: TK 331
+  - Thu tien KH: TK 131
+  - Tra luong: TK 334
+  - Nop thue: TK 3331
 
 
 PHAN LOAI DONG TIEN
@@ -82,8 +89,7 @@ Hoat dong tai chinh (financing):
 
 GHI CHU
 -------
-- Tai khoan theo he thong tai khoan Viet Nam (Thong tu 200/2014)
-- Neu khong chac chan, su dung TK 331 cho Co va TK 156 cho No
-- Cac dong co thue_suat > 0 can tach rieng but toan thue
+- Tai khoan theo he thong Thong tu 200/2014
+- Neu khong chac chan, su dung TK 156 (dau vao) hoac TK 511 (dau ra)
 - Phan loai dong tien mac dinh la "operating" neu khong ro
 `;

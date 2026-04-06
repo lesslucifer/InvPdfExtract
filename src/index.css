@@ -304,6 +304,9 @@ body {
 }
 
 .line-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-weight: 600;
   font-size: 12px;
   margin-bottom: 4px;
@@ -2163,25 +2166,6 @@ tr.line-item-mismatch {
 
 /* === Journal Entries === */
 
-.journal-entries {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.je-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.je-title {
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
 .je-generate-btn {
   background: var(--accent);
   color: #fff;
@@ -2202,105 +2186,77 @@ tr.line-item-mismatch {
   cursor: default;
 }
 
-.je-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-
-.je-table th {
-  text-align: left;
-  padding: 4px 6px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
-}
-
-.je-table td {
-  padding: 3px 6px;
-  border-bottom: 1px solid var(--border);
-}
-
-.je-table tr:last-child td {
-  border-bottom: none;
-}
-
-.je-row:hover {
-  background: var(--bg-hover);
-}
-
-.je-type {
-  color: var(--text-muted);
+.je-generate-btn-inline {
+  margin-left: 8px;
+  padding: 1px 6px;
   font-size: 10px;
 }
 
-.je-editable {
+.je-cell {
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+
+.je-cell-empty {
+  color: var(--text-muted);
+}
+
+.je-cell-display {
   cursor: pointer;
   padding: 1px 4px;
   border-radius: 3px;
   transition: background 0.1s;
 }
 
-.je-editable:hover {
-  background: var(--bg-secondary);
+.je-cell-display:hover {
+  background: var(--bg-hover);
 }
 
-.je-amount {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.je-cell-input {
+  width: 60px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+  padding: 1px 4px;
+  font-family: inherit;
+  outline: none;
 }
 
-.je-cashflow {
-  font-size: 10px;
+/* Tax / settlement summary below line items table */
+.je-summary {
+  margin-top: 6px;
+  padding: 4px 0;
+}
+
+.je-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.je-summary-label {
+  min-width: 80px;
   color: var(--text-secondary);
 }
 
-.je-source-badge {
-  display: inline-block;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 500;
+.je-summary-account {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
 }
 
-.je-badge-similarity {
-  background: rgba(52, 199, 89, 0.2);
-  color: var(--confidence-high);
+.je-summary-account .je-cell {
+  display: inline;
+  padding: 0;
 }
 
-.je-badge-ai {
-  background: rgba(10, 132, 255, 0.2);
-  color: var(--accent);
-}
-
-.je-badge-user {
-  background: rgba(175, 82, 222, 0.2);
-  color: #af52de;
-}
-
-.je-delete-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 4px;
-  transition: color 0.1s;
-}
-
-.je-delete-btn:hover {
-  color: var(--confidence-low);
-}
-
-.je-source-similarity {
-  border-left: 2px solid var(--confidence-high);
-}
-
-.je-source-ai {
-  border-left: 2px solid var(--accent);
-}
-
-.je-source-user {
-  border-left: 2px solid #af52de;
+.je-summary-amount {
+  color: var(--text);
+  margin-left: auto;
 }
 

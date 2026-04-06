@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo, JournalEntry } from '../shared/types';
 import { EditableField } from './EditableField';
 import { EditableCell } from './EditableCell';
+import { JeCell } from './JeCell';
+import { formatCurrency } from '../shared/format';
 import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
 
 interface Props {
@@ -22,7 +24,7 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
 
-  // Sync local totals when result prop changes (e.g. different record selected)
+  // Sync local totals when result prop changes
   useEffect(() => {
     setLocalTotals({
       tong_tien: result.tong_tien,
@@ -66,7 +68,6 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
       fieldName,
       userValue,
     });
-    // Update local totals so the display refreshes immediately
     if (fieldName === 'tong_tien' || fieldName === 'tong_tien_truoc_thue') {
       const numVal = parseFloat(userValue) || 0;
       setLocalTotals(prev => ({ ...prev, [fieldName]: numVal }));
@@ -148,31 +149,54 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
     }
   };
 
-  const handleSaveJE = async (jeId: string, field: 'tk_no' | 'tk_co' | 'cash_flow', value: string) => {
-    const je = journalEntries.find(e => e.id === jeId);
-    if (!je) return;
+  // Lookup: line_item_id → JournalEntry (only 'line' entries)
+  const jeByLineItem = useMemo(() => {
+    const map = new Map<string, JournalEntry>();
+    for (const je of journalEntries) {
+      if (je.entry_type === 'line' && je.line_item_id) {
+        map.set(je.line_item_id, je);
+      }
+    }
+    return map;
+  }, [journalEntries]);
+
+  // Tax JE: single combined entry per invoice
+  const taxJe = useMemo(
+    () => journalEntries.find(je => je.entry_type === 'tax') ?? null,
+    [journalEntries],
+  );
+
+  // Settlement JE: single entry per invoice
+  const settlementJe = useMemo(
+    () => journalEntries.find(je => je.entry_type === 'settlement') ?? null,
+    [journalEntries],
+  );
+
+  // Bank JE: the single 'bank' entry for this record
+  const bankJe = useMemo(
+    () => journalEntries.find(je => je.entry_type === 'bank') ?? null,
+    [journalEntries],
+  );
+
+  // Derived amounts for tax and settlement (computed from line items / invoice data)
+  const derivedTaxAmount = useMemo(() => {
+    return lineItems
+      .filter(li => li.thue_suat != null && li.thue_suat > 0)
+      .reduce((sum, li) => {
+        const before = li.thanh_tien_truoc_thue ?? 0;
+        const after = li.thanh_tien ?? 0;
+        return sum + (after - before);
+      }, 0);
+  }, [lineItems]);
+
+  const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank', lineItemId: string | null, account: string) => {
     await window.api.saveJournalEntry({
-      recordId: je.record_id,
-      lineItemId: je.line_item_id ?? undefined,
-      entryType: je.entry_type,
-      tkNo: field === 'tk_no' ? value : (je.tk_no ?? ''),
-      tkCo: field === 'tk_co' ? value : (je.tk_co ?? ''),
-      amount: je.amount ?? undefined,
-      cashFlow: field === 'cash_flow' ? value as any : (je.cash_flow ?? undefined),
+      recordId: result.id,
+      lineItemId: lineItemId ?? undefined,
+      entryType,
+      account,
     });
     loadJournalEntries();
-  };
-
-  const handleDeleteJE = async (id: string) => {
-    await window.api.deleteJournalEntry(id);
-    loadJournalEntries();
-  };
-
-  const formatSourceBadge = (je: JournalEntry) => {
-    if (je.source === 'similarity' && je.similarity_score != null) {
-      return `~${Math.round(je.similarity_score * 100)}%`;
-    }
-    return je.source;
   };
 
   return (
@@ -186,16 +210,27 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
       )}
 
       {isBank && (
-        <table className="detail-table">
-          <tbody>
-            <EditableField label="Bank" value={result.ten_ngan_hang || ''} fieldName="ten_ngan_hang" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_ngan_hang')} onSave={(v) => handleSave('bank_statement_data', 'ten_ngan_hang', v)} onResolve={(a) => handleResolve('ten_ngan_hang', a)} />
-            <EditableField label="Account" value={result.stk || ''} fieldName="stk" tableName="bank_statement_data" recordId={result.id} override={getOverride('stk')} onSave={(v) => handleSave('bank_statement_data', 'stk', v)} onResolve={(a) => handleResolve('stk', a)} />
-            <EditableField label="Amount" value={String(result.so_tien || '')} fieldName="so_tien" tableName="bank_statement_data" recordId={result.id} override={getOverride('so_tien')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'so_tien', v)} onResolve={(a) => handleResolve('so_tien', a)} />
-            <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('bank_statement_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
-            <EditableField label="Description" value={result.mo_ta || ''} fieldName="mo_ta" tableName="bank_statement_data" recordId={result.id} override={getOverride('mo_ta')} onSave={(v) => handleSave('bank_statement_data', 'mo_ta', v)} onResolve={(a) => handleResolve('mo_ta', a)} />
-            <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
-          </tbody>
-        </table>
+        <>
+          <table className="detail-table">
+            <tbody>
+              <EditableField label="Bank" value={result.ten_ngan_hang || ''} fieldName="ten_ngan_hang" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_ngan_hang')} onSave={(v) => handleSave('bank_statement_data', 'ten_ngan_hang', v)} onResolve={(a) => handleResolve('ten_ngan_hang', a)} />
+              <EditableField label="Account" value={result.stk || ''} fieldName="stk" tableName="bank_statement_data" recordId={result.id} override={getOverride('stk')} onSave={(v) => handleSave('bank_statement_data', 'stk', v)} onResolve={(a) => handleResolve('stk', a)} />
+              <EditableField label="Amount" value={String(result.so_tien || '')} fieldName="so_tien" tableName="bank_statement_data" recordId={result.id} override={getOverride('so_tien')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'so_tien', v)} onResolve={(a) => handleResolve('so_tien', a)} />
+              <EditableField label="Counterparty" value={result.ten_doi_tac || ''} fieldName="ten_doi_tac" tableName="bank_statement_data" recordId={result.id} override={getOverride('ten_doi_tac')} onSave={(v) => handleSave('bank_statement_data', 'ten_doi_tac', v)} onResolve={(a) => handleResolve('ten_doi_tac', a)} />
+              <EditableField label="Description" value={result.mo_ta || ''} fieldName="mo_ta" tableName="bank_statement_data" recordId={result.id} override={getOverride('mo_ta')} onSave={(v) => handleSave('bank_statement_data', 'mo_ta', v)} onResolve={(a) => handleResolve('mo_ta', a)} />
+              <tr><td className="detail-label">Date</td><td>{result.ngay || '-'}</td></tr>
+              <tr>
+                <td className="detail-label">
+                  TK
+                  <button className="je-generate-btn je-generate-btn-inline" disabled={jeLoading} onClick={handleGenerateJE}>
+                    {jeLoading ? '...' : 'Phan loai'}
+                  </button>
+                </td>
+                <JeCell account={bankJe?.account ?? null} onSave={(account) => handleSaveJeAccount('bank', null, account)} />
+              </tr>
+            </tbody>
+          </table>
+        </>
       )}
 
       {isInvoice && (
@@ -214,7 +249,12 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
 
           {lineItems.length > 0 && (
             <div className="line-items">
-              <div className="line-items-header">Line Items</div>
+              <div className="line-items-header">
+                <span>Line Items</span>
+                <button className="je-generate-btn" disabled={jeLoading} onClick={handleGenerateJE}>
+                  {jeLoading ? 'Dang xu ly...' : 'Phan loai'}
+                </button>
+              </div>
               <table className="line-items-table">
                 <thead>
                   <tr>
@@ -225,6 +265,7 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
                     <th className={hasColumnIssues.beforeTax ? 'th-fixable' : ''} onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('thanh_tien_truoc_thue'); }} title={hasColumnIssues.beforeTax ? '\u2318+click to fix column' : undefined}>Before tax{hasColumnIssues.beforeTax && <span className="th-fix-hint">!</span>}</th>
                     <th>Tax %</th>
                     <th className={hasColumnIssues.afterTax ? 'th-fixable' : ''} onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('thanh_tien'); }} title={hasColumnIssues.afterTax ? '\u2318+click to fix column' : undefined}>After tax{hasColumnIssues.afterTax && <span className="th-fix-hint">!</span>}</th>
+                    <th>TK</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -233,6 +274,7 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
                     const taxMismatch = computeTaxRateMismatch(item);
                     const afterTaxMismatch = computeAfterTaxMismatch(item);
                     const hasRowIssue = itemMismatch.hasMismatch || taxMismatch.hasMismatch || afterTaxMismatch.hasMismatch;
+                    const je = jeByLineItem.get(item.id) ?? null;
                     return (
                     <tr key={item.id} className={hasRowIssue ? 'line-item-mismatch' : ''}>
                       <td>{item.line_number}</td>
@@ -242,63 +284,34 @@ export const ResultDetail: React.FC<Props> = ({ result, onFieldUpdated }) => {
                       <EditableCell value={String(item.thanh_tien_truoc_thue ?? '')} fieldName="thanh_tien_truoc_thue" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien_truoc_thue')} inputType="number" derivedValue={deriveFieldValue('thanh_tien_truoc_thue', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                       <EditableCell value={item.thue_suat != null ? String(item.thue_suat) : ''} fieldName="thue_suat" lineItemId={item.id} override={getLineItemOverride(item.id, 'thue_suat')} inputType="number" derivedValue={deriveFieldValue('thue_suat', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                       <EditableCell value={String(item.thanh_tien ?? '')} fieldName="thanh_tien" lineItemId={item.id} override={getLineItemOverride(item.id, 'thanh_tien')} inputType="number" derivedValue={deriveFieldValue('thanh_tien', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                      <JeCell account={je?.account ?? null} onSave={(account) => handleSaveJeAccount('line', item.id, account)} />
                     </tr>
                     );
                   })}
                 </tbody>
               </table>
+
+              {/* Tax and settlement summary rows */}
+              <div className="je-summary">
+                <div className="je-summary-row">
+                  <span className="je-summary-label">Thue GTGT</span>
+                  <span className="je-summary-account">
+                    TK <JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
+                  </span>
+                  <span className="je-summary-amount">{derivedTaxAmount > 0 ? formatCurrency(derivedTaxAmount) : '–'}</span>
+                </div>
+                <div className="je-summary-row">
+                  <span className="je-summary-label">Thanh toan</span>
+                  <span className="je-summary-account">
+                    TK <JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
+                  </span>
+                  <span className="je-summary-amount">{localTotals.tong_tien ? formatCurrency(localTotals.tong_tien) : '–'}</span>
+                </div>
+              </div>
             </div>
           )}
         </>
       )}
-
-      {/* Journal Entries — shown for all doc types */}
-      <div className="journal-entries">
-        <div className="je-header">
-          <span className="je-title">But toan No/Co</span>
-          <button
-            className="je-generate-btn"
-            disabled={jeLoading}
-            onClick={handleGenerateJE}
-          >
-            {jeLoading ? 'Dang xu ly...' : 'Phan loai'}
-          </button>
-        </div>
-        {journalEntries.length > 0 && (
-          <table className="je-table">
-            <thead>
-              <tr>
-                <th>Loai</th>
-                <th>TK No</th>
-                <th>TK Co</th>
-                <th>So tien</th>
-                <th>D.tien</th>
-                <th>Nguon</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {journalEntries.map((je) => (
-                <tr key={je.id} className={`je-row je-source-${je.source}`}>
-                  <td className="je-type">{je.entry_type}</td>
-                  <td className="je-editable" onClick={() => {
-                    const val = prompt('TK No:', je.tk_no ?? '');
-                    if (val != null) handleSaveJE(je.id, 'tk_no', val);
-                  }}>{je.tk_no ?? '-'}</td>
-                  <td className="je-editable" onClick={() => {
-                    const val = prompt('TK Co:', je.tk_co ?? '');
-                    if (val != null) handleSaveJE(je.id, 'tk_co', val);
-                  }}>{je.tk_co ?? '-'}</td>
-                  <td className="je-amount">{je.amount != null ? je.amount.toLocaleString() : '-'}</td>
-                  <td className="je-cashflow">{je.cash_flow ?? '-'}</td>
-                  <td><span className={`je-source-badge je-badge-${je.source}`}>{formatSourceBadge(je)}</span></td>
-                  <td><button className="je-delete-btn" onClick={() => handleDeleteJE(je.id)}>&times;</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
 
     </div>
   );

@@ -16,21 +16,26 @@ export interface UnclassifiedItem {
 
 const SYSTEM_PROMPT_SUFFIX = `
 
-You are an accounting assistant classifying Vietnamese invoice line items into journal entries (but toan No/Co).
+You are an accounting assistant classifying Vietnamese invoice line items into journal entry accounts.
+
+Each item needs a SINGLE account code — this is the expense/asset/revenue account, NOT the counterparty.
+- For purchase invoices (invoice_in): this is the DEBIT account (e.g. "156" for goods, "642" for admin expenses)
+- For sales invoices (invoice_out): this is the CREDIT account (e.g. "511" for revenue, "512" for financial revenue)
+- For bank transactions: this is the counterparty account (e.g. "331" for payable, "131" for receivable)
+
+Tax and settlement accounts are handled automatically — do NOT include them.
 
 For each item, determine:
-- tk_no: Debit account code (e.g. "156", "642", "1331")
-- tk_co: Credit account code (e.g. "331", "511", "33311")
+- account: The account code (string)
 - cash_flow: One of "operating", "investing", or "financing"
 
 Return ONLY a valid JSON array. Each element must have:
 - "id": the item ID (provided in the input)
-- "tk_no": string
-- "tk_co": string
+- "account": string
 - "cash_flow": string
 
 Example output:
-[{"id":"abc-123","tk_no":"156","tk_co":"331","cash_flow":"operating"}]
+[{"id":"abc-123","account":"156","cash_flow":"operating"}]
 `;
 
 export async function classifyWithAI(
@@ -55,8 +60,9 @@ export async function classifyWithAI(
     return parts.join(' ');
   });
 
-  const userPrompt = `Classify these ${items.length} accounting items into journal entries (but toan No/Co).
-For each item, provide tk_no (debit account), tk_co (credit account), and cash_flow classification.
+  const userPrompt = `Classify these ${items.length} accounting items. For each, provide:
+- account: the single account code (expense/asset/revenue — NOT counterparty or tax)
+- cash_flow: operating/investing/financing
 
 Items:
 ${itemLines.join('\n')}
@@ -71,18 +77,15 @@ Return a JSON array with one entry per item.`;
     const arr = Array.isArray(parsed) ? parsed : parsed.results ?? parsed.entries ?? [];
 
     for (const entry of arr) {
-      if (!entry.id || !entry.tk_no || !entry.tk_co) continue;
+      if (!entry.id || !entry.account) continue;
       results.set(entry.id, {
         lineItemId: entry.id,
-        entryType: 'line',
-        tkNo: String(entry.tk_no),
-        tkCo: String(entry.tk_co),
+        account: String(entry.account),
         cashFlow: entry.cash_flow || 'operating',
       });
     }
   } catch (err) {
     console.error('[JEAIClassifier] Classification failed:', err);
-    // Return empty results — caller will leave items unclassified
   }
 
   return results;
@@ -90,18 +93,15 @@ Return a JSON array with one entry per item.`;
 
 /**
  * Extract and parse JSON from an AI response that may contain markdown fences,
- * prose, or other wrapping. Handles both `[...]` arrays and `{...}` objects.
+ * prose, or other wrapping.
  */
 function parseJEResponse(raw: string): any {
-  // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
   let cleaned = raw.replace(/^```\w*\n?/gm, '').replace(/\n?```$/gm, '').trim();
 
-  // Step 2: Try direct parse first (works if response is clean JSON)
   try {
     return JSON.parse(cleaned);
   } catch { /* fall through */ }
 
-  // Step 3: Find the first balanced [...] or {...} using bracket counting
   const jsonStr = extractBalancedJSON(cleaned);
   if (jsonStr) {
     try {
@@ -109,7 +109,6 @@ function parseJEResponse(raw: string): any {
     } catch { /* fall through */ }
   }
 
-  // Step 4: Last resort — aggressive extraction between first [ and last ]
   const firstBracket = cleaned.indexOf('[');
   const lastBracket = cleaned.lastIndexOf(']');
   if (firstBracket !== -1 && lastBracket > firstBracket) {
@@ -121,10 +120,6 @@ function parseJEResponse(raw: string): any {
   throw new SyntaxError(`Could not extract valid JSON from AI response: ${raw.substring(0, 200)}...`);
 }
 
-/**
- * Bracket-counting JSON extractor that handles both arrays and objects.
- * Finds the first balanced [...] or {...} in the string.
- */
 function extractBalancedJSON(raw: string): string | null {
   for (let start = 0; start < raw.length; start++) {
     const ch = raw[start];

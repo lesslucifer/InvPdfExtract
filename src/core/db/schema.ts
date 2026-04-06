@@ -174,18 +174,16 @@ export const MIGRATIONS: string[] = [
   );
   `,
 
-  // Migration 007: Journal entries (but toan No/Co)
+  // Migration 007: Journal entries — single-sided double entry
   `
   CREATE TABLE IF NOT EXISTS journal_entries (
     id TEXT PRIMARY KEY,
     record_id TEXT NOT NULL REFERENCES records(id),
     line_item_id TEXT REFERENCES invoice_line_items(id),
     entry_type TEXT NOT NULL DEFAULT 'line',
-    tk_no TEXT,
-    tk_co TEXT,
-    amount REAL,
+    account TEXT,
     cash_flow TEXT,
-    source TEXT NOT NULL DEFAULT 'ai',
+    source TEXT NOT NULL DEFAULT 'auto',
     similarity_score REAL,
     matched_description TEXT,
     user_edited INTEGER NOT NULL DEFAULT 0,
@@ -195,7 +193,5 @@ export const MIGRATIONS: string[] = [
 
   CREATE INDEX IF NOT EXISTS idx_je_record_id ON journal_entries(record_id);
   CREATE INDEX IF NOT EXISTS idx_je_line_item_id ON journal_entries(line_item_id);
-  CREATE INDEX IF NOT EXISTS idx_je_source ON journal_entries(source);
-  CREATE INDEX IF NOT EXISTS idx_je_created_at ON journal_entries(created_at);
   `,
 ];

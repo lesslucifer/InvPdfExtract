@@ -413,8 +413,8 @@ export interface PresetFilters {
 
 // === Journal Entry Types ===
 
-export type JEEntryType = 'line' | 'tax' | 'total' | 'bank';
-export type JESource = 'similarity' | 'ai' | 'user';
+export type JEEntryType = 'line' | 'tax' | 'settlement' | 'bank';
+export type JESource = 'similarity' | 'ai' | 'user' | 'auto';
 export type CashFlowType = 'operating' | 'investing' | 'financing';
 
 export interface JournalEntry {
@@ -422,9 +422,7 @@ export interface JournalEntry {
   record_id: string;
   line_item_id: string | null;
   entry_type: JEEntryType;
-  tk_no: string | null;
-  tk_co: string | null;
-  amount: number | null;
+  account: string | null;
   cash_flow: CashFlowType | null;
   source: JESource;
   similarity_score: number | null;
@@ -438,17 +436,13 @@ export interface JournalEntryInput {
   recordId: string;
   lineItemId?: string;
   entryType: JEEntryType;
-  tkNo: string;
-  tkCo: string;
-  amount?: number;
+  account: string;
   cashFlow?: CashFlowType;
 }
 
 export interface JEClassificationResult {
   lineItemId?: string;
-  entryType: JEEntryType;
-  tkNo: string;
-  tkCo: string;
+  account: string;
   cashFlow?: CashFlowType;
 }
 
