@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import Database from 'better-sqlite3';
+import { getAppRoot } from '../app-paths';
 
 /**
  * Resolves the path to the correct better-sqlite3 native prebuilt depending
@@ -33,20 +34,16 @@ function resolveBinding(): string {
         if (fs.existsSync(candidate)) return candidate;
       }
     } catch {
-      // Not in main process (e.g. preload) — fall through to walk-up
+      // Not in main process (e.g. preload) — fall through
     }
   }
 
-  // Dev mode / Vitest: walk up from __dirname until we find node_modules/better-sqlite3
-  let dir = __dirname;
-  for (let i = 0; i < 10; i++) {
-    const candidate = path.join(dir, relPath);
-    if (fs.existsSync(candidate)) return candidate;
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  throw new Error(`better-sqlite3 prebuilds not found (started from ${__dirname})`);
+  // Dev mode / Vitest: resolve from project root
+  const root = getAppRoot();
+  const candidate = path.join(root, relPath);
+  if (fs.existsSync(candidate)) return candidate;
+
+  throw new Error(`better-sqlite3 prebuilds not found (looked in ${path.join(root, 'node_modules')})`);
 }
 
 export function openSqlite(filePath: string, options?: Database.Options): Database.Database {

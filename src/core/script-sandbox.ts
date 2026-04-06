@@ -1,30 +1,7 @@
 import { fork } from 'child_process';
-import * as fs from 'fs';
 import * as path from 'path';
 import { ExtractionFileResult } from '../shared/types';
-
-let _defaultModulePaths: string[] | null = null;
-
-function getDefaultModulePaths(): string[] {
-  if (_defaultModulePaths !== null) return _defaultModulePaths;
-
-  // Walk up from __dirname to find node_modules.
-  // Works in dev (src/core/ or .webpack/main/) and packaged Electron.
-  let dir = __dirname;
-  for (let i = 0; i < 10; i++) {
-    const candidate = path.join(dir, 'node_modules');
-    if (fs.existsSync(candidate)) {
-      _defaultModulePaths = [candidate];
-      return _defaultModulePaths;
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-
-  _defaultModulePaths = [];
-  return _defaultModulePaths;
-}
+import { findNodeModules } from './app-paths';
 
 export interface ExecuteScriptOptions {
   timeoutMs?: number;
@@ -45,7 +22,7 @@ export function executeScript(
   const timeoutMs = options.timeoutMs ?? 30000;
 
   return new Promise((resolve, reject) => {
-    const modulePaths = options.modulePaths ?? getDefaultModulePaths();
+    const modulePaths = options.modulePaths ?? findNodeModules();
     const env = modulePaths.length > 0
       ? { ...process.env, NODE_PATH: modulePaths.join(path.delimiter) }
       : process.env;

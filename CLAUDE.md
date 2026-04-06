@@ -84,6 +84,17 @@ Phases 2+3 can run in parallel. MVP = Phases 0-4.
 - Run tests: `pnpm test`
 - **Always write tests for UX changes.** When implementing UI/overlay features (state transitions, IPC handlers, component logic), include corresponding tests. Extract testable logic into pure functions when React components can't be rendered in the node test environment.
 
+## Path Resolution — DO NOT use `__dirname` in bundled code
+
+Webpack replaces `__dirname` with `"/"` in the bundled output. This means any code in `src/` that uses `__dirname` will get the wrong path at runtime in packaged builds.
+
+**Rules:**
+- **NEVER** use `__dirname` or `__filename` in any `src/` file that gets bundled by webpack (main process or renderer).
+- Use `getAppRoot()` or `findNodeModules()` from `src/core/app-paths.ts` instead. These resolve correctly in dev, Vitest, and packaged Electron.
+- For packaged native bindings, use `process.resourcesPath` (Electron provides this).
+- `__dirname` is **fine** in files that are NOT webpack-bundled: `forge.config.ts`, `webpack.*.ts`, `scripts/`, `e2e/`, and test files (`*.test.ts`) that run under Vitest/Node directly.
+- The `__dirname` usage in `matcher-evaluator.ts` is intentional — it sets `__dirname` inside a VM sandbox for user-authored matcher scripts, not for the app's own path resolution.
+
 ## SQLite Schema
 
 The database (`vault.db` in `.invoicevault/`) uses these core tables: `files`, `extraction_batches`, `records`, `bank_statement_data`, `invoice_data`, `invoice_line_items`, `extraction_scripts`, `file_script_assignments`, `field_overrides`, `processing_logs`. Full schema definitions are in PRD Section 9. All deletions are soft deletes (`deleted_at` column). FTS5 is used for search.
