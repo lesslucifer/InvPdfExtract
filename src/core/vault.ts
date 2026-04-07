@@ -167,6 +167,11 @@ Line item fields (chi tiết):
 
 **Fingerprint:** SHA-256 of: normalize(invoice_number) + "|" + normalize(tax_id) + "|" + normalize(doc_date)
 
+## Irrelevant Documents
+
+If a file is clearly NOT an accounting document (e.g. CV, report, image, code file, bug report), do NOT return an error string. Instead return:
+{"relative_path":"...","doc_type":"unknown","records":[],"skipped":true,"skip_reason":"<one-line reason>"}
+
 ## Output Format
 
 Return ONLY raw JSON, no markdown fences, no extra text:

@@ -249,6 +249,8 @@ export interface ExtractionFileResult {
   doc_type: DocType;
   records: ExtractionRecord[];
   error?: string;
+  skipped?: boolean;
+  skip_reason?: string;
 }
 
 export interface ExtractionRecord {

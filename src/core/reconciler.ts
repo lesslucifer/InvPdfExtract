@@ -11,7 +11,7 @@ import {
   getLineItemsByRecord, updateLineItem,
   updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict,
 } from './db/records';
-import { getFileByPath, updateFileStatus, updateFileDocType } from './db/files';
+import { getFileByPath, updateFileStatus, updateFileDocType, updateFileFilterResult } from './db/files';
 import { getDatabase } from './db/database';
 import { eventBus } from './event-bus';
 import { FileStatus } from '../shared/types';
@@ -45,6 +45,14 @@ export class Reconciler {
     const file = getFileByPath(fileResult.relative_path);
     if (!file) {
       console.warn(`[Reconciler] File not found in DB: ${fileResult.relative_path}`);
+      return;
+    }
+
+    if (fileResult.skipped) {
+      const reason = fileResult.skip_reason ?? 'Irrelevant: not an accounting document';
+      updateFileFilterResult(file.id, FileStatus.Skipped, 0.1, reason, 4);
+      addLog(null, LogLevel.Info, `Skipped (irrelevant) at extraction stage: ${fileResult.relative_path} — ${reason}`);
+      eventBus.emit('file:filtered', { fileId: file.id, relativePath: fileResult.relative_path, score: 0.1, reason });
       return;
     }
 
