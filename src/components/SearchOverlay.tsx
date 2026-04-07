@@ -119,6 +119,78 @@ export const SearchOverlay: React.FC = () => {
     });
   }, []);
 
+  // Restore persisted overlay UI state on mount (non-windowlized only)
+  useEffect(() => {
+    if (isWindowlizedWindow) return;
+    window.api.getOverlayUIState().then(persisted => {
+      if (!persisted) return;
+      const ss = useSearchStore.getState();
+      ss.setQuery(persisted.query);
+      ss.setFilters(persisted.filters);
+      ss.setFolderScope(persisted.folderScope);
+      ss.setFileScope(persisted.fileScope);
+      if (persisted.expandedId) ss.setExpandedId(persisted.expandedId);
+      useOverlayStore.getState().setOverlayState(persisted.overlayState);
+    });
+  }, []);
+
+  // Debounced save of UI state whenever tracked state changes (~5s)
+  const expandedId = useSearchStore(s => s.expandedId);
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const snapshot = () => {
+      const ss = useSearchStore.getState();
+      return {
+        overlayState: useOverlayStore.getState().overlayState,
+        query: ss.query,
+        filters: ss.filters,
+        folderScope: ss.folderScope,
+        fileScope: ss.fileScope,
+        expandedId: ss.expandedId,
+      };
+    };
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      const state = snapshot();
+      if (isWindowlizedWindow) {
+        window.api.saveSpawnedWindowUIState(state);
+      } else {
+        window.api.saveOverlayUIState(state);
+      }
+    }, 5000);
+    return () => {
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    };
+  }, [overlayState, query, filters, folderScope, fileScope, expandedId]);
+
+  // Immediate save on hide/close to catch final state
+  useEffect(() => {
+    const snapshot = () => {
+      const ss = useSearchStore.getState();
+      return {
+        overlayState: useOverlayStore.getState().overlayState,
+        query: ss.query,
+        filters: ss.filters,
+        folderScope: ss.folderScope,
+        fileScope: ss.fileScope,
+        expandedId: ss.expandedId,
+      };
+    };
+    if (isWindowlizedWindow) {
+      const save = () => window.api.saveSpawnedWindowUIStateSync(snapshot());
+      window.addEventListener('beforeunload', save);
+      return () => window.removeEventListener('beforeunload', save);
+    } else {
+      const save = () => {
+        if (document.visibilityState !== 'hidden') return;
+        window.api.saveOverlayUIState(snapshot());
+      };
+      document.addEventListener('visibilitychange', save);
+      return () => document.removeEventListener('visibilitychange', save);
+    }
+  }, []);
+
   const handleWindowlize = useCallback(() => {
     const ss = useSearchStore.getState();
     const serializedState = JSON.stringify({

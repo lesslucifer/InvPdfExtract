@@ -374,6 +374,12 @@ async function startVault(vaultPath: string): Promise<void> {
 
   overlayWindow?.setVaultPath(vaultPath);
 
+  // Load persisted window state for this vault and restore its spawned windows
+  if (overlayWindow) {
+    await overlayWindow.loadPersistedState(vaultPath);
+    await overlayWindow.restoreSpawnedWindows();
+  }
+
   eventBus.emit('vault:opened', { path: vaultPath });
   console.log(`[InvoiceVault] Vault started: ${vaultPath}`);
 }
@@ -409,6 +415,9 @@ async function handleQuit(): Promise<void> {
   }, 5000);
 
   try {
+    // Flush window state first — must happen before stopIpcBridge so the renderer's
+    // beforeunload sync IPC can still be handled when spawned windows are closed.
+    await overlayWindow?.flushStateBeforeQuit();
     stopIpcBridge();
     await stopVault();
     eventBus.removeAllListeners();

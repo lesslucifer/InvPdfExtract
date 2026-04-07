@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus, JEGenerationStatus } from './shared/types';
+import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus, JEGenerationStatus, PersistedUIState } from './shared/types';
 
 const api: InvoiceVaultAPI = {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => ipcRenderer.invoke('search', query, offset ?? 0, folder ?? null, filePath ?? null),
@@ -93,6 +93,11 @@ const api: InvoiceVaultAPI = {
     return () => ipcRenderer.removeListener('db-error', listener);
   },
   getDbError: () => ipcRenderer.invoke('get-db-error'),
+  // Window state persistence
+  saveOverlayUIState: (state: PersistedUIState) => ipcRenderer.invoke('save-overlay-ui-state', state),
+  getOverlayUIState: () => ipcRenderer.invoke('get-overlay-ui-state'),
+  saveSpawnedWindowUIState: (state: PersistedUIState) => ipcRenderer.invoke('save-spawned-window-ui-state', state),
+  saveSpawnedWindowUIStateSync: (state: PersistedUIState) => ipcRenderer.sendSync('save-spawned-window-ui-state-sync', state),
 };
 
 contextBridge.exposeInMainWorld('api', api);
