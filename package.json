@@ -17,7 +17,8 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "prepare": "husky",
-    "tsc": "tsc --noEmit"
+    "tsc": "tsc --noEmit",
+    "precommit": ".husky/pre-commit"
   },
   "keywords": [],
   "author": {

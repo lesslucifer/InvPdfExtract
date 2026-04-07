@@ -137,8 +137,8 @@ export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePrese
             <button
               className="inline-flex items-center justify-center w-[22px] h-[22px] p-0 border-none rounded bg-transparent text-text-secondary cursor-pointer shrink-0 opacity-0 transition-[opacity,background,color] group-hover:opacity-60 hover:!opacity-100 hover:bg-confidence-low hover:text-white"
               onClick={(e) => handleDelete(e, preset.id)}
-              aria-label={`Delete ${preset.name}`}
-              title="Delete preset"
+              aria-label={`${t('delete', 'Delete')} ${preset.name}`}
+              title={t('delete_preset', 'Delete preset')}
             ><Icons.close size={ICON_SIZE.XS} /></button>
           </div>
           <div className="text-2.75 text-text-muted pl-[22px] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">

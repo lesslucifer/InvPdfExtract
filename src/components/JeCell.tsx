@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { t } from '../lib/i18n';
 
 interface JeCellProps {
   account: string | null;
@@ -78,7 +79,7 @@ export const JeCell: React.FC<JeCellProps> = ({ account, contraAccount, onSave }
       <div className="flex items-center gap-1">
         <EditableTk
           value={account}
-          placeholder="TK"
+          placeholder={t('tk_placeholder', 'TK')}
           onSave={(acc) => onSave(acc, contraAccount ?? undefined)}
         />
         {showContra && (
@@ -86,7 +87,7 @@ export const JeCell: React.FC<JeCellProps> = ({ account, contraAccount, onSave }
             <span className="text-text-muted text-2.5">/</span>
             <EditableTk
               value={contraAccount ?? null}
-              placeholder="TK ĐƯ"
+              placeholder={t('tk_du_placeholder', 'TK ĐƯ')}
               onSave={(contra) => onSave(account ?? '', contra)}
             />
           </>

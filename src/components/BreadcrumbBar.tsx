@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useSearchStore } from '../stores';
+import { t } from '../lib/i18n';
 
 interface Props {
   onNavigate: (folder: string) => void;
@@ -47,7 +48,7 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
           <button
             className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[1px] rounded text-3 font-sans whitespace-nowrap hover:text-accent hover:bg-bg-hover"
             onClick={() => onNavigate(seg.path)}
-            title={`Scope to ${seg.path}`}
+            title={`${t('scope_to', 'Scope to')} ${seg.path}`}
           >
             {seg.label}/
           </button>
@@ -62,8 +63,8 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
           <button
             className="bg-transparent border-none text-text-muted cursor-pointer text-3 px-0.5 rounded leading-none shrink-0 hover:text-text hover:bg-bg-hover"
             onClick={clearFileScope}
-            title="Clear file scope (show all records in folder)"
-            aria-label="Clear file scope"
+            title={t('clear_file_scope_hint', 'Clear file scope (show all records in folder)')}
+            aria-label={t('clear_file_scope', 'Clear file scope')}
           >
             <Icons.close size={ICON_SIZE.XS} />
           </button>
@@ -74,8 +75,8 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
           <button
             className={actionBtnClass}
             onClick={(e) => onReloadJE(e.ctrlKey || e.metaKey)}
-            title="Reload JE for all records in scope · Ctrl/⌘+click for AI only"
-            aria-label="Reload JE"
+            title={t('reload_je_hint', 'Reload JE for all records in scope · Ctrl/⌘+click for AI only')}
+            aria-label={t('reload_all_je', 'Reload all JE')}
           >
             <Icons.refreshJE size={ICON_SIZE.MD} />
           </button>
@@ -84,8 +85,8 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
           <button
             className={actionBtnClass}
             onClick={onReload}
-            title={file ? 'Reprocess this file' : 'Reprocess folder'}
-            aria-label={file ? 'Reprocess file' : 'Reprocess folder'}
+            title={file ? t('reprocess_this_file', 'Reprocess this file') : t('reprocess_folder', 'Reprocess folder')}
+            aria-label={file ? t('reprocess_this_file', 'Reprocess this file') : t('reprocess_folder', 'Reprocess folder')}
           >
             <Icons.refresh size={ICON_SIZE.MD} />
           </button>
@@ -94,8 +95,8 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
           <button
             className={actionBtnClass}
             onClick={onOpenFolder}
-            title="Locate in Finder"
-            aria-label="Locate folder in file manager"
+            title={t('locate_in_finder', 'Locate in Finder')}
+            aria-label={t('locate_folder_in_file_manager', 'Locate folder in file manager')}
           >
             <Icons.folderOpen size={ICON_SIZE.MD} />
           </button>
@@ -103,8 +104,8 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
         <button
           className={actionBtnClass}
           onClick={clearFolderScope}
-          title="Clear all scope"
-          aria-label="Clear all scope"
+          title={t('clear_all_scope', 'Clear all scope')}
+          aria-label={t('clear_all_scope', 'Clear all scope')}
         >
           <Icons.close size={ICON_SIZE.MD} />
         </button>

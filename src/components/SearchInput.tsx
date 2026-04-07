@@ -1,14 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useProcessingStore } from '../stores';
+import { t } from '../lib/i18n';
 import type { LucideIcon } from 'lucide-react';
 
-const PROCESSING_STATUS_CONFIG: Record<string, { icon: LucideIcon; className: string; label: string }> = {
-  idle:       { icon: Icons.success,   className: 'text-text-muted',               label: 'All good — view processing log' },
-  processing: { icon: Icons.loader,   className: 'text-accent animate-spin-slow', label: 'Processing...' },
-  review:     { icon: Icons.conflict,  className: 'text-confidence-medium',        label: 'Needs review' },
-  error:      { icon: Icons.error,     className: 'text-confidence-low',           label: 'Error' },
-};
+function getProcessingStatusConfig(): Record<string, { icon: LucideIcon; className: string; label: string }> {
+  return {
+    idle:       { icon: Icons.success,  className: 'text-text-muted',               label: t('all_good_view_processing_log', 'All good — view processing log') },
+    processing: { icon: Icons.loader,   className: 'text-accent animate-spin-slow', label: `${t('processing', 'Processing')}...` },
+    review:     { icon: Icons.conflict, className: 'text-confidence-medium',        label: t('needs_review', 'Needs review') },
+    error:      { icon: Icons.error,    className: 'text-confidence-low',           label: t('error', 'Error') },
+  };
+}
 
 interface Props {
   value: string;
@@ -38,7 +41,8 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
     }
   };
 
-  const statusConfig = PROCESSING_STATUS_CONFIG[status] ?? PROCESSING_STATUS_CONFIG['idle'];
+  const processingStatusConfig = getProcessingStatusConfig();
+  const statusConfig = processingStatusConfig[status] ?? processingStatusConfig['idle'];
 
   return (
     <div className="flex items-center px-4 py-3 border-b border-border gap-2.5">
@@ -49,7 +53,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
         ref={inputRef}
         className="search-input flex-1 border-none outline-none bg-transparent text-text text-4 font-sans"
         type="text"
-        placeholder="Search invoices, bank statements, TaxID..."
+        placeholder={t('search_placeholder', 'Search invoices, bank statements, TaxID...')}
         value={value}
         onChange={handleChange}
         onSelect={handleSelect}
@@ -59,7 +63,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
         <button
           className="bg-bg-secondary border-none rounded-full w-5 h-5 text-text-secondary cursor-pointer flex items-center justify-center shrink-0 hover:bg-bg-hover"
           onClick={() => onChange('')}
-          aria-label="Clear"
+          aria-label={t('clear_search', 'Clear')}
         >
           <Icons.close size={ICON_SIZE.SM} />
         </button>
@@ -68,7 +72,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
         <button
           className={`inline-flex items-center shrink-0 border-none bg-transparent p-0 outline-none cursor-pointer hover:scale-[1.2] transition-transform ${statusConfig.className}`}
           title={statusConfig.label}
-          aria-label={`Status: ${statusConfig.label}`}
+          aria-label={`${t('status_label', 'Status: ')}${statusConfig.label}`}
           onClick={onStatusDotClick}
         >
           <statusConfig.icon size={ICON_SIZE.SM} />
@@ -77,7 +81,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
         <span
           className={`inline-flex items-center shrink-0 ${statusConfig.className}`}
           title={statusConfig.label}
-          aria-label={`Status: ${statusConfig.label}`}
+          aria-label={`${t('status_label', 'Status: ')}${statusConfig.label}`}
         >
           <statusConfig.icon size={ICON_SIZE.SM} />
         </span>

@@ -1,17 +1,20 @@
 import React from 'react';
 import { FileStatus } from '../shared/types';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { t } from '../lib/i18n';
 import type { LucideIcon } from 'lucide-react';
 
-const STATUS_CONFIG: Record<FileStatus, { icon: LucideIcon; className: string; title: string }> = {
-  [FileStatus.Unfiltered]: { icon: Icons.hourglass, className: 'text-text-muted',            title: 'Queuing' },
-  [FileStatus.Pending]:    { icon: Icons.hourglass, className: 'text-text-muted',            title: 'Queuing' },
-  [FileStatus.Processing]: { icon: Icons.loader,    className: 'text-accent animate-spin-slow', title: 'Processing...' },
-  [FileStatus.Done]:       { icon: Icons.success,   className: 'text-confidence-high',        title: 'Processed' },
-  [FileStatus.Review]:     { icon: Icons.conflict,   className: 'text-confidence-medium',      title: 'Needs review' },
-  [FileStatus.Error]:      { icon: Icons.error,     className: 'text-confidence-low',         title: 'Error' },
-  [FileStatus.Skipped]:    { icon: Icons.skipped,   className: 'text-text-muted opacity-50',  title: 'Skipped (filtered)' },
-};
+function getStatusConfig(): Record<FileStatus, { icon: LucideIcon; className: string; title: string }> {
+  return {
+    [FileStatus.Unfiltered]: { icon: Icons.hourglass, className: 'text-text-muted',               title: t('queuing', 'Queuing') },
+    [FileStatus.Pending]:    { icon: Icons.hourglass, className: 'text-text-muted',               title: t('queuing', 'Queuing') },
+    [FileStatus.Processing]: { icon: Icons.loader,    className: 'text-accent animate-spin-slow', title: `${t('processing', 'Processing')}...` },
+    [FileStatus.Done]:       { icon: Icons.success,   className: 'text-confidence-high',          title: t('processed', 'Processed') },
+    [FileStatus.Review]:     { icon: Icons.conflict,  className: 'text-confidence-medium',        title: t('needs_review', 'Needs review') },
+    [FileStatus.Error]:      { icon: Icons.error,     className: 'text-confidence-low',           title: t('error', 'Error') },
+    [FileStatus.Skipped]:    { icon: Icons.skipped,   className: 'text-text-muted opacity-50',    title: t('skipped_filtered', 'Skipped (filtered)') },
+  };
+}
 
 interface Props {
   status: FileStatus;
@@ -20,7 +23,7 @@ interface Props {
 }
 
 export const StatusIcon: React.FC<Props> = ({ status, size = ICON_SIZE.XS, onClick }) => {
-  const config = STATUS_CONFIG[status];
+  const config = getStatusConfig()[status];
   if (!config) return null;
 
   const Icon = config.icon;

@@ -79,7 +79,7 @@ export const EditableCell: React.FC<Props> = ({
         />
       ) : (
         <span className="cell-display inline-block min-w-[20px] px-[3px] py-[1px] rounded-sm transition-colors" onClick={handleClick} title={hasDerived ? `⌘+click → ${formatCurrency(derivedValue)}` : undefined}>
-          {StatusIcon && <span className="inline-flex items-center mr-0.5" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.XS} /></span>}
+          {StatusIcon && <span className="inline-flex items-center mr-0.5" title={isConflict ? t('conflict', 'Conflict') : t('overridden', 'Overridden')}><StatusIcon size={ICON_SIZE.XS} /></span>}
           {showMismatchIcon && <span className="text-confidence-low text-2.5 font-bold mr-0.5">!</span>}
           {displayValue}
         </span>
