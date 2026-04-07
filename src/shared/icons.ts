@@ -2,6 +2,7 @@ import {
   CircleDollarSign,
   FileOutput,
   FileInput,
+  Files,
   File,
   Folder,
   FolderOpen,
@@ -52,6 +53,7 @@ export const Icons = {
   bankStatement: CircleDollarSign,
   invoiceOut: FileOutput,
   invoiceIn: FileInput,
+  invoiceAny: Files,
   file: File,
   folder: Folder,
   folderOpen: FolderOpen,
@@ -105,5 +107,6 @@ export const DOC_TYPE_ICONS: Record<string, { icon: LucideIcon; label: string }>
   bank_statement: { icon: CircleDollarSign, label: 'Bank Statement' },
   invoice_out: { icon: FileOutput, label: 'Invoice Out' },
   invoice_in: { icon: FileInput, label: 'Invoice In' },
+  invoice: { icon: Files, label: 'Invoice (any)' },
   unknown: { icon: File, label: 'Unknown' },
 };

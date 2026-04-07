@@ -58,8 +58,13 @@ app.on('window-all-closed', () => {
 });
 
 // Show overlay when clicking dock icon (macOS) or taskbar icon (Windows)
+// If spawned windows exist, focus the most recent one instead
 app.on('activate', () => {
-  overlayWindow?.showOverlay();
+  if (overlayWindow?.hasSpawnedWindows()) {
+    overlayWindow.focusLastSpawnedWindow();
+  } else {
+    overlayWindow?.showOverlay();
+  }
 });
 
 // Route all quit paths through handleQuit for graceful shutdown

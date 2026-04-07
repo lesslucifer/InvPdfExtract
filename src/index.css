@@ -8,6 +8,9 @@
 }
 
 /* Body */
+html, body, #root {
+  height: 100%;
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 13px;

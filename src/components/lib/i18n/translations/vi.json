@@ -202,6 +202,7 @@
   "type": "Loại",
   "typebank": "loại:ngân hàng",
   "typein": "loại:đầu vào",
+  "typeinv": "type:inv",
   "typeout": "loại:đầu ra",
   "unclassified": "Chưa phân loại",
   "unknown_file": "File không xác định",

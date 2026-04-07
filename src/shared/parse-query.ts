@@ -55,6 +55,7 @@ export function parseSearchQuery(raw: string): ParsedQuery {
       if (val === 'bank' || val === 'saoke') result.docType = 'bank_statement';
       else if (val === 'hdra' || val === 'out') result.docType = 'invoice_out';
       else if (val === 'hdv' || val === 'in') result.docType = 'invoice_in';
+      else if (val === 'inv') result.docType = 'invoice';
       continue;
     }
 
@@ -124,6 +125,7 @@ export function buildQueryString(parsed: ParsedQuery): string {
       bank_statement: 'type:bank',
       invoice_out: 'type:out',
       invoice_in: 'type:in',
+      invoice: 'type:inv',
     };
     if (typeMap[parsed.docType]) parts.push(typeMap[parsed.docType]);
   }

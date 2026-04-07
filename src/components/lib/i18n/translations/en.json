@@ -202,6 +202,7 @@
   "type": "Type",
   "typebank": "type:bank",
   "typein": "type:in",
+  "typeinv": "type:inv",
   "typeout": "type:out",
   "unclassified": "Unclassified",
   "unknown_file": "Unknown file",

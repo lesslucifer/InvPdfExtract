@@ -560,8 +560,12 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
   }
 
   if (parsed.docType) {
-    conditions.push('r.doc_type = ?');
-    params.push(parsed.docType);
+    if (parsed.docType === 'invoice') {
+      conditions.push("r.doc_type IN ('invoice_in', 'invoice_out')");
+    } else {
+      conditions.push('r.doc_type = ?');
+      params.push(parsed.docType);
+    }
   }
 
   if (parsed.status === 'conflict') {

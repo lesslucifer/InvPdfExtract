@@ -23,6 +23,10 @@ import { useOverlayStore, useSearchStore, usePathSearchStore, usePresetStore, us
 
 const DEBOUNCE_MS = 200;
 
+const urlParams = new URLSearchParams(window.location.search);
+const hasNativeFrame = urlParams.get('nativeFrame') === 'true';
+const isWindowlizedWindow = urlParams.get('windowlized') === 'true';
+
 export const SearchOverlay: React.FC = () => {
   // Navigation state from store
   const overlayState = useOverlayStore(s => s.overlayState);
@@ -77,9 +81,10 @@ export const SearchOverlay: React.FC = () => {
     };
   }, []);
 
-  // Load all invoices on mount
+  // Load all invoices on mount (skip for windowlized — restore effect handles the first search)
   const initialLoadDone = useRef(false);
   useEffect(() => {
+    if (isWindowlizedWindow) return;
     if (initialLoadDone.current) return;
     if (overlayState === OverlayState.NoVault) return;
     initialLoadDone.current = true;
@@ -89,29 +94,30 @@ export const SearchOverlay: React.FC = () => {
 
   // Restore carried-over state when opened as a windowlized instance
   useEffect(() => {
-    if (!isWindowlized) return;
+    if (!isWindowlizedWindow) return;
     window.api.getInitialState().then(raw => {
       if (!raw) return;
       try {
         const state = JSON.parse(raw);
+        const query: string = state.query ?? '';
+        const filters: ParsedQuery = state.filters ?? { text: '' };
+        const folderScope: string | null = state.folderScope ?? null;
+        const fileScope: string | null = state.fileScope ?? null;
         const ss = useSearchStore.getState();
-        if (state.query) ss.setQuery(state.query);
-        if (state.filters) ss.setFilters(state.filters);
-        if (state.folderScope) ss.setFolderScope(state.folderScope);
-        if (state.fileScope) ss.setFileScope(state.fileScope);
+        ss.setQuery(query);
+        ss.setFilters(filters);
+        ss.setFolderScope(folderScope);
+        ss.setFileScope(fileScope);
         if (state.overlayState && state.overlayState !== OverlayState.NoVault) {
           useOverlayStore.getState().setOverlayState(state.overlayState);
         }
-        ss.doSearch(
-          state.query || '',
-          state.filters || { text: '' },
-          state.folderScope || null,
-          false,
-          state.fileScope || null,
-        );
+        const expandedId: string | null = state.expandedId ?? null;
+        ss.doSearch(query, filters, folderScope, false, fileScope).then(() => {
+          if (expandedId) ss.setExpandedId(expandedId);
+        });
       } catch { /* ignore parse errors */ }
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleWindowlize = useCallback(() => {
     const ss = useSearchStore.getState();
@@ -120,6 +126,7 @@ export const SearchOverlay: React.FC = () => {
       filters: ss.filters,
       folderScope: ss.folderScope,
       fileScope: ss.fileScope,
+      expandedId: ss.expandedId,
       overlayState: useOverlayStore.getState().overlayState,
     });
     window.api.windowlize(serializedState);
@@ -159,6 +166,32 @@ export const SearchOverlay: React.FC = () => {
       }
       setSuggestionIndex(0);
       setShowHintBar(false);
+      return;
+    }
+
+    // For pure filter suggestions, apply directly as a pill without touching the text input
+    const parsed = parseSearchQuery(item.insertText.trim());
+    const isPureFilter = !parsed.text.trim() && (
+      parsed.docType || parsed.status || parsed.taxId ||
+      parsed.amountMin != null || parsed.amountMax != null ||
+      parsed.dateFilter || parsed.sortField
+    );
+    if (isPureFilter) {
+      const ss = useSearchStore.getState();
+      const os = useOverlayStore.getState();
+      const newFilters: ParsedQuery = { ...ss.filters };
+      if (parsed.docType) newFilters.docType = parsed.docType;
+      if (parsed.status) newFilters.status = parsed.status;
+      if (parsed.taxId) newFilters.taxId = parsed.taxId;
+      if (parsed.amountMin != null) newFilters.amountMin = parsed.amountMin;
+      if (parsed.amountMax != null) newFilters.amountMax = parsed.amountMax;
+      if (parsed.dateFilter) newFilters.dateFilter = parsed.dateFilter;
+      if (parsed.sortField) { newFilters.sortField = parsed.sortField; newFilters.sortDirection = parsed.sortDirection; }
+      ss.setFilters(newFilters);
+      if (os.overlayState === OverlayState.Home) os.setOverlayState(OverlayState.Search);
+      ss.doSearch(ss.query, newFilters, ss.folderScope, false, ss.fileScope);
+      setSuggestions([]);
+      setSuggestionIndex(0);
       return;
     }
 
@@ -561,7 +594,7 @@ export const SearchOverlay: React.FC = () => {
   const hasFilterPills = filters.docType || filters.status || filters.taxId ||
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
-  const titleBar = isWindowlized ? (
+  const titleBar = isWindowlized && !hasNativeFrame ? (
     <div className="title-bar flex items-center justify-between px-3 h-8 text-text-secondary text-3 select-none shrink-0 border-b border-border">
       <span className="text-text font-medium text-3">{t('invoicevault', 'InvoiceVault')}</span>
       <button
@@ -578,7 +611,7 @@ export const SearchOverlay: React.FC = () => {
   ) : null;
 
   // Render based on state
-  const overlayClass = `relative bg-bg rounded-2xl shadow-overlay overflow-hidden flex flex-col ${isWindowlized ? 'max-h-screen h-screen rounded-none shadow-none [animation:none]' : 'max-h-[480px] animate-overlay-in'}`;
+  const overlayClass = `relative bg-bg rounded-2xl shadow-overlay overflow-hidden flex flex-col ${isWindowlized ? 'h-full rounded-none shadow-none [animation:none]' : 'max-h-[480px] animate-overlay-in'}`;
 
 
   if (overlayState === OverlayState.NoVault) {
@@ -702,8 +735,8 @@ export const SearchOverlay: React.FC = () => {
       )}
       <StickyFooter
         ref={footerRef}
-        onWindowlize={!isWindowlized ? handleWindowlize : undefined}
-        onCheatsheetClick={!isWindowlized ? handleCheatsheetClick : undefined}
+        onWindowlize={handleWindowlize}
+        onCheatsheetClick={handleCheatsheetClick}
         onSettingsClick={!isWindowlized ? handleGearClick : undefined}
       />
       <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => usePresetStore.getState().setShowSaveModal(false)} />
