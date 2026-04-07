@@ -59,7 +59,7 @@ export const EditableField: React.FC<Props> = ({
   return (
     <tr className={`editable-field ${isConflict ? 'field-conflict' : ''}`}>
       <td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">
-        {StatusIcon && <span className="inline-flex items-center mr-1" title={isConflict ? 'Conflict' : 'Overridden'}><StatusIcon size={ICON_SIZE.SM} /></span>}
+        {StatusIcon && <span className="inline-flex items-center mr-1" title={isConflict ? t('conflict', 'Conflict') : t('overridden', 'Overridden')}><StatusIcon size={ICON_SIZE.SM} /></span>}
         {label}
       </td>
       <td className="relative py-[3px] text-3 align-top">

@@ -99,7 +99,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
         <button
           className="bg-transparent border-none text-text-secondary cursor-pointer px-1.5 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-hover"
           onClick={goBack}
-          aria-label="Back"
+          aria-label={t('back', 'Back')}
         >
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
@@ -119,11 +119,11 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
               {config.lastVaultPath}
             </span>
             <div className="flex gap-1.5 shrink-0">
-              <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title="Locate in file manager">{t('locate', 'Locate')}</button>
+              <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title={t('locate_in_file_manager', 'Locate in file manager')}>{t('locate', 'Locate')}</button>
               <button
                 className={clearConfirmVault === config.lastVaultPath ? confirmBtnClass : dangerBtnClass}
                 onClick={(e) => handleDisconnectVault(config.lastVaultPath!, e)}
-                title={clearConfirmVault === config.lastVaultPath ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
+                title={clearConfirmVault === config.lastVaultPath ? t('click_again_to_confirm_clear', 'Click again to confirm clear data') : t('disconnect_cmd_click_to_clear', 'Disconnect (Cmd+click to clear data)')}
               >
                 {clearConfirmVault === config.lastVaultPath ? `${t('confirm_clear', 'Confirm Clear')}?` : <Icons.close size={ICON_SIZE.SM} />}
               </button>
@@ -142,14 +142,14 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
                 <button
                   className={switchConfirm === vp ? confirmBtnClass : settingsBtnClass}
                   onClick={() => handleSwitchVault(vp)}
-                  title={switchConfirm === vp ? 'Click again to confirm switch' : 'Switch to this vault'}
+                  title={switchConfirm === vp ? t('click_again_to_confirm_switch', 'Click again to confirm switch') : t('switch_to_this_vault', 'Switch to this vault')}
                 >
                   {switchConfirm === vp ? `${t('confirm', 'Confirm')}?` : <Icons.arrowLeftRight size={ICON_SIZE.SM} />}
                 </button>
                 <button
                   className={clearConfirmVault === vp ? confirmBtnClass : dangerBtnClass}
                   onClick={(e) => handleDisconnectVault(vp, e)}
-                  title={clearConfirmVault === vp ? 'Click again to confirm clear data' : 'Disconnect (Cmd+click to clear data)'}
+                  title={clearConfirmVault === vp ? t('click_again_to_confirm_clear', 'Click again to confirm clear data') : t('disconnect_cmd_click_to_clear', 'Disconnect (Cmd+click to clear data)')}
                 >
                   {clearConfirmVault === vp ? `${t('confirm_clear', 'Confirm Clear')}?` : <Icons.close size={ICON_SIZE.SM} />}
                 </button>

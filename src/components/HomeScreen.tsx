@@ -98,8 +98,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button
                 className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-secondary"
                 onClick={() => onOpenFolder('')}
-                aria-label="Locate vault root in file manager"
-                title="Locate vault root"
+                aria-label={t('locate_vault_root_in_file_manager', 'Locate vault root in file manager')}
+                title={t('locate_vault_root', 'Locate vault root')}
               >
                 <Icons.folderOpen size={ICON_SIZE.MD} />
               </button>
@@ -176,8 +176,8 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
             <button
               className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[2px] rounded inline-flex items-center hover:text-accent hover:bg-bg-secondary"
               onClick={handleReprocess}
-              aria-label={`Reprocess all files in ${folder.path}`}
-              title="Reprocess folder"
+              aria-label={`${t('reprocess_all_files_in', 'Reprocess all files in')} ${folder.path}`}
+              title={t('reprocess_folder', 'Reprocess folder')}
             >
               <Icons.refresh size={ICON_SIZE.SM} />
             </button>
@@ -185,8 +185,8 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
           <button
             className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-secondary"
             onClick={(e) => { e.stopPropagation(); onOpen(folder.path); }}
-            aria-label={`Locate ${folder.path} in file manager`}
-            title="Locate in Finder"
+            aria-label={`${t('locate_in_file_manager', 'Locate in file manager')} ${folder.path}`}
+            title={t('locate_in_finder', 'Locate in Finder')}
           >
             <Icons.folderOpen size={ICON_SIZE.MD} />
           </button>

@@ -16,12 +16,14 @@ interface Props {
   result: SearchResult;
 }
 
-const JE_STATUS_ICON_CONFIG: Record<string, { icon: LucideIcon; className: string; title: string }> = {
-  pending:    { icon: Icons.hourglass, className: 'text-text-muted',                title: 'Queued for JE generation' },
-  processing: { icon: Icons.loader,    className: 'text-accent animate-spin-slow',    title: 'Generating JE...' },
-  done:       { icon: Icons.check,     className: 'text-confidence-high',             title: 'JE generated — click to regenerate · Ctrl/⌘+click for AI only' },
-  error:      { icon: Icons.error,     className: 'text-confidence-low',              title: 'JE generation failed — click to retry · Ctrl/⌘+click for AI only' },
-};
+function getJeStatusIconConfig(): Record<string, { icon: LucideIcon; className: string; title: string }> {
+  return {
+    pending:    { icon: Icons.hourglass, className: 'text-text-muted',                title: t('je_queued', 'Queued for JE generation') },
+    processing: { icon: Icons.loader,    className: 'text-accent animate-spin-slow',  title: t('je_generating', 'Generating JE...') },
+    done:       { icon: Icons.check,     className: 'text-confidence-high',           title: t('je_done_hint', 'JE generated — click to regenerate · Ctrl/⌘+click for AI only') },
+    error:      { icon: Icons.error,     className: 'text-confidence-low',            title: t('je_failed_hint', 'JE generation failed — click to retry · Ctrl/⌘+click for AI only') },
+  };
+}
 
 export const ResultDetail: React.FC<Props> = ({ result }) => {
   const [localTotals, setLocalTotals] = useState<{ total_amount: number; total_before_tax: number }>({
@@ -167,7 +169,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   };
 
   const renderJeIcon = (status: string) => {
-    const config = JE_STATUS_ICON_CONFIG[status];
+    const config = getJeStatusIconConfig()[status];
     if (!config) return null;
     const Icon = config.icon;
     return (
@@ -243,14 +245,14 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                     <th
                       className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.beforeTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
                       onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.beforeTax) handleColumnFix('subtotal'); }}
-                      title={hasColumnIssues.beforeTax ? '⌘+click to fix column' : undefined}
+                      title={hasColumnIssues.beforeTax ? t('cmd_click_fix_column', '⌘+click to fix column') : undefined}
                     >{t('before_tax', 'Before tax')}{hasColumnIssues.beforeTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
                     </th>
                     <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{`${t('tax', 'Tax')} %`}</th>
                     <th
                       className={`text-left px-1.5 py-1 font-semibold border-b border-border ${hasColumnIssues.afterTax ? 'cursor-pointer text-confidence-low' : 'text-text-secondary'}`}
                       onClick={(e) => { if ((e.metaKey || e.ctrlKey) && hasColumnIssues.afterTax) handleColumnFix('total_with_tax'); }}
-                      title={hasColumnIssues.afterTax ? '⌘+click to fix column' : undefined}
+                      title={hasColumnIssues.afterTax ? t('cmd_click_fix_column', '⌘+click to fix column') : undefined}
                     >{t('after_tax', 'After tax')}{hasColumnIssues.afterTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
                     </th>
                     <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{t('tk', 'TK')}</th>

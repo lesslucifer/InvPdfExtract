@@ -176,7 +176,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
             {showReload && (
               <button
                 className="inline-flex items-center justify-center w-[22px] h-[22px] ml-auto p-0 border-none rounded bg-transparent text-text-secondary cursor-pointer shrink-0 opacity-0 transition-[opacity,background,color] group-hover:opacity-60 hover:!opacity-100 hover:bg-accent hover:text-white"
-                title={item.isDir ? `Reprocess all files in ${item.relativePath}` : 'Reprocess this file'}
+                title={item.isDir ? `${t('reprocess_all_files_in', 'Reprocess all files in')} ${item.relativePath}` : t('reprocess_this_file', 'Reprocess this file')}
                 onClick={(e) => handleReprocess(e, item)}
               ><Icons.refresh size={ICON_SIZE.SM} /></button>
             )}

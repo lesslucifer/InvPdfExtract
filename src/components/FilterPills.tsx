@@ -41,7 +41,7 @@ function getPills(filters: ParsedQuery): PillDef[] {
   }
 
   if (filters.taxId) {
-    pills.push({ key: 'taxId', icon: 'fingerprint', label: `TaxID: ${filters.taxId}` });
+    pills.push({ key: 'taxId', icon: 'fingerprint', label: `${t('taxid_filter_label', 'TaxID: ')}${filters.taxId}` });
   }
 
   if (filters.amountMin != null && filters.amountMax != null) {
@@ -72,7 +72,7 @@ function getPills(filters: ParsedQuery): PillDef[] {
       pills.push({
         key: 'sortField',
         icon,
-        label: `Sort: ${sortLabels[filters.sortField] || filters.sortField}`,
+        label: `${t('sort_label', 'Sort: ')}${sortLabels[filters.sortField] || filters.sortField}`,
       });
     }
   }
@@ -95,8 +95,8 @@ export const FilterPills: React.FC = () => {
             <button
               className="inline-flex items-center text-text-secondary border-none bg-transparent cursor-pointer p-0.5 rounded hover:text-accent hover:bg-bg-hover transition-colors"
               onClick={toggleSortDirection}
-              aria-label="Toggle sort direction"
-              title="Toggle sort direction"
+              aria-label={t('toggle_sort_direction', 'Toggle sort direction')}
+              title={t('toggle_sort_direction', 'Toggle sort direction')}
             >
               <Icon name={pill.icon} size={ICON_SIZE.SM} />
             </button>
@@ -107,7 +107,7 @@ export const FilterPills: React.FC = () => {
           <button
             className="bg-transparent border-none text-text-muted cursor-pointer px-0.5 inline-flex items-center rounded-full hover:text-text hover:bg-bg-hover"
             onClick={() => removeFilter(pill.key)}
-            aria-label={`Remove ${pill.label} filter`}
+            aria-label={`${t('remove_filter', 'Remove filter')} ${pill.label}`}
           >
             <Icons.close size={ICON_SIZE.XS} />
           </button>

@@ -42,7 +42,7 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
       };
       const result = await window.api.exportFiltered(filters);
       if (result.filePath) {
-        setToast({ message: `Exported ${stats.totalRecords} records`, filePath: result.filePath });
+        setToast({ message: `${t('exported_records', 'Exported')} ${stats.totalRecords} ${t('records', 'records')}`, filePath: result.filePath });
         setTimeout(() => setToast(null), 5000);
       }
     } finally {
@@ -101,25 +101,25 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
               className="bg-accent text-white border-none rounded px-2.5 py-1 text-3 cursor-pointer font-medium transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-default"
               onClick={handleExport}
               disabled={exporting}
-              aria-label="Export XLSX"
-              title="Export XLSX (Ctrl+S)"
+              aria-label={t('export_xlsx', 'Export XLSX')}
+              title={t('export_xlsx_hint', 'Export XLSX (Ctrl+S)')}
             >
               {exporting ? `${t('exporting', 'Exporting')}...` : <Icons.download size={ICON_SIZE.SM} />}
             </button>
           )
         )}
         {onWindowlize && (
-          <button className={iconBtnClass} onClick={onWindowlize} aria-label="Open as window" title="Open as window">
+          <button className={iconBtnClass} onClick={onWindowlize} aria-label={t('open_as_window_hint', 'Open as window')} title={t('open_as_window_hint', 'Open as window')}>
             <Icons.maximize size={ICON_SIZE.SM} />
           </button>
         )}
         {onCheatsheetClick && (
-          <button className={iconBtnClass} onClick={onCheatsheetClick} aria-label="Cheatsheet" title="Cheatsheet (?)">
+          <button className={iconBtnClass} onClick={onCheatsheetClick} aria-label={t('cheatsheet', 'Cheatsheet')} title={t('cheatsheet_hint', 'Cheatsheet (?)')}>
             <Icons.circleHelp size={ICON_SIZE.SM} />
           </button>
         )}
         {onSettingsClick && (
-          <button className={iconBtnClass} onClick={onSettingsClick} aria-label="Settings" title="Settings (⌘,)">
+          <button className={iconBtnClass} onClick={onSettingsClick} aria-label={t('settings', 'Settings')} title={t('settings_hint', 'Settings (⌘,)')}>
             <Icons.settings size={ICON_SIZE.SM} />
           </button>
         )}

@@ -50,6 +50,7 @@ Plugins: `typescript-eslint` (recommended), `eslint-plugin-react-hooks`, `@space
 
 - Use `t(key, fallback)` for all user-facing UI text in the app. Avoid hardcoded display strings in components, labels, tooltips, empty states, and buttons.
 - Keep `src/components/lib/i18n/translations/en.json` and `src/components/lib/i18n/translations/vi.json` in sync, using flat `snake_case` keys.
+- DO NOT ADD RAW STRING FOR DISPLAYABLE TEXT. ALWAYS SUPPORT I18N. IMPORTANT!!
 
 ## TypeScript
 

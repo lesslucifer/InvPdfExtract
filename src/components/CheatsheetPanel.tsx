@@ -18,7 +18,7 @@ export const CheatsheetPanel: React.FC = () => {
         <button
           className="bg-transparent border-none text-text-secondary cursor-pointer px-1.5 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-hover"
           onClick={goBack}
-          aria-label="Back"
+          aria-label={t('back', 'Back')}
         >
           <Icons.arrowLeft size={ICON_SIZE.MD} />
         </button>
@@ -72,12 +72,12 @@ export const CheatsheetPanel: React.FC = () => {
         <div className={sectionLabelClass}>{t('keyboard_shortcuts', 'Keyboard Shortcuts')}</div>
         <div className="flex flex-col gap-[5px]">
           {[
-            { keys: ['⌘D'], desc: 'Save search as preset' },
-            { keys: ['⌘S'], desc: 'Export to XLSX' },
-            { keys: ['↑', '↓'], desc: 'Navigate list' },
-            { keys: ['Enter'], desc: 'Expand / collapse, accept suggestion' },
-            { keys: ['Tab'], desc: 'Accept suggestion' },
-            { keys: ['Esc'], desc: 'Cascading close: detail → filters → search → scope → overlay' },
+            { keys: ['⌘D'], desc: t('shortcut_save_preset', 'Save search as preset') },
+            { keys: ['⌘S'], desc: t('shortcut_export', 'Export to XLSX') },
+            { keys: ['↑', '↓'], desc: t('shortcut_navigate', 'Navigate list') },
+            { keys: ['Enter'], desc: t('shortcut_expand_collapse', 'Expand / collapse, accept suggestion') },
+            { keys: ['Tab'], desc: t('shortcut_accept_suggestion', 'Accept suggestion') },
+            { keys: ['Esc'], desc: t('shortcut_esc', 'Cascading close: detail → filters → search → scope → overlay') },
           ].map(({ keys, desc }) => (
             <div key={desc} className="flex items-baseline gap-2 text-2.75 text-text">
               {keys.map(k => <kbd key={k} className={`inline-flex items-center justify-center min-w-[20px] h-[18px] px-[5px] font-mono text-2.5 font-medium text-text bg-bg-hover border border-border rounded-sm whitespace-nowrap`}>{k}</kbd>)}

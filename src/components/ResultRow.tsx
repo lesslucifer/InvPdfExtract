@@ -87,7 +87,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             {result.tax_id && (
               <span
                 className="text-2.75 text-text-secondary whitespace-nowrap cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
-                title="Ctrl+Click to filter by this TaxID"
+                title={t('ctrl_click_filter_taxid', 'Ctrl+Click to filter by this TaxID')}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     e.stopPropagation();
@@ -102,7 +102,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             {result.doc_date && (
               <span
                 className="cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
-                title="⌘+Click: filter by date · ⌥+Click: filter by month"
+                title={t('cmd_click_filter_date_alt_click_month', '⌘+Click: filter by date · ⌥+Click: filter by month')}
                 onClick={(e) => {
                   if (e.altKey) {
                     e.stopPropagation();
@@ -121,7 +121,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
             <span className="font-semibold tabular-nums text-3.25">
               {formatCurrency(amount)}
               {!isBank && result.line_item_sum != null && result.total_amount > 0 && Math.abs(result.line_item_sum - result.total_amount) > 1000 && (
-                <span className="text-confidence-low text-2.75 font-bold ml-[3px]" title={`Sum of items: ${formatCurrency(result.line_item_sum)}`}>!</span>
+                <span className="text-confidence-low text-2.75 font-bold ml-[3px]" title={`${t('sum_of_items', 'Sum of items')}: ${formatCurrency(result.line_item_sum)}`}>!</span>
               )}
             </span>
           )}
@@ -152,7 +152,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         {result.file_status && <StatusIcon status={result.file_status} />}
         <span
           className="text-text-secondary cursor-pointer rounded-sm px-[1px] hover:text-accent hover:underline"
-          title={`Scope to ${filename}`}
+          title={`${t('scope_to', 'Scope to')} ${filename}`}
           onClick={(e) => {
             e.stopPropagation();
             if ((e.metaKey || e.ctrlKey) && onOpenFile) {

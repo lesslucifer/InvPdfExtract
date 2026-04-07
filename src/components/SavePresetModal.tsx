@@ -41,7 +41,7 @@ export const SavePresetModal: React.FC<Props> = ({ visible, onSave, onCancel }) 
           ref={inputRef}
           className="w-full px-2.5 py-2 text-3.25 border border-border rounded-md bg-bg text-text outline-none focus:border-accent placeholder:text-text-muted"
           type="text"
-          placeholder="Preset name..."
+          placeholder={t('preset_name_placeholder', 'Preset name...')}
           value={name}
           onChange={e => setName(e.target.value)}
         />
