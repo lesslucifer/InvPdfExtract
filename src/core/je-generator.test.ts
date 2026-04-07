@@ -126,12 +126,26 @@ describe('JEGenerator', () => {
     expect(items[0].taxRate).toBe(10);
   });
 
-  it('handles empty record gracefully', async () => {
+  it('creates synthetic invoice JE for record with no line items', async () => {
     _testDb.exec(`INSERT INTO records (id, batch_id, file_id, doc_type, fingerprint, confidence) VALUES ('rec-empty', 'batch-1', 'file-1', 'invoice_in', 'fp-empty', 0.9)`);
+    _testDb.exec(`INSERT INTO invoice_data (record_id, invoice_number, counterparty_name, total_before_tax, total_amount) VALUES ('rec-empty', 'INV-001', 'Cong ty XYZ', 1000000, 1100000)`);
+
+    mockClassifyWithAI.mockResolvedValue(new Map([
+      ['rec-empty', { lineItemId: 'rec-empty', account: '156', cashFlow: 'operating' }],
+    ]));
 
     const count = await generator.generateForRecord('rec-empty');
-    expect(count).toBe(0);
-    expect(mockClassifyWithAI).not.toHaveBeenCalled();
+    expect(count).toBeGreaterThan(0);
+    expect(mockClassifyWithAI).toHaveBeenCalledTimes(1);
+    const items = mockClassifyWithAI.mock.calls[0][0];
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('rec-empty');
+    expect(items[0].description).toContain('Cong ty XYZ');
+
+    const entries = _testDb.prepare("SELECT entry_type FROM journal_entries WHERE record_id = 'rec-empty'").all() as Array<{ entry_type: string }>;
+    const types = entries.map(e => e.entry_type);
+    expect(types).toContain('invoice');
+    expect(types).toContain('settlement');
   });
 
   it('handles bank statement records', async () => {

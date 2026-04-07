@@ -426,7 +426,7 @@ export interface PresetFilters {
 
 // === Journal Entry Types ===
 
-export type JEEntryType = 'line' | 'tax' | 'settlement' | 'bank';
+export type JEEntryType = 'line' | 'tax' | 'settlement' | 'bank' | 'invoice';
 export type JESource = 'similarity' | 'ai' | 'user' | 'auto';
 export type JEClassificationStatus = 'pending' | 'processing' | 'done' | 'error';
 export type CashFlowType = 'operating' | 'investing' | 'financing';
