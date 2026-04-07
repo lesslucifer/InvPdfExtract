@@ -24,6 +24,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const [switchNotification, setSwitchNotification] = useState<string | null>(null);
   const [clearConfirmVault, setClearConfirmVault] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [backupStatus, setBackupStatus] = useState<Record<string, 'idle' | 'busy' | 'success' | 'error'>>({});
 
   const handleAddVault = useCallback(async () => {
     const folderPath = await window.api.pickFolder();
@@ -52,14 +53,19 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
 
   const handleDisconnectVault = useCallback(async (vaultPath: string, e: React.MouseEvent) => {
     const isClear = e.metaKey || e.ctrlKey;
-    if (isClear) {
-      if (clearConfirmVault !== vaultPath) {
-        setClearConfirmVault(vaultPath);
-        return;
-      }
+    const isPendingClearConfirm = clearConfirmVault === vaultPath;
+
+    if (isPendingClearConfirm) {
+      // Second click (with or without modifier) confirms the clear
+      console.log('[SettingsPanel] Confirmed clear vault:', vaultPath);
       setClearConfirmVault(null);
       await window.api.clearVaultData(vaultPath);
+    } else if (isClear) {
+      console.log('[SettingsPanel] Clear requested, awaiting confirmation for:', vaultPath);
+      setClearConfirmVault(vaultPath);
+      return;
     } else {
+      console.log('[SettingsPanel] Disconnect (remove) vault:', vaultPath);
       await window.api.removeVault(vaultPath);
     }
     useAppConfig.invalidate();
@@ -82,6 +88,17 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
 
   const handleQuit = useCallback(async () => {
     await window.api.quitApp();
+  }, []);
+
+  const handleBackupVault = useCallback(async (vaultPath: string) => {
+    setBackupStatus(s => ({ ...s, [vaultPath]: 'busy' }));
+    const result = await window.api.backupVault(vaultPath);
+    if (result.canceled) {
+      setBackupStatus(s => ({ ...s, [vaultPath]: 'idle' }));
+      return;
+    }
+    setBackupStatus(s => ({ ...s, [vaultPath]: result.success ? 'success' : 'error' }));
+    setTimeout(() => setBackupStatus(s => ({ ...s, [vaultPath]: 'idle' })), 3000);
   }, []);
 
   const handleExportInstructions = useCallback(async () => {
@@ -129,6 +146,20 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
             <div className="flex gap-1.5 shrink-0">
               <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title={t('locate_in_file_manager', 'Locate in file manager')}>{t('locate', 'Locate')}</button>
               <button
+                className={settingsBtnClass}
+                onClick={() => handleBackupVault(config.lastVaultPath!)}
+                disabled={backupStatus[config.lastVaultPath!] === 'busy'}
+                title={t('backup_vault_title', 'Export vault to ZIP')}
+              >
+                {backupStatus[config.lastVaultPath!] === 'busy'
+                  ? `${t('backing_up', 'Backing up')}...`
+                  : backupStatus[config.lastVaultPath!] === 'success'
+                    ? t('backup_done', 'Backed up!')
+                    : backupStatus[config.lastVaultPath!] === 'error'
+                      ? t('backup_failed', 'Backup failed')
+                      : t('backup', 'Backup')}
+              </button>
+              <button
                 className={clearConfirmVault === config.lastVaultPath ? confirmBtnClass : dangerBtnClass}
                 onClick={(e) => handleDisconnectVault(config.lastVaultPath!, e)}
                 title={clearConfirmVault === config.lastVaultPath ? t('click_again_to_confirm_clear', 'Click again to confirm clear data') : t('disconnect_cmd_click_to_clear', 'Disconnect (Cmd+click to clear data)')}
@@ -153,6 +184,20 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
                   title={switchConfirm === vp ? t('click_again_to_confirm_switch', 'Click again to confirm switch') : t('switch_to_this_vault', 'Switch to this vault')}
                 >
                   {switchConfirm === vp ? `${t('confirm', 'Confirm')}?` : <Icons.arrowLeftRight size={ICON_SIZE.SM} />}
+                </button>
+                <button
+                  className={settingsBtnClass}
+                  onClick={() => handleBackupVault(vp)}
+                  disabled={backupStatus[vp] === 'busy'}
+                  title={t('backup_vault_title', 'Export vault to ZIP')}
+                >
+                  {backupStatus[vp] === 'busy'
+                    ? `${t('backing_up', 'Backing up')}...`
+                    : backupStatus[vp] === 'success'
+                      ? t('backup_done', 'Backed up!')
+                      : backupStatus[vp] === 'error'
+                        ? t('backup_failed', 'Backup failed')
+                        : t('backup', 'Backup')}
                 </button>
                 <button
                   className={clearConfirmVault === vp ? confirmBtnClass : dangerBtnClass}

@@ -92,6 +92,24 @@ export async function clearVaultData(folderPath: string): Promise<void> {
   console.log(`[Vault] Cleared data at ${folderPath}`);
 }
 
+export async function backupVault(folderPath: string, destPath: string): Promise<void> {
+  const archiver = await import('archiver');
+  const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
+  if (!await pathExists(dotPath)) throw new Error(`No vault data at ${folderPath}`);
+
+  await new Promise<void>((resolve, reject) => {
+    const output = fs.createWriteStream(destPath);
+    const archive = archiver.default('zip', { zlib: { level: 6 } });
+    output.on('close', resolve);
+    archive.on('error', reject);
+    archive.pipe(output);
+    archive.directory(dotPath, INVOICEVAULT_DIR);
+    archive.finalize();
+  });
+
+  console.log(`[Vault] Backed up ${folderPath} → ${destPath}`);
+}
+
 export async function getVaultConfig(dotPath: string): Promise<VaultConfig> {
   const raw = await fs.promises.readFile(path.join(dotPath, CONFIG_FILE), 'utf-8');
   return JSON.parse(raw);

@@ -28,7 +28,7 @@ import { readInstruction } from '../core/instruction-manager';
 import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
-import { clearVaultData } from '../core/vault';
+import { clearVaultData, backupVault } from '../core/vault';
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
@@ -527,18 +527,55 @@ export class OverlayWindow {
       }
     });
 
+    ipcMain.handle('backup-vault', async (_event, vaultPath: string) => {
+      this.suppressBlur = true;
+      try {
+        const { canceled, filePath: destPath } = await dialog.showSaveDialog(this.window!, {
+          title: t('backup_vault', 'Backup Vault'),
+          defaultPath: 'invoicevault.backup.zip',
+          filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+        });
+        if (canceled || !destPath) return { success: false, canceled: true };
+        await backupVault(vaultPath, destPath);
+        return { success: true, filePath: destPath };
+      } catch (err) {
+        console.error('[Vault] backup-vault failed:', err);
+        return { success: false, error: (err as Error).message };
+      } finally {
+        this.suppressBlur = false;
+      }
+    });
+
     ipcMain.handle('clear-vault-data', async (_event, vaultPath: string) => {
+      console.log('[Vault] clear-vault-data IPC received for:', vaultPath);
       const config = await loadAppConfig();
       const isActive = config.lastVaultPath === vaultPath;
+      console.log('[Vault] isActive:', isActive, '| lastVaultPath:', config.lastVaultPath);
 
       // Stop the vault if it's active
       if (isActive) {
+        console.log('[Vault] Stopping active vault before clear');
         this.closeAllSpawnedWindows();
         if (this.callbacks) await this.callbacks.onStopVault();
       }
 
+      // Auto-backup before clearing
+      try {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const backupPath = path.join(vaultPath, `invoicevault.backup.${stamp}.zip`);
+        console.log('[Vault] Starting auto-backup to:', backupPath);
+        await backupVault(vaultPath, backupPath);
+        console.log('[Vault] Auto-backup saved to', backupPath);
+      } catch (err) {
+        console.error('[Vault] Auto-backup before clear failed:', err);
+      }
+
       // Delete the .invoicevault directory
+      console.log('[Vault] Deleting .invoicevault at:', vaultPath);
       await clearVaultData(vaultPath);
+      console.log('[Vault] .invoicevault deleted');
 
       // Remove from config
       const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
@@ -546,9 +583,11 @@ export class OverlayWindow {
         vaultPaths,
         lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
       });
+      console.log('[Vault] Config updated, remaining vaults:', vaultPaths);
 
       // Switch to next vault if available
       if (isActive && vaultPaths.length > 0 && this.callbacks) {
+        console.log('[Vault] Switching to next vault:', vaultPaths[0]);
         await this.callbacks.onSwitchVault(vaultPaths[0]);
       }
     });

@@ -502,6 +502,7 @@ export interface InvoiceVaultAPI {
   switchVault: (vaultPath: string) => Promise<{ success: boolean }>;
   removeVault: (vaultPath: string) => Promise<void>;
   clearVaultData: (vaultPath: string) => Promise<void>;
+  backupVault: (vaultPath: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>;
   pickFolder: () => Promise<string | null>;
   locateFolder: (relativePath: string) => Promise<void>;
   listRecentFolders: (limit?: number) => Promise<FolderInfo[]>;

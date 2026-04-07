@@ -23,6 +23,7 @@ const api: InvoiceVaultAPI = {
   switchVault: (vaultPath: string) => ipcRenderer.invoke('switch-vault', vaultPath),
   removeVault: (vaultPath: string) => ipcRenderer.invoke('remove-vault', vaultPath),
   clearVaultData: (vaultPath: string) => ipcRenderer.invoke('clear-vault-data', vaultPath),
+  backupVault: (vaultPath: string) => ipcRenderer.invoke('backup-vault', vaultPath),
   pickFolder: () => ipcRenderer.invoke('pick-folder'),
   locateFolder: (relativePath: string) => ipcRenderer.invoke('locate-folder', relativePath),
   listRecentFolders: (limit?: number) => ipcRenderer.invoke('list-recent-folders', limit),
