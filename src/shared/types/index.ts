@@ -121,7 +121,7 @@ export interface DbRecord {
   doc_date: string | null;
   field_confidence: string; // JSON
   raw_extraction: string; // JSON
-  je_status: JEClassificationStatus | null;
+  je_status: JEGenerationStatus | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -360,7 +360,7 @@ export interface SearchResult {
   counterparty_name: string;
   description: string;
   counterparty_address: string;
-  je_status: JEClassificationStatus | null;
+  je_status: JEGenerationStatus | null;
   // Line items (populated on detail expand)
   line_items?: InvoiceLineItem[];
 }
@@ -428,7 +428,7 @@ export interface PresetFilters {
 
 export type JEEntryType = 'line' | 'tax' | 'settlement' | 'bank' | 'invoice';
 export type JESource = 'similarity' | 'ai' | 'user' | 'auto';
-export type JEClassificationStatus = 'pending' | 'processing' | 'done' | 'error';
+export type JEGenerationStatus = 'pending' | 'processing' | 'done' | 'error';
 export type CashFlowType = 'operating' | 'investing' | 'financing';
 
 export interface JournalEntry {
@@ -467,7 +467,7 @@ export interface JEClassificationResult {
 
 export interface JeQueueItem {
   record_id: string;
-  je_status: JEClassificationStatus;
+  je_status: JEGenerationStatus;
   doc_type: DocType;
   description: string; // invoice_number or description
   relative_path: string;
@@ -539,15 +539,15 @@ export interface InvoiceVaultAPI {
   getJournalEntries: (recordId: string) => Promise<JournalEntry[]>;
   saveJournalEntry: (input: JournalEntryInput) => Promise<JournalEntry>;
   deleteJournalEntry: (id: string) => Promise<void>;
-  reclassifyRecord: (recordId: string) => Promise<void>;
-  reclassifyRecordAIOnly: (recordId: string) => Promise<void>;
-  reclassifyFiltered: (filters: SearchFilters, aiOnly: boolean) => Promise<{ count: number }>;
+  regenerateJE: (recordId: string) => Promise<void>;
+  regenerateJEAIOnly: (recordId: string) => Promise<void>;
+  regenerateJEFiltered: (filters: SearchFilters, aiOnly: boolean) => Promise<{ count: number }>;
   getJEInstructions: () => Promise<string>;
   saveJEInstructions: (content: string) => Promise<void>;
-  // JE classification status
+  // JE generation status
   getJeQueueItems: () => Promise<JeQueueItem[]>;
   getJeErrorItems: () => Promise<JeErrorItem[]>;
-  onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEClassificationStatus }) => void) => () => void;
+  onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEGenerationStatus }) => void) => () => void;
   onDbError: (callback: (error: string) => void) => () => void;
   getDbError: () => Promise<string | null>;
   // Debug / session logs
@@ -599,7 +599,7 @@ export interface AppEvents {
   'vault:db-error': { error: string };
   'je:generated': { recordId: string; count: number; source: JESource };
   'je:updated': { recordId: string };
-  'je:status-changed': { recordIds: string[]; status: JEClassificationStatus };
+  'je:status-changed': { recordIds: string[]; status: JEGenerationStatus };
   'je:instructions-changed': Record<string, never>;
   'file:filtered': { fileId: string; relativePath: string; score: number; reason: string };
 }

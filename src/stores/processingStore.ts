@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FileStatus, JEClassificationStatus, OverlayState } from '../shared/types';
+import { FileStatus, JEGenerationStatus, OverlayState } from '../shared/types';
 import { useHomeData, useFolderStatuses, useQueueData, useProcessedData, useErrorData, useResultDetail } from '../lib/queries';
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
@@ -10,7 +10,7 @@ interface ProcessingStore {
   /** Bumped on each onJeStatusChanged IPC event */
   jeStatusVersion: number;
   /** Last JE status change data — consumed by ResultDetail to update per-record JE state */
-  lastJeUpdate: { recordIds: string[]; status: JEClassificationStatus } | null;
+  lastJeUpdate: { recordIds: string[]; status: JEGenerationStatus } | null;
   /** Set when the vault DB fails to open */
   dbError: string | null;
 
@@ -46,7 +46,7 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
       }
     });
 
-    const unsubJe = window.api.onJeStatusChanged((data: { recordIds: string[]; status: JEClassificationStatus }) => {
+    const unsubJe = window.api.onJeStatusChanged((data: { recordIds: string[]; status: JEGenerationStatus }) => {
       set((s) => ({
         jeStatusVersion: s.jeStatusVersion + 1,
         lastJeUpdate: data,

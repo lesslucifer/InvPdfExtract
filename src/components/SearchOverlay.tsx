@@ -373,7 +373,7 @@ export const SearchOverlay: React.FC = () => {
       amountMax: ss.filters.amountMax,
       dateFilter: ss.filters.dateFilter,
     };
-    window.api.reclassifyFiltered(filters, aiOnly);
+    window.api.regenerateJEFiltered(filters, aiOnly);
   }, []);
 
   const handleVaultChanged = useCallback(() => {
