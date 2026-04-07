@@ -84,11 +84,9 @@ export function closeVault(handle?: VaultHandle): void {
 
 export async function clearVaultData(folderPath: string): Promise<void> {
   const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
-  try {
-    await fs.promises.access(dotPath);
-    await fs.promises.rm(dotPath, { recursive: true, force: true });
-    console.log(`[Vault] Cleared data at ${folderPath}`);
-  } catch { /* dotPath doesn't exist, nothing to clear */ }
+  if (!await pathExists(dotPath)) return;
+  await fs.promises.rm(dotPath, { recursive: true, force: true });
+  console.log(`[Vault] Cleared data at ${folderPath}`);
 }
 
 export async function getVaultConfig(dotPath: string): Promise<VaultConfig> {

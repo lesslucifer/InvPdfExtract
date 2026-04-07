@@ -10,6 +10,7 @@ export enum DocType {
 }
 
 export enum FileStatus {
+  Unfiltered = 'unfiltered',
   Pending = 'pending',
   Processing = 'processing',
   Done = 'done',

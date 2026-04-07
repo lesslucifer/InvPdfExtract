@@ -4,6 +4,7 @@ import { Icons, ICON_SIZE } from '../shared/icons';
 import type { LucideIcon } from 'lucide-react';
 
 const STATUS_CONFIG: Record<FileStatus, { icon: LucideIcon; className: string; title: string }> = {
+  [FileStatus.Unfiltered]: { icon: Icons.hourglass, className: 'text-text-muted',            title: 'Queuing' },
   [FileStatus.Pending]:    { icon: Icons.hourglass, className: 'text-text-muted',            title: 'Queuing' },
   [FileStatus.Processing]: { icon: Icons.loader,    className: 'text-accent animate-spin-slow', title: 'Processing...' },
   [FileStatus.Done]:       { icon: Icons.success,   className: 'text-confidence-high',        title: 'Processed' },

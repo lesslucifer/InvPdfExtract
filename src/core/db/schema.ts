@@ -281,4 +281,9 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE processing_logs ADD COLUMN detail TEXT;
   ALTER TABLE processing_logs ADD COLUMN file_id TEXT;
   `,
+
+  // Migration 012: Partial index for fast unfiltered file queries
+  `
+  CREATE INDEX IF NOT EXISTS idx_files_status_unfiltered ON files(status) WHERE status = 'unfiltered';
+  `,
 ];

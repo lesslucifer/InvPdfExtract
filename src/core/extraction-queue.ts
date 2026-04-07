@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { getFilesByStatus, updateFileStatus } from './db/files';
+import { getFilesByStatuses, updateFileStatus } from './db/files';
 import { addLog } from './db/records';
 import { ClaudeCodeRunner, CliError, getSessionLogPath } from './claude-cli';
 import { Reconciler } from './reconciler';
@@ -10,6 +10,7 @@ import { ScriptVerifier } from './script-verifier';
 import { executeScript } from './script-sandbox';
 import { parseXmlInvoice } from './parsers/xml-invoice-parser';
 import { extractMetadata } from './parsers/spreadsheet-metadata';
+import { RelevanceFilter } from './filters/relevance-filter';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
@@ -27,12 +28,14 @@ export class ExtractionQueue {
   private scriptGenerator: ScriptGenerator;
   private scriptVerifier: ScriptVerifier;
   private vault: VaultHandle;
+  private relevanceFilter: RelevanceFilter;
   private batchSize: number;
   private processing = false;
   private pendingTrigger = false;
 
-  constructor(vault: VaultHandle, cliPath?: string, cliTimeout?: number, modelConfig?: ClaudeModelConfig) {
+  constructor(vault: VaultHandle, relevanceFilter: RelevanceFilter, cliPath?: string, cliTimeout?: number, modelConfig?: ClaudeModelConfig) {
     this.vault = vault;
+    this.relevanceFilter = relevanceFilter;
     const models = modelConfig ?? DEFAULT_CLAUDE_MODELS;
     this.pdfRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.pdfExtraction);
     this.scriptRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration);
@@ -59,18 +62,33 @@ export class ExtractionQueue {
 
     try {
       while (true) {
-        const pendingFiles = getFilesByStatus(FileStatus.Pending);
-        if (pendingFiles.length === 0) break;
+        const allWork = getFilesByStatuses([FileStatus.Unfiltered, FileStatus.Pending]);
+        if (allWork.length === 0) break;
 
-        // Take a batch
-        const batch = pendingFiles.slice(0, this.batchSize);
-        const fileIds = batch.map(f => f.id);
+        // Take a batch — unfiltered files come first (ordered by updated_at DESC from DB)
+        const batch = allWork.slice(0, this.batchSize);
 
-        console.log(`[ExtractionQueue] Processing batch of ${batch.length} files`);
+        // Run relevance filter on any unfiltered files in this batch before extraction
+        const toExtract: VaultFile[] = [];
+        for (const file of batch) {
+          if (file.status === FileStatus.Unfiltered) {
+            const outcome = await this.relevanceFilter.filterFile(file);
+            if (outcome === 'skipped') continue;
+            // Re-fetch to get updated status/filter fields
+            toExtract.push({ ...file, status: FileStatus.Pending });
+          } else {
+            toExtract.push(file);
+          }
+        }
+
+        if (toExtract.length === 0) continue;
+
+        const fileIds = toExtract.map(f => f.id);
+        console.log(`[ExtractionQueue] Processing batch of ${toExtract.length} files`);
         eventBus.emit('extraction:started', { fileIds });
 
         // Mark as processing
-        for (const file of batch) {
+        for (const file of toExtract) {
           updateFileStatus(file.id, FileStatus.Processing);
         }
 
@@ -78,7 +96,7 @@ export class ExtractionQueue {
         const structuredFiles: VaultFile[] = [];
         const unstructuredFiles: VaultFile[] = [];
 
-        for (const file of batch) {
+        for (const file of toExtract) {
           const ext = path.extname(file.relative_path).toLowerCase();
           if (STRUCTURED_EXTENSIONS.has(ext)) {
             structuredFiles.push(file);

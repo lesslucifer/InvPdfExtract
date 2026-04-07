@@ -19,7 +19,7 @@ import { writeDefaultInstructions } from './core/je-instructions';
 import { TrayManager } from './main/tray-manager';
 import { RelevanceFilter } from './core/filters/relevance-filter';
 import {
-  getFilesByStatus, updateFileStatus, getFileByPath, getFilesByFolder,
+  getFilesByStatus, getFilesByStatuses, updateFileStatus, getFileByPath, getFilesByFolder,
   cancelQueueItem, clearPendingQueue, resetStaleProcessingFiles,
 } from './core/db/files';
 import { getRecordsByFileId, updateJeStatus } from './core/db/records';
@@ -41,7 +41,6 @@ let currentVault: VaultHandle | null = null;
 let vaultPathCache: VaultPathCache | null = null;
 let similarityEngine: JESimilarityEngine | null = null;
 let jeGenerator: JEGenerator | null = null;
-let relevanceFilter: RelevanceFilter | null = null;
 
 // Graceful shutdown on signals (terminal kill, Ctrl+C)
 process.on('SIGTERM', () => {
@@ -234,42 +233,9 @@ app.on('ready', async () => {
 
   startIpcBridge();
 
-  // Wire file events through relevance filter before extraction
-  let pendingFilterFiles: import('./shared/types').VaultFile[] = [];
-  let filterTimer: NodeJS.Timeout | null = null;
-
-  eventBus.on('file:added', (data) => {
-    const file = getFileByPath(data.relativePath);
-    if (file) pendingFilterFiles.push(file);
-    scheduleFilter();
-  });
-  eventBus.on('file:changed', (data) => {
-    const file = getFileByPath(data.relativePath);
-    if (file) pendingFilterFiles.push(file);
-    scheduleFilter();
-  });
-
-  function scheduleFilter(): void {
-    if (filterTimer) clearTimeout(filterTimer);
-    filterTimer = setTimeout(async () => {
-      filterTimer = null;
-      if (pendingFilterFiles.length === 0 || !relevanceFilter) {
-        if (pendingFilterFiles.length > 0) scheduleExtraction();
-        return;
-      }
-
-      const filesToFilter = [...pendingFilterFiles];
-      pendingFilterFiles = [];
-
-      try {
-        const accepted = await relevanceFilter.filterFiles(filesToFilter);
-        if (accepted.length > 0) scheduleExtraction();
-      } catch (err) {
-        console.error('[RelevanceFilter] Error during filtering:', err);
-        scheduleExtraction();
-      }
-    }, 2000);
-  }
+  // File events trigger extraction queue — filtering now happens inside the queue per batch
+  eventBus.on('file:added', () => scheduleExtraction());
+  eventBus.on('file:changed', () => scheduleExtraction());
 
   // Try to open last vault
   const appConfig = await loadAppConfig();
@@ -321,12 +287,10 @@ async function startVault(vaultPath: string): Promise<void> {
   vaultPathCache.build().catch(err => console.error('[VaultPathCache] Build failed:', err));
   overlayWindow?.setPathCache(vaultPathCache);
 
-  // Start extraction queue
+  // Start relevance filter and extraction queue
   const appConfig = await loadAppConfig();
-  extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
-
-  // Start relevance filter
-  relevanceFilter = await RelevanceFilter.create(currentVault, appConfig.claudeCliPath || undefined);
+  const relevanceFilter = await RelevanceFilter.create(currentVault, appConfig.claudeCliPath || undefined);
+  extractionQueue = new ExtractionQueue(currentVault, relevanceFilter, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
 
   // Initialize JE similarity engine & generator
   await writeDefaultInstructions(currentVault.rootPath);
@@ -357,9 +321,9 @@ async function startVault(vaultPath: string): Promise<void> {
     if (recoveredCount > 0) {
       console.log(`[InvoiceVault] Recovered ${recoveredCount} stale processing file(s) → pending`);
     }
-    const pendingCount = getFilesByStatus(FileStatus.Pending).length;
-    if (pendingCount > 0) {
-      console.log(`[InvoiceVault] ${pendingCount} pending file(s) found on startup, scheduling extraction`);
+    const queuedCount = getFilesByStatuses([FileStatus.Unfiltered, FileStatus.Pending]).length;
+    if (queuedCount > 0) {
+      console.log(`[InvoiceVault] ${queuedCount} queued file(s) found on startup, scheduling extraction`);
       scheduleExtraction();
     }
   }
@@ -406,7 +370,6 @@ async function stopVault(): Promise<void> {
   }
   syncEngine = null;
   extractionQueue = null;
-  relevanceFilter = null;
   vaultPathCache = null;
   similarityEngine?.destroy();
   similarityEngine = null;

@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import * as XLSX from 'xlsx';
+import { Worker } from 'worker_threads';
 import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
 import { getMergedKeywords, createKeywordMatcher } from './keyword-bank';
 import { findNodeModules } from '../app-paths';
@@ -21,7 +20,7 @@ export async function contentSniffer(
         break;
       case '.xlsx':
       case '.csv':
-        textSample = extractSpreadsheetText(fullPath);
+        textSample = await extractSpreadsheetText(fullPath);
         break;
       case '.xml':
         textSample = await extractXmlText(fullPath);
@@ -101,43 +100,77 @@ export async function contentSniffer(
   };
 }
 
-async function extractPdfText(fullPath: string): Promise<string> {
-  const nodeModulesDirs = findNodeModules();
-  const workerPath = nodeModulesDirs
-    .map(d => path.join(d, 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs'))
-    .find(p => fs.existsSync(p));
-  if (workerPath) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath}`;
-  }
+// Runs pdfjs-dist text extraction in a worker thread to avoid blocking the Electron main thread.
+const PDF_WORKER_CODE = `
+const { workerData, parentPort } = require('worker_threads');
+const path = require('path');
+const fs = require('fs');
 
-  const buffer = await fs.promises.readFile(fullPath);
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+async function run() {
   try {
+    const pdfjsLib = await import(workerData.pdfjsPath);
+    const workerSrc = workerData.pdfWorkerPath;
+    if (workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = 'file://' + workerSrc;
+
+    const buffer = fs.readFileSync(workerData.filePath);
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      ...(workerData.standardFontsDir && { standardFontDataUrl: 'file://' + workerData.standardFontsDir + '/' }),
+    });
     const pdf = await loadingTask.promise;
     const pageCount = Math.min(2, pdf.numPages);
-    const texts: string[] = [];
+    const texts = [];
     for (let i = 1; i <= pageCount; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      texts.push(content.items.map((item) => 'str' in item ? item.str : '').join(' '));
+      texts.push(content.items.map(item => ('str' in item ? item.str : '')).join(' '));
     }
-    return texts.join('\n');
-  } finally {
     loadingTask.destroy?.();
+    parentPort.postMessage({ text: texts.join('\\n') });
+  } catch (err) {
+    parentPort.postMessage({ error: err.message });
   }
 }
+run();
+`;
 
-function extractSpreadsheetText(fullPath: string): string {
-  const wb = XLSX.readFile(fullPath, { sheetRows: 10 });
-  const parts: string[] = [];
+async function extractPdfText(fullPath: string): Promise<string> {
+  const nodeModulesDirs = findNodeModules();
+  const pdfjsPath = nodeModulesDirs
+    .map(d => path.join(d, 'pdfjs-dist', 'legacy', 'build', 'pdf.mjs'))
+    .find(p => fs.existsSync(p));
+  const pdfWorkerPath = nodeModulesDirs
+    .map(d => path.join(d, 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs'))
+    .find(p => fs.existsSync(p));
+  const standardFontsDir = nodeModulesDirs
+    .map(d => path.join(d, 'pdfjs-dist', 'standard_fonts'))
+    .find(p => fs.existsSync(p));
 
-  parts.push(wb.SheetNames.join(' '));
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(PDF_WORKER_CODE, {
+      eval: true,
+      workerData: { filePath: fullPath, pdfjsPath, pdfWorkerPath, standardFontsDir },
+    });
+    worker.on('message', (msg: { text?: string; error?: string }) => {
+      if (msg.error) reject(new Error(msg.error));
+      else resolve(msg.text ?? '');
+    });
+    worker.on('error', reject);
+  });
+}
 
+// Runs XLSX.readFile in a worker thread to avoid blocking the Electron main thread.
+// Uses eval mode so no separate worker file needs to be packaged.
+const XLSX_WORKER_CODE = `
+const { workerData, parentPort } = require('worker_threads');
+const XLSX = require('xlsx');
+try {
+  const wb = XLSX.readFile(workerData.filePath, { sheetRows: 10 });
+  const parts = [wb.SheetNames.join(' ')];
   for (const sheetName of wb.SheetNames) {
     const ws = wb.Sheets[sheetName];
     if (!ws) continue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
     if (rows.length > 0) {
       parts.push(Object.keys(rows[0]).join(' '));
       for (const row of rows.slice(0, 5)) {
@@ -145,8 +178,21 @@ function extractSpreadsheetText(fullPath: string): string {
       }
     }
   }
+  parentPort.postMessage({ text: parts.join('\\n') });
+} catch (err) {
+  parentPort.postMessage({ error: err.message });
+}
+`;
 
-  return parts.join('\n');
+async function extractSpreadsheetText(fullPath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(XLSX_WORKER_CODE, { eval: true, workerData: { filePath: fullPath } });
+    worker.on('message', (msg: { text?: string; error?: string }) => {
+      if (msg.error) reject(new Error(msg.error));
+      else resolve(msg.text ?? '');
+    });
+    worker.on('error', reject);
+  });
 }
 
 async function extractXmlText(fullPath: string): Promise<string> {
