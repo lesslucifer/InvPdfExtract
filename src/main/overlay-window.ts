@@ -28,7 +28,7 @@ import { readInstruction } from '../core/instruction-manager';
 import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
-import { clearVaultData } from '../core/vault';
+import { clearVaultData, backupVault } from '../core/vault';
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
@@ -527,6 +527,25 @@ export class OverlayWindow {
       }
     });
 
+    ipcMain.handle('backup-vault', async (_event, vaultPath: string) => {
+      this.suppressBlur = true;
+      try {
+        const { canceled, filePath: destPath } = await dialog.showSaveDialog(this.window!, {
+          title: t('backup_vault', 'Backup Vault'),
+          defaultPath: 'invoicevault.backup.zip',
+          filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+        });
+        if (canceled || !destPath) return { success: false, canceled: true };
+        await backupVault(vaultPath, destPath);
+        return { success: true, filePath: destPath };
+      } catch (err) {
+        console.error('[Vault] backup-vault failed:', err);
+        return { success: false, error: (err as Error).message };
+      } finally {
+        this.suppressBlur = false;
+      }
+    });
+
     ipcMain.handle('clear-vault-data', async (_event, vaultPath: string) => {
       const config = await loadAppConfig();
       const isActive = config.lastVaultPath === vaultPath;
@@ -535,6 +554,18 @@ export class OverlayWindow {
       if (isActive) {
         this.closeAllSpawnedWindows();
         if (this.callbacks) await this.callbacks.onStopVault();
+      }
+
+      // Auto-backup before clearing
+      try {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const backupPath = path.join(vaultPath, `invoicevault.backup.${stamp}.zip`);
+        await backupVault(vaultPath, backupPath);
+        console.log(`[Vault] Auto-backup saved to ${backupPath}`);
+      } catch (err) {
+        console.error('[Vault] Auto-backup before clear failed:', err);
       }
 
       // Delete the .invoicevault directory
