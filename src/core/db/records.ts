@@ -566,7 +566,7 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
   } else if (parsed.status === 'mismatch') {
     conditions.push(`r.doc_type IN ('invoice_in', 'invoice_out')
       AND ABS(COALESCE(id2.total_amount, 0) - COALESCE(
-        (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1
+        (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1000
       AND (SELECT COUNT(*) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) > 0`);
   } else if (parsed.status === 'review') {
     conditions.push("f.status = 'review'");

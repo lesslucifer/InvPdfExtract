@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeTotalMismatch, computeLineItemMismatch, getMismatchedLineItems, computeTaxRateMismatch, getItemsWithBadTaxRate, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
+import { computeTotalMismatch, computeLineItemMismatch, getMismatchedLineItems, computeTaxRateMismatch, getItemsWithBadTaxRate, computeAfterTaxMismatch, deriveFieldValue, computeBeforeTaxTotalMismatch } from './quickfix-logic';
 import { InvoiceLineItem } from '../shared/types';
 
 describe('computeTotalMismatch', () => {
@@ -12,21 +12,29 @@ describe('computeTotalMismatch', () => {
     expect(result.sum).toBe(1000);
   });
 
-  it('returns mismatch when after-tax sum differs', () => {
-    const result = computeTotalMismatch(1000, [
-      { total_with_tax: 400 },
-      { total_with_tax: 500 },
+  it('returns mismatch when after-tax sum differs by more than 1000 VND', () => {
+    const result = computeTotalMismatch(100000, [
+      { total_with_tax: 40000 },
+      { total_with_tax: 50000 },
     ]);
     expect(result.hasMismatch).toBe(true);
-    expect(result.sum).toBe(900);
+    expect(result.sum).toBe(90000);
   });
 
-  it('tolerates 1 VND rounding difference', () => {
-    const result = computeTotalMismatch(1001, [
-      { total_with_tax: 500 },
-      { total_with_tax: 500 },
+  it('tolerates up to 1000 VND difference', () => {
+    const result = computeTotalMismatch(1001000, [
+      { total_with_tax: 500000 },
+      { total_with_tax: 500000 },
     ]);
     expect(result.hasMismatch).toBe(false);
+  });
+
+  it('flags mismatch when difference exceeds 1000 VND', () => {
+    const result = computeTotalMismatch(1002000, [
+      { total_with_tax: 500000 },
+      { total_with_tax: 500000 },
+    ]);
+    expect(result.hasMismatch).toBe(true);
   });
 
   it('returns no mismatch for empty line items', () => {
@@ -71,8 +79,20 @@ describe('computeLineItemMismatch', () => {
     expect(result.expected).toBeNull();
   });
 
+  it('returns no mismatch when unit_price is 0 (no price data)', () => {
+    const result = computeLineItemMismatch({ unit_price: 0, quantity: 5, subtotal: 500 });
+    expect(result.hasMismatch).toBe(false);
+    expect(result.expected).toBeNull();
+  });
+
   it('returns no mismatch when quantity is null', () => {
     const result = computeLineItemMismatch({ unit_price: 100, quantity: null, subtotal: 500 });
+    expect(result.hasMismatch).toBe(false);
+    expect(result.expected).toBeNull();
+  });
+
+  it('returns no mismatch when quantity is 0 (no qty data)', () => {
+    const result = computeLineItemMismatch({ unit_price: 100, quantity: 0, subtotal: 500 });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
   });
@@ -81,6 +101,28 @@ describe('computeLineItemMismatch', () => {
     const result = computeLineItemMismatch({ unit_price: 100, quantity: 5, subtotal: null });
     expect(result.hasMismatch).toBe(false);
     expect(result.expected).toBeNull();
+  });
+});
+
+describe('computeBeforeTaxTotalMismatch', () => {
+  it('returns no mismatch when subtotal sum matches total_before_tax', () => {
+    const result = computeBeforeTaxTotalMismatch(1000, [{ subtotal: 400 }, { subtotal: 600 }]);
+    expect(result.hasMismatch).toBe(false);
+  });
+
+  it('tolerates up to 1000 VND difference', () => {
+    const result = computeBeforeTaxTotalMismatch(1001000, [{ subtotal: 500000 }, { subtotal: 500000 }]);
+    expect(result.hasMismatch).toBe(false);
+  });
+
+  it('flags mismatch when difference exceeds 1000 VND', () => {
+    const result = computeBeforeTaxTotalMismatch(1002000, [{ subtotal: 500000 }, { subtotal: 500000 }]);
+    expect(result.hasMismatch).toBe(true);
+  });
+
+  it('returns no mismatch for empty line items', () => {
+    const result = computeBeforeTaxTotalMismatch(1000, []);
+    expect(result.hasMismatch).toBe(false);
   });
 });
 
