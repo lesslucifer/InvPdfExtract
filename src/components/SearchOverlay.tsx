@@ -455,6 +455,13 @@ export const SearchOverlay: React.FC = () => {
         return;
       }
 
+      // Ctrl+, / Cmd+,: open settings
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        useOverlayStore.getState().goTo(OverlayState.Settings);
+        return;
+      }
+
       if (usePresetStore.getState().showSaveModal) return;
 
       // When suggestions are visible, they capture navigation keys
@@ -694,14 +701,12 @@ export const SearchOverlay: React.FC = () => {
           onReprocessFolder={handleReprocessFolder}
         />
       )}
-      {hasSearched && aggregates.totalRecords > 0 && (
-        <StickyFooter
-          ref={footerRef}
-          onWindowlize={!isWindowlized ? handleWindowlize : undefined}
-          onCheatsheetClick={!isWindowlized ? handleCheatsheetClick : undefined}
-          onSettingsClick={!isWindowlized ? handleGearClick : undefined}
-        />
-      )}
+      <StickyFooter
+        ref={footerRef}
+        onWindowlize={!isWindowlized ? handleWindowlize : undefined}
+        onCheatsheetClick={!isWindowlized ? handleCheatsheetClick : undefined}
+        onSettingsClick={!isWindowlized ? handleGearClick : undefined}
+      />
       <SavePresetModal visible={showSaveModal} onSave={handleSavePreset} onCancel={() => usePresetStore.getState().setShowSaveModal(false)} />
     </div>
   );

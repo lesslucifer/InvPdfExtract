@@ -10,7 +10,7 @@ import {
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
   resolveAllConflictsForRecord, updateFtsIndex,
   listRecentFolders, listTopFolders,
-  getAggregates, gatherFilteredExportData,
+  getAggregates, gatherJEExportData,
   getErrorLogsWithPath, getProcessedFilesWithStats,
   updateJeStatus, getJeQueueItems, getJeErrorItems,
   getSessionLogForFile,
@@ -753,14 +753,14 @@ export class OverlayWindow {
       try {
         const result = await dialog.showSaveDialog({
           title: t('export_to_xlsx', 'Export to XLSX'),
-          defaultPath: 'invoicevault-export.xlsx',
+          defaultPath: 'je-export.xlsx',
           filters: [{ name: 'Excel', extensions: ['xlsx'] }],
         });
         if (result.canceled || !result.filePath) return { filePath: null };
 
-        const { exportToXlsx } = await import('../core/export');
-        const data = gatherFilteredExportData(filters);
-        const buffer = exportToXlsx(data);
+        const { exportJEToXlsx } = await import('../core/export');
+        const rows = gatherJEExportData(filters);
+        const buffer = exportJEToXlsx(rows);
         await fs.promises.writeFile(result.filePath, buffer);
         return { filePath: result.filePath };
       } catch (err) {
