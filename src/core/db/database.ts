@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { openSqlite } from './sqlite-binding';
 import { MIGRATIONS } from './schema';
+import { normalizeQuery } from '../../shared/normalize-query';
 
 let activeDb: Database.Database | null = null;
 
@@ -13,6 +14,9 @@ export function openDatabase(dbPath: string): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
+  db.function('normalize_text', { deterministic: true }, (s: unknown) =>
+    normalizeQuery(typeof s === 'string' ? s : String(s ?? ''))
+  );
   runMigrations(db);
   return db;
 }

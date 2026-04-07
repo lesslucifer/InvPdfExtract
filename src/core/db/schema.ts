@@ -291,4 +291,21 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE journal_entries ADD COLUMN contra_account TEXT;
   `,
+
+  // Migration 014: Rebuild FTS5 with diacritic-insensitive tokenizer
+  `
+  DROP TABLE IF EXISTS records_fts;
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
+    invoice_number,
+    tax_id,
+    counterparty_name,
+    counterparty_address,
+    description,
+    bank_name,
+    account_number,
+    content='',
+    tokenize='unicode61 remove_diacritics 1'
+  );
+  `,
 ];
