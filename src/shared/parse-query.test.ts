@@ -118,16 +118,16 @@ describe('parseSearchQuery', () => {
   });
 
   describe('status filters', () => {
-    it('parses status:conflict', () => {
-      expect(parseSearchQuery('status:conflict').status).toBe('conflict');
-    });
-
-    it('parses status:review', () => {
-      expect(parseSearchQuery('status:review').status).toBe('review');
+    it('parses status:uncertain', () => {
+      expect(parseSearchQuery('status:uncertain').status).toBe('uncertain');
     });
 
     it('parses status:mismatch', () => {
       expect(parseSearchQuery('status:mismatch').status).toBe('mismatch');
+    });
+
+    it('parses status:ok', () => {
+      expect(parseSearchQuery('status:ok').status).toBe('ok');
     });
   });
 
@@ -237,7 +237,7 @@ describe('buildQueryString', () => {
   });
 
   it('builds from status', () => {
-    expect(buildQueryString({ text: '', status: 'conflict' })).toBe('status:conflict');
+    expect(buildQueryString({ text: '', status: 'uncertain' })).toBe('status:uncertain');
   });
 
   it('builds from taxId', () => {
@@ -270,12 +270,12 @@ describe('buildQueryString', () => {
     const result = buildQueryString({
       text: 'some text',
       docType: 'bank_statement',
-      status: 'conflict',
+      status: 'uncertain',
       amountMin: 5_000_000,
       amountMax: 10_000_000,
       dateFilter: '2024-03',
     });
-    expect(result).toBe('type:bank status:conflict 5tr-10tr 2024-03 some text');
+    expect(result).toBe('type:bank status:uncertain 5tr-10tr 2024-03 some text');
   });
 
   it('returns empty string for empty parsed query', () => {

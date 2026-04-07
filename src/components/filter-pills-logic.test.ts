@@ -35,7 +35,7 @@ function getPills(filters: ParsedQuery): PillDef[] {
   }
 
   if (filters.status) {
-    const statusIcons: Record<string, IconName> = { conflict: 'conflict', review: 'eye', mismatch: 'mismatch' };
+    const statusIcons: Record<string, IconName> = { uncertain: 'eye', mismatch: 'mismatch', ok: 'success' };
     const icon = statusIcons[filters.status] || 'zap';
     pills.push({ key: 'status', icon, label: filters.status.charAt(0).toUpperCase() + filters.status.slice(1) });
   }
@@ -83,15 +83,20 @@ describe('FilterPills logic', () => {
       expect(pills[0].label).toBe('Invoice In');
     });
 
-    it('returns status pill for conflict', () => {
-      const pills = getPills({ text: '', status: 'conflict' });
+    it('returns status pill for uncertain', () => {
+      const pills = getPills({ text: '', status: 'uncertain' });
       expect(pills).toHaveLength(1);
-      expect(pills[0]).toEqual({ key: 'status', icon: 'conflict', label: 'Conflict' });
+      expect(pills[0]).toEqual({ key: 'status', icon: 'eye', label: 'Uncertain' });
     });
 
-    it('returns status pill for review', () => {
-      const pills = getPills({ text: '', status: 'review' });
-      expect(pills[0]).toEqual({ key: 'status', icon: 'eye', label: 'Review' });
+    it('returns status pill for ok', () => {
+      const pills = getPills({ text: '', status: 'ok' });
+      expect(pills[0]).toEqual({ key: 'status', icon: 'success', label: 'Ok' });
+    });
+
+    it('returns status pill for mismatch', () => {
+      const pills = getPills({ text: '', status: 'mismatch' });
+      expect(pills[0]).toEqual({ key: 'status', icon: 'mismatch', label: 'Mismatch' });
     });
 
     it('returns amount range pill with triệu shorthand', () => {
@@ -120,7 +125,7 @@ describe('FilterPills logic', () => {
       const pills = getPills({
         text: 'hello',
         docType: 'bank_statement',
-        status: 'conflict',
+        status: 'uncertain',
         amountMin: 5_000_000,
         amountMax: 10_000_000,
         dateFilter: '2024-03',

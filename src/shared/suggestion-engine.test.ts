@@ -49,7 +49,7 @@ describe('getSuggestions', () => {
     it('shows status suggestions for "status:"', () => {
       const results = getSuggestions('status:', 7, emptyFilters);
       expect(results).toHaveLength(3);
-      expect(results.map(r => r.label)).toEqual(['Conflict', 'Needs Review', 'Mismatch']);
+      expect(results.map(r => r.label)).toEqual(['OK', 'Uncertain', 'Mismatch']);
     });
 
     it('shows sort suggestions for "sort:" (one per field)', () => {
@@ -77,7 +77,7 @@ describe('getSuggestions', () => {
     });
 
     it('excludes status suggestions when status pill exists', () => {
-      const filters: ParsedQuery = { text: '', status: 'conflict' };
+      const filters: ParsedQuery = { text: '', status: 'uncertain' };
       const results = getSuggestions('status:', 7, filters);
       expect(results).toHaveLength(0);
     });
