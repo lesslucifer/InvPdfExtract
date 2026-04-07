@@ -98,8 +98,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button
                 className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-secondary"
                 onClick={() => onOpenFolder('')}
-                aria-label="Open vault root in file manager"
-                title="Open vault root"
+                aria-label="Locate vault root in file manager"
+                title="Locate vault root"
               >
                 <Icons.folderOpen size={ICON_SIZE.MD} />
               </button>
@@ -185,8 +185,8 @@ const FolderRow: React.FC<FolderRowProps> = ({ folder, folderStatus, onBrowse, o
           <button
             className="bg-transparent border-none text-text-secondary cursor-pointer px-1 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-secondary"
             onClick={(e) => { e.stopPropagation(); onOpen(folder.path); }}
-            aria-label={`Open ${folder.path} in file manager`}
-            title="Open in Finder"
+            aria-label={`Locate ${folder.path} in file manager`}
+            title="Locate in Finder"
           >
             <Icons.folderOpen size={ICON_SIZE.MD} />
           </button>

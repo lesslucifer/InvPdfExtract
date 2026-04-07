@@ -296,10 +296,10 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('open-file', async (_event, relativePath: string) => {
+    ipcMain.handle('locate-file', async (_event, relativePath: string) => {
       if (!this.vaultPath || !relativePath) return;
       const fullPath = path.join(this.vaultPath, relativePath);
-      await shell.openPath(fullPath);
+      shell.showItemInFolder(fullPath);
     });
 
     ipcMain.handle('get-line-items', async (_event, recordId: string) => {
@@ -528,10 +528,10 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('open-folder', async (_event, relativePath: string) => {
+    ipcMain.handle('locate-folder', async (_event, relativePath: string) => {
       if (!this.vaultPath) return;
       const fullPath = path.join(this.vaultPath, relativePath);
-      await shell.openPath(fullPath);
+      shell.showItemInFolder(fullPath);
     });
 
     ipcMain.handle('show-item-in-folder', async (_event, absolutePath: string) => {

@@ -83,8 +83,8 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
           <button
             className={actionBtnClass}
             onClick={onOpenFolder}
-            title="Open in Finder"
-            aria-label="Open folder in file manager"
+            title="Locate in Finder"
+            aria-label="Locate folder in file manager"
           >
             <Icons.folderOpen size={ICON_SIZE.MD} />
           </button>

@@ -3,7 +3,7 @@ import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryIn
 
 const api: InvoiceVaultAPI = {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => ipcRenderer.invoke('search', query, offset ?? 0, folder ?? null, filePath ?? null),
-  openFile: (relativePath: string) => ipcRenderer.invoke('open-file', relativePath),
+  locateFile: (relativePath: string) => ipcRenderer.invoke('locate-file', relativePath),
   getLineItems: (recordId: string) => ipcRenderer.invoke('get-line-items', recordId),
   saveFieldOverride: (input: FieldOverrideInput) => ipcRenderer.invoke('save-field-override', input),
   getFieldOverrides: (recordId: string) => ipcRenderer.invoke('get-field-overrides', recordId),
@@ -24,7 +24,7 @@ const api: InvoiceVaultAPI = {
   removeVault: (vaultPath: string) => ipcRenderer.invoke('remove-vault', vaultPath),
   clearVaultData: (vaultPath: string) => ipcRenderer.invoke('clear-vault-data', vaultPath),
   pickFolder: () => ipcRenderer.invoke('pick-folder'),
-  openFolder: (relativePath: string) => ipcRenderer.invoke('open-folder', relativePath),
+  locateFolder: (relativePath: string) => ipcRenderer.invoke('locate-folder', relativePath),
   listRecentFolders: (limit?: number) => ipcRenderer.invoke('list-recent-folders', limit),
   listTopFolders: () => ipcRenderer.invoke('list-top-folders'),
   getAggregates: (filters: SearchFilters) => ipcRenderer.invoke('get-aggregates', filters),
