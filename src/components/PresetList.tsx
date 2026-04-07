@@ -4,6 +4,7 @@ import { FilterPreset, PresetFilters } from '../shared/types';
 import { formatCurrency } from '../shared/format';
 import { DOC_TYPE_ICONS, Icons, ICON_SIZE } from '../shared/icons';
 import { usePresets } from '../lib/queries';
+import { normalizeQuery } from '../shared/normalize-query';
 
 function formatAmount(n: number): string {
   return formatCurrency(n, { abbreviated: true });
@@ -70,7 +71,7 @@ export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePrese
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const filtered = query
-    ? presets.filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
+    ? presets.filter(p => normalizeQuery(p.name).includes(normalizeQuery(query)))
     : presets;
 
   const handleSelect = useCallback((preset: FilterPreset, e?: React.MouseEvent | KeyboardEvent) => {

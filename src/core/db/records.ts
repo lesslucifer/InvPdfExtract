@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
+import { normalizeQuery } from '../../shared/normalize-query';
 import {
   ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
@@ -548,15 +549,16 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     // escaping any embedded double-quotes. This prevents syntax errors from
     // special FTS5 characters like /, (, ), *, ^, etc.
     const ftsQuery = '"' + q.replace(/"/g, '""') + '"*';
+    const nq = `%${normalizeQuery(q)}%`;
     conditions.push(`(
       r.id IN (SELECT rowid FROM records_fts WHERE records_fts MATCH ?)
-      OR id2.invoice_number LIKE ?
-      OR id2.tax_id LIKE ?
-      OR id2.counterparty_name LIKE ?
-      OR bsd.counterparty_name LIKE ?
-      OR bsd.account_number LIKE ?
+      OR normalize_text(id2.invoice_number) LIKE ?
+      OR normalize_text(id2.tax_id) LIKE ?
+      OR normalize_text(id2.counterparty_name) LIKE ?
+      OR normalize_text(bsd.counterparty_name) LIKE ?
+      OR normalize_text(bsd.account_number) LIKE ?
     )`);
-    params.push(ftsQuery, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+    params.push(ftsQuery, nq, nq, nq, nq, nq);
   }
 
   if (parsed.docType) {
@@ -583,8 +585,8 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     conditions.push('f.relative_path = ?');
     params.push(parsed.filePath);
   } else if (parsed.folder) {
-    conditions.push('f.relative_path LIKE ?');
-    params.push(`${parsed.folder}%`);
+    conditions.push('normalize_text(f.relative_path) LIKE ?');
+    params.push(`${normalizeQuery(parsed.folder)}%`);
   }
 
   if (parsed.amountMin != null || parsed.amountMax != null) {

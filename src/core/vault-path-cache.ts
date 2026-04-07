@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { IGNORED_DIRS } from '../shared/constants';
+import { normalizeQuery } from '../shared/normalize-query';
 
 const MAX_DEPTH = 10;
 const MAX_RESULTS = 20;
@@ -104,9 +105,9 @@ export class VaultPathCache {
         if (entry.isDirectory()) {
           const pEntry: PathEntry = {
             relativePath: relPath,
-            lowerPath: relPath.toLowerCase(),
+            lowerPath: normalizeQuery(relPath),
             name: entry.name,
-            lowerName: entry.name.toLowerCase(),
+            lowerName: normalizeQuery(entry.name),
             isDir: true,
           };
           dirs.push(pEntry);
@@ -114,9 +115,9 @@ export class VaultPathCache {
         } else if (entry.isFile()) {
           const pEntry: PathEntry = {
             relativePath: relPath,
-            lowerPath: relPath.toLowerCase(),
+            lowerPath: normalizeQuery(relPath),
             name: entry.name,
-            lowerName: entry.name.toLowerCase(),
+            lowerName: normalizeQuery(entry.name),
             isDir: false,
           };
           files.push(pEntry);
@@ -138,8 +139,8 @@ export class VaultPathCache {
     // Guard against path traversal
     if (rawQuery.includes('..')) return [];
 
-    const q = rawQuery.toLowerCase().trim();
-    const scopePrefix = scope ? scope.toLowerCase().replace(/\/$/, '') + '/' : null;
+    const q = normalizeQuery(rawQuery);
+    const scopePrefix = scope ? normalizeQuery(scope).replace(/\/$/, '') + '/' : null;
 
     const inScope = (entry: PathEntry): boolean => {
       if (!scopePrefix) return true;
@@ -188,8 +189,8 @@ export class VaultPathCache {
   /** Surgical insert on file:added or dir creation. */
   add(relativePath: string, isDir: boolean): void {
     const name = path.basename(relativePath);
-    const lowerPath = relativePath.toLowerCase();
-    const lowerName = name.toLowerCase();
+    const lowerPath = normalizeQuery(relativePath);
+    const lowerName = normalizeQuery(name);
     const entry: PathEntry = { relativePath, lowerPath, name, lowerName, isDir };
 
     const arr = isDir ? this.dirs : this.files;
@@ -207,7 +208,7 @@ export class VaultPathCache {
   /** Surgical remove on file:deleted. */
   remove(relativePath: string, isDir: boolean): void {
     const arr = isDir ? this.dirs : this.files;
-    const lowerPath = relativePath.toLowerCase();
+    const lowerPath = normalizeQuery(relativePath);
     const idx = arr.findIndex(e => e.lowerPath === lowerPath);
     if (idx !== -1) arr.splice(idx, 1);
   }
