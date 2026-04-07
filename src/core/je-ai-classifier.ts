@@ -18,26 +18,31 @@ type ParsedJEResponse = Array<Record<string, unknown>> | { results?: Array<Recor
 
 const SYSTEM_PROMPT_SUFFIX = `
 
-You are an accounting assistant classifying Vietnamese invoice line items into journal entry accounts.
+You are an accounting assistant classifying Vietnamese invoice line items into double-entry journal accounts.
 
-Each item needs a SINGLE account code — this is the expense/asset/revenue account, NOT the counterparty.
-- For purchase invoices (invoice_in): this is the DEBIT account (e.g. "156" for goods, "642" for admin expenses)
-- For sales invoices (invoice_out): this is the CREDIT account (e.g. "511" for revenue, "512" for financial revenue)
-- For bank transactions: this is the counterparty account (e.g. "331" for payable, "131" for receivable)
+Each item needs TWO account codes forming a complete double-entry pair:
+- "account": the primary account (expense/asset/revenue/counterparty side)
+- "contra_account": the offsetting account (the other side of the entry)
 
-Tax and settlement accounts are handled automatically — do NOT include them.
+Rules by document type:
+- invoice_in (purchase): account = DEBIT side (e.g. "156" goods, "152" materials, "642" admin, "211" fixed assets); contra_account = CREDIT side (typically "331" payable, or "111x"/"112x" if cash payment)
+- invoice_out (sale): account = CREDIT side (e.g. "511" revenue, "515" financial income); contra_account = DEBIT side (typically "131" receivable)
+- bank transactions: account = counterparty account (e.g. "331" supplier payable, "131" customer receivable, "334" salary, "3331" tax); contra_account = the bank/cash account (e.g. "1121" bank, "1111" cash)
+- Adjustment/closing vouchers (NVK): infer both accounts freely from the description (e.g. "kết chuyển lãi" → account="4212", contra_account="4211"; "đánh giá lại tỷ giá" → "3311"/"5152"; "hạch toán thuế môn bài" → "6425"/"33382")
 
 For each item, determine:
-- account: The account code (string)
-- cash_flow: One of "operating", "investing", or "financing"
+- account: primary account code (string)
+- contra_account: offsetting account code (string)
+- cash_flow: one of "operating", "investing", or "financing"
 
 Return ONLY a valid JSON array. Each element must have:
 - "id": the item ID (provided in the input)
 - "account": string
+- "contra_account": string
 - "cash_flow": string
 
 Example output:
-[{"id":"abc-123","account":"156","cash_flow":"operating"}]
+[{"id":"abc-123","account":"156","contra_account":"331","cash_flow":"operating"}]
 `;
 
 export async function classifyWithAI(
@@ -63,7 +68,8 @@ export async function classifyWithAI(
   });
 
   const userPrompt = `Classify these ${items.length} accounting items. For each, provide:
-- account: the single account code (expense/asset/revenue — NOT counterparty or tax)
+- account: the primary account code
+- contra_account: the offsetting account code (the other side of the double entry)
 - cash_flow: operating/investing/financing
 
 Items:
@@ -84,6 +90,7 @@ Return a JSON array with one entry per item.`;
       results.set(id, {
         lineItemId: id,
         account: String(entry.account),
+        contraAccount: entry.contra_account ? String(entry.contra_account) : null,
         cashFlow: ((entry.cash_flow as string | undefined) || 'operating') as CashFlowType,
       });
     }

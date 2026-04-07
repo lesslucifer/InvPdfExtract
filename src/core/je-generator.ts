@@ -202,6 +202,7 @@ export class JEGenerator {
           match.account,
           (match.cashFlow ?? 'operating') as CashFlowType,
           'similarity', match.score, match.matchedDescription,
+          match.contraAccount ?? null,
         );
       } else {
         unmatched.push({
@@ -237,6 +238,7 @@ export class JEGenerator {
             match.account,
             (match.cashFlow ?? 'operating') as CashFlowType,
             'similarity', match.score, match.matchedDescription,
+            match.contraAccount ?? null,
           );
         } else {
           unmatched.push({
@@ -273,6 +275,7 @@ export class JEGenerator {
         match.account,
         (match.cashFlow ?? 'operating') as CashFlowType,
         'similarity', match.score, match.matchedDescription,
+        match.contraAccount ?? null,
       );
       return [];
     }
@@ -308,6 +311,7 @@ export class JEGenerator {
         classification.account,
         classification.cashFlow ?? 'operating',
         'ai', null, null,
+        classification.contraAccount ?? null,
       );
     }
   }
@@ -345,7 +349,8 @@ export class JEGenerator {
           db.prepare('DELETE FROM journal_entries WHERE id = ?').run(existingTax.id);
         }
         const taxAccount = getDefaultAccount(record.doc_type as DocType, 'tax');
-        insertJournalEntry(recordId, null, 'tax', taxAccount, 'operating', 'auto', null, null);
+        const taxContra = getDefaultAccount(record.doc_type as DocType, 'settlement');
+        insertJournalEntry(recordId, null, 'tax', taxAccount, 'operating', 'auto', null, null, taxContra);
       }
     }
 
@@ -357,7 +362,7 @@ export class JEGenerator {
         db.prepare('DELETE FROM journal_entries WHERE id = ?').run(existingSettlement.id);
       }
       const settlementAccount = getDefaultAccount(record.doc_type as DocType, 'settlement');
-      insertJournalEntry(recordId, null, 'settlement', settlementAccount, 'operating', 'auto', null, null);
+      insertJournalEntry(recordId, null, 'settlement', settlementAccount, 'operating', 'auto', null, null, null);
     }
   }
 }

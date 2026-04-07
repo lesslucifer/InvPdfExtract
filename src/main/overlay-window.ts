@@ -784,7 +784,7 @@ export class OverlayWindow {
       try {
         const existing = findExistingEntry(input.recordId, input.lineItemId ?? null, input.entryType);
         if (existing) {
-          updateJournalEntry(existing.id, input.account, input.cashFlow ?? null);
+          updateJournalEntry(existing.id, input.account, input.cashFlow ?? null, input.contraAccount ?? null);
           const db = getDatabase();
           const updated = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(existing.id);
           eventBus.emit('je:updated', { recordId: input.recordId });
@@ -794,6 +794,7 @@ export class OverlayWindow {
           input.recordId, input.lineItemId ?? null, input.entryType,
           input.account, input.cashFlow ?? null,
           'user', null, null,
+          input.contraAccount ?? null,
         );
         eventBus.emit('je:updated', { recordId: input.recordId });
         return entry;

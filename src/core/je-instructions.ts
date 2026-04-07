@@ -34,46 +34,62 @@ const DEFAULT_JE_INSTRUCTIONS = `HUONG DAN PHAN LOAI TAI KHOAN (Account Classifi
 =====================================================================
 
 Day la huong dan cho AI phan loai tai khoan cho cac dong hoa don
-va sao ke ngan hang. Moi dong chi can 1 tai khoan duy nhat — tai
-khoan chi phi/tai san (dau vao) hoac doanh thu (dau ra). Tai
-khoan thue va doi ung (331, 131) duoc tu dong tao boi he thong.
+va sao ke ngan hang. Moi but toan can 2 tai khoan: "account" (tai khoan
+chinh) va "contra_account" (TK doi ung — ben kia cua but toan kep).
 
 
 PHAN LOAI TAI KHOAN DAU VAO (invoice_in)
 -----------------------------------------
-Moi dong hoa don dau vao can tai khoan NO (debit):
-  - Hang hoa: TK 156
-  - Nguyen vat lieu: TK 152
-  - Chi phi dich vu tu van: TK 642
-  - Van phong pham (VPP): TK 6422
-  - Dien, nuoc: TK 6427 (dich vu mua ngoai)
-  - Van chuyen, cuoc phi: TK 641 (chi phi ban hang)
-  - Thue nha, mat bang: TK 6427
-  - Tai san co dinh: TK 211
-
-He thong se tu dong tao:
-  - But toan thue: No TK 1331 (tong thue cac dong)
-  - But toan doi ung: Co TK 331 (tong tien bao gom thue)
+Moi dong hoa don dau vao:
+  - account (NO/debit):
+      Hang hoa: TK 156
+      Nguyen vat lieu: TK 152
+      Chi phi dich vu tu van: TK 642
+      Van phong pham (VPP): TK 6422
+      Dien, nuoc: TK 6427 (dich vu mua ngoai)
+      Van chuyen, cuoc phi: TK 641 (chi phi ban hang)
+      Thue nha, mat bang: TK 6427
+      Tai san co dinh: TK 211
+  - contra_account (CO/credit): TK 331 (phai tra NCC)
+      Neu tra bang tien mat: TK 1111
+      Neu tra qua ngan hang: TK 1121
 
 
 PHAN LOAI TAI KHOAN DAU RA (invoice_out)
 -----------------------------------------
-Moi dong hoa don dau ra can tai khoan CO (credit):
-  - Doanh thu ban hang: TK 511
-  - Doanh thu tai chinh: TK 515
-  - Doanh thu khac: TK 711
-
-He thong se tu dong tao:
-  - But toan thue: Co TK 3331 (tong thue cac dong)
-  - But toan doi ung: No TK 131 (tong tien bao gom thue)
+Moi dong hoa don dau ra:
+  - account (CO/credit):
+      Doanh thu ban hang: TK 511
+      Doanh thu tai chinh: TK 515
+      Doanh thu khac: TK 711
+  - contra_account (NO/debit): TK 131 (phai thu KH)
 
 
 PHAN LOAI SAO KE NGAN HANG
 ----------------------------
-  - Thanh toan NCC: TK 331
-  - Thu tien KH: TK 131
-  - Tra luong: TK 334
-  - Nop thue: TK 3331
+Moi giao dich ngan hang:
+  - account: tai khoan doi tac (counterparty)
+      Thanh toan NCC: TK 331
+      Thu tien KH: TK 131
+      Tra luong: TK 334
+      Nop thue: TK 3331
+      Gop von / nhan von: TK 411
+  - contra_account: tai khoan ngan hang/tien mat
+      Ngan hang: TK 1121
+      Tien mat: TK 1111
+
+
+BUT TOAN DIEU CHINH / KET CHUYEN (NVK)
+----------------------------------------
+Doi voi cac but toan dieu chinh, ket chuyen, danh gia lai — suy luan ca
+hai tai khoan tu mo ta:
+  - "ket chuyen lai nam truoc":       account=4212, contra_account=4211
+  - "ket chuyen lo":                  account=4211, contra_account=4212
+  - "danh gia lai chenh lech ty gia": account=3311, contra_account=5152 (hoac nguoc lai)
+  - "hach toan thue mon bai":         account=6425, contra_account=33382
+  - "xu ly chenh lech von vay":       account=34111/34112, contra_account=5152
+  - "doi tru tam ung":                account=3311, contra_account=1411
+  Neu khong ro, suy luan tu noi dung mo ta.
 
 
 PHAN LOAI DONG TIEN
@@ -95,6 +111,6 @@ Hoat dong tai chinh (financing):
 GHI CHU
 -------
 - Tai khoan theo he thong Thong tu 200/2014
-- Neu khong chac chan, su dung TK 156 (dau vao) hoac TK 511 (dau ra)
+- Neu khong chac chan: account=TK 156 (dau vao) hoac TK 511 (dau ra); contra_account=TK 331 hoac TK 131
 - Phan loai dong tien mac dinh la "operating" neu khong ro
 `;

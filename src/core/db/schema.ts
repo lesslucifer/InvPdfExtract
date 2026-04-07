@@ -286,4 +286,9 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS idx_files_status_unfiltered ON files(status) WHERE status = 'unfiltered';
   `,
+
+  // Migration 013: Contra account for journal entries (TK Đối ứng)
+  `
+  ALTER TABLE journal_entries ADD COLUMN contra_account TEXT;
+  `,
 ];

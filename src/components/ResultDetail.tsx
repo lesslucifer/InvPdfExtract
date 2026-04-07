@@ -158,8 +158,8 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       }, 0);
   }, [lineItems]);
 
-  const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank' | 'invoice', lineItemId: string | null, account: string) => {
-    await saveJournalEntry.mutateAsync({ recordId: result.id, lineItemId: lineItemId ?? undefined, entryType, account });
+  const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank' | 'invoice', lineItemId: string | null, account: string, contraAccount?: string) => {
+    await saveJournalEntry.mutateAsync({ recordId: result.id, lineItemId: lineItemId ?? undefined, entryType, account, contraAccount });
   };
 
   const renderJeIcon = (status: string) => {
@@ -203,7 +203,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                 {t('tk', 'TK')}
                 {jeStatus && renderJeIcon(jeStatus)}
               </td>
-              <JeCell account={bankJe?.account ?? null} onSave={(account) => handleSaveJeAccount('bank', null, account)} />
+              <JeCell account={bankJe?.account ?? null} contraAccount={bankJe?.contra_account ?? null} onSave={(account, contra) => handleSaveJeAccount('bank', null, account, contra)} />
             </tr>
           </tbody>
         </table>
@@ -250,6 +250,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                     >{t('after_tax', 'After tax')}{hasColumnIssues.afterTax && <span className="text-confidence-low font-bold ml-0.5">!</span>}
                     </th>
                     <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{t('tk', 'TK')}</th>
+                    <th className="text-left px-1.5 py-1 font-semibold text-text-secondary border-b border-border">{t('tk_du', 'TK ĐƯ')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -268,7 +269,8 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                         <EditableCell value={String(item.subtotal ?? '')} fieldName="subtotal" lineItemId={item.id} override={getLineItemOverride(item.id, 'subtotal')} inputType="number" derivedValue={deriveFieldValue('subtotal', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <EditableCell value={item.tax_rate != null ? String(item.tax_rate) : ''} fieldName="tax_rate" lineItemId={item.id} override={getLineItemOverride(item.id, 'tax_rate')} inputType="number" derivedValue={deriveFieldValue('tax_rate', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <EditableCell value={String(item.total_with_tax ?? '')} fieldName="total_with_tax" lineItemId={item.id} override={getLineItemOverride(item.id, 'total_with_tax')} inputType="number" derivedValue={deriveFieldValue('total_with_tax', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <JeCell account={je?.account ?? null} onSave={(account) => handleSaveJeAccount('line', item.id, account)} />
+                        <JeCell account={je?.account ?? null} onSave={(account, contra) => handleSaveJeAccount('line', item.id, account, contra)} />
+                        <JeCell account={je?.contra_account ?? null} onSave={(contra) => handleSaveJeAccount('line', item.id, je?.account ?? '', contra)} />
                       </tr>
                     );
                   })}
@@ -278,13 +280,13 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
               <div className="mt-1.5 py-1">
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
                   <span className="min-w-[80px] text-text-secondary">{t('thue_gtgt', 'Thue GTGT')}</span>
-                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} contraAccount={taxJe?.contra_account ?? null} onSave={(account, contra) => handleSaveJeAccount('tax', null, account, contra)} />
                   </span>
                   <span className="text-text ml-auto">{derivedTaxAmount > 0 ? formatCurrency(derivedTaxAmount) : '–'}</span>
                 </div>
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
                   <span className="min-w-[80px] text-text-secondary">{t('thanh_toan', 'Thanh toan')}</span>
-                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={settlementJe?.account ?? null} contraAccount={settlementJe?.contra_account ?? null} onSave={(account, contra) => handleSaveJeAccount('settlement', null, account, contra)} />
                   </span>
                   <span className="text-text ml-auto">{localTotals.total_amount ? formatCurrency(localTotals.total_amount) : '–'}</span>
                 </div>
@@ -299,13 +301,13 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
               <div className="py-1">
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
                   <span className="min-w-[80px] text-text-secondary">{t('hang_dich_vu', 'Hàng/dịch vụ')}</span>
-                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={invoiceJe?.account ?? null} onSave={(account) => handleSaveJeAccount('invoice', null, account)} />
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={invoiceJe?.account ?? null} contraAccount={invoiceJe?.contra_account ?? null} onSave={(account, contra) => handleSaveJeAccount('invoice', null, account, contra)} />
                   </span>
                   <span className="text-text ml-auto">{localTotals.total_before_tax ? formatCurrency(localTotals.total_before_tax) : '–'}</span>
                 </div>
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
                   <span className="min-w-[80px] text-text-secondary">{t('thue_gtgt', 'Thue GTGT')}</span>
-                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} contraAccount={taxJe?.contra_account ?? null} onSave={(account, contra) => handleSaveJeAccount('tax', null, account, contra)} />
                   </span>
                   <span className="text-text ml-auto">
                     {(localTotals.total_amount && localTotals.total_before_tax)
@@ -315,7 +317,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                 </div>
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
                   <span className="min-w-[80px] text-text-secondary">{t('thanh_toan', 'Thanh toan')}</span>
-                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={settlementJe?.account ?? null} contraAccount={settlementJe?.contra_account ?? null} onSave={(account, contra) => handleSaveJeAccount('settlement', null, account, contra)} />
                   </span>
                   <span className="text-text ml-auto">{localTotals.total_amount ? formatCurrency(localTotals.total_amount) : '–'}</span>
                 </div>

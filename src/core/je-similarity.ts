@@ -9,6 +9,7 @@ interface NormalizedCacheEntry extends CacheEntry {
 
 export interface SimilarityMatch {
   account: string;
+  contraAccount: string | null;
   cashFlow: string | null;
   entryType: string;
   score: number;
@@ -94,6 +95,7 @@ export class JESimilarityEngine {
     if (bestMatch && bestScore >= this.threshold) {
       return {
         account: bestMatch.account,
+        contraAccount: bestMatch.contra_account ?? null,
         cashFlow: bestMatch.cash_flow,
         entryType: bestMatch.entry_type,
         score: bestScore,
