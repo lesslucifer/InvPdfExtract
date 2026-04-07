@@ -30,8 +30,8 @@ describe('getSuggestions', () => {
   describe('prefix-colon triggers', () => {
     it('shows type suggestions for "type:"', () => {
       const results = getSuggestions('type:', 5, emptyFilters);
-      expect(results).toHaveLength(3);
-      expect(results.map(r => r.label)).toEqual(['Bank Statement', 'Invoice Out', 'Invoice In']);
+      expect(results).toHaveLength(4);
+      expect(results.map(r => r.label)).toEqual(['Bank Statement', 'Invoice Out', 'Invoice In', 'Invoice (any)']);
     });
 
     it('filters type suggestions by value "type:ba"', () => {
@@ -101,7 +101,7 @@ describe('getSuggestions', () => {
     it('suggests for the active token after other text', () => {
       const input = 'company type:';
       const results = getSuggestions(input, input.length, emptyFilters);
-      expect(results).toHaveLength(3); // all type suggestions
+      expect(results).toHaveLength(4); // all type suggestions
     });
 
     it('suggests when cursor is on a mid-input token', () => {

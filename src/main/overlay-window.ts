@@ -132,6 +132,18 @@ export class OverlayWindow {
     }
   }
 
+  hasSpawnedWindows(): boolean {
+    return this.spawnedWindows.size > 0;
+  }
+
+  focusLastSpawnedWindow(): void {
+    const win = [...this.spawnedWindows].at(-1);
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  }
+
   closeAllSpawnedWindows(): void {
     for (const win of this.spawnedWindows) {
       if (!win.isDestroyed()) win.close();
@@ -223,13 +235,20 @@ export class OverlayWindow {
     return img.isEmpty() ? undefined : img;
   }
 
-  private spawnWindowlized(serializedState?: string): void {
+  private spawnWindowlized(serializedState?: string, sourceBounds?: Electron.Rectangle): void {
+    const width = sourceBounds?.width ?? 800;
+    const height = sourceBounds?.height ?? 600;
+    const x = sourceBounds ? sourceBounds.x + 20 : undefined;
+    const y = sourceBounds ? sourceBounds.y + 20 : undefined;
     const win = new BrowserWindow({
-      width: 800,
-      height: 600,
+      width,
+      height,
+      x,
+      y,
       minWidth: 500,
       minHeight: 400,
-      frame: false,
+      frame: true,
+      titleBarStyle: 'default',
       transparent: false,
       alwaysOnTop: false,
       skipTaskbar: false,
@@ -244,7 +263,7 @@ export class OverlayWindow {
       },
     });
 
-    const url = MAIN_WINDOW_WEBPACK_ENTRY + '?windowlized=true';
+    const url = MAIN_WINDOW_WEBPACK_ENTRY + '?windowlized=true&nativeFrame=true';
     win.loadURL(url);
 
     if (serializedState) {
@@ -614,8 +633,10 @@ export class OverlayWindow {
       this.hide();
     });
 
-    ipcMain.handle('windowlize', async (_event, serializedState?: string) => {
-      this.spawnWindowlized(serializedState);
+    ipcMain.handle('windowlize', async (event, serializedState?: string) => {
+      const sourceWin = BrowserWindow.fromWebContents(event.sender);
+      const bounds = sourceWin?.getBounds();
+      this.spawnWindowlized(serializedState, bounds);
       this.hide();
     });
 

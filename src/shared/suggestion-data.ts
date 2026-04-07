@@ -94,6 +94,15 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     keywords: ['type', 'in', 'hdv', 'hoa don dau vao', 'input', 'purchase'],
     filterKey: 'docType',
   },
+  {
+    category: 'type',
+    icon: 'invoiceAny',
+    label: 'Invoice (any)',
+    insertText: 'type:inv ',
+    hint: 'in+out',
+    keywords: ['type', 'invoice', 'hoa don', 'hdra', 'hdv', 'all invoices'],
+    filterKey: 'docType',
+  },
 
   // Status filters
   {

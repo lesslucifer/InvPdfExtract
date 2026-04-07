@@ -22,10 +22,14 @@ function getPills(filters: ParsedQuery): PillDef[] {
   if (filters.docType) {
     const meta = DOC_TYPE_ICONS[filters.docType];
     if (meta) {
-      const iconName = filters.docType === 'bank_statement' ? 'bankStatement'
-        : filters.docType === 'invoice_out' ? 'invoiceOut'
-        : 'invoiceIn';
-      pills.push({ key: 'docType', icon: iconName as IconName, label: meta.label });
+      const docTypeIconMap: Record<string, IconName> = {
+        bank_statement: 'bankStatement',
+        invoice_out: 'invoiceOut',
+        invoice_in: 'invoiceIn',
+        invoice: 'invoiceAny',
+      };
+      const iconName = docTypeIconMap[filters.docType] ?? 'file';
+      pills.push({ key: 'docType', icon: iconName, label: meta.label });
     }
   }
 

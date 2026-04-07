@@ -38,7 +38,7 @@ export const CheatsheetPanel: React.FC = () => {
         <div className="flex flex-col gap-1.5 cheatsheet-compact">
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
             <span className={groupLabelClass}>{t('type', 'Type')}</span>
-            <code>{t('typebank', 'type:bank')}</code> <code>{t('typeout', 'type:out')}</code> <code>{t('typein', 'type:in')}</code>
+            <code>{t('typebank', 'type:bank')}</code> <code>{t('typeout', 'type:out')}</code> <code>{t('typein', 'type:in')}</code> <code>{t('typeinv', 'type:inv')}</code>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
             <span className={groupLabelClass}>{t('amount', 'Amount')}</span>
