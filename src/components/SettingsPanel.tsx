@@ -53,14 +53,19 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
 
   const handleDisconnectVault = useCallback(async (vaultPath: string, e: React.MouseEvent) => {
     const isClear = e.metaKey || e.ctrlKey;
-    if (isClear) {
-      if (clearConfirmVault !== vaultPath) {
-        setClearConfirmVault(vaultPath);
-        return;
-      }
+    const isPendingClearConfirm = clearConfirmVault === vaultPath;
+
+    if (isPendingClearConfirm) {
+      // Second click (with or without modifier) confirms the clear
+      console.log('[SettingsPanel] Confirmed clear vault:', vaultPath);
       setClearConfirmVault(null);
       await window.api.clearVaultData(vaultPath);
+    } else if (isClear) {
+      console.log('[SettingsPanel] Clear requested, awaiting confirmation for:', vaultPath);
+      setClearConfirmVault(vaultPath);
+      return;
     } else {
+      console.log('[SettingsPanel] Disconnect (remove) vault:', vaultPath);
       await window.api.removeVault(vaultPath);
     }
     useAppConfig.invalidate();

@@ -547,11 +547,14 @@ export class OverlayWindow {
     });
 
     ipcMain.handle('clear-vault-data', async (_event, vaultPath: string) => {
+      console.log('[Vault] clear-vault-data IPC received for:', vaultPath);
       const config = await loadAppConfig();
       const isActive = config.lastVaultPath === vaultPath;
+      console.log('[Vault] isActive:', isActive, '| lastVaultPath:', config.lastVaultPath);
 
       // Stop the vault if it's active
       if (isActive) {
+        console.log('[Vault] Stopping active vault before clear');
         this.closeAllSpawnedWindows();
         if (this.callbacks) await this.callbacks.onStopVault();
       }
@@ -562,14 +565,17 @@ export class OverlayWindow {
         const pad = (n: number) => String(n).padStart(2, '0');
         const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
         const backupPath = path.join(vaultPath, `invoicevault.backup.${stamp}.zip`);
+        console.log('[Vault] Starting auto-backup to:', backupPath);
         await backupVault(vaultPath, backupPath);
-        console.log(`[Vault] Auto-backup saved to ${backupPath}`);
+        console.log('[Vault] Auto-backup saved to', backupPath);
       } catch (err) {
         console.error('[Vault] Auto-backup before clear failed:', err);
       }
 
       // Delete the .invoicevault directory
+      console.log('[Vault] Deleting .invoicevault at:', vaultPath);
       await clearVaultData(vaultPath);
+      console.log('[Vault] .invoicevault deleted');
 
       // Remove from config
       const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
@@ -577,9 +583,11 @@ export class OverlayWindow {
         vaultPaths,
         lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
       });
+      console.log('[Vault] Config updated, remaining vaults:', vaultPaths);
 
       // Switch to next vault if available
       if (isActive && vaultPaths.length > 0 && this.callbacks) {
+        console.log('[Vault] Switching to next vault:', vaultPaths[0]);
         await this.callbacks.onSwitchVault(vaultPaths[0]);
       }
     });
