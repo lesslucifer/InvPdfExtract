@@ -71,38 +71,42 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
     return () => window.removeEventListener('keydown', handler);
   }, [exporting, stats.totalRecords, toast, handleExport]);
 
-  if (stats.totalRecords === 0) return null;
-
   return (
     <div className="flex items-center justify-between px-3 py-1.5 border-t border-border h-9 box-border shrink-0">
       <div className="flex items-center gap-1 text-3 text-text-muted">
-        <span className="font-medium text-text-secondary">{stats.totalRecords}{` ${t('records', 'records')}`}</span>
-        {stats.totalAmount > 0 && (
+        {stats.totalRecords > 0 && (
           <>
-            <span className="w-[1px] h-3 bg-border mx-1" />
-            <span className="text-text-muted">{formatCurrency(stats.totalAmount)}</span>
+            <span className="font-medium text-text-secondary">{stats.totalRecords}{` ${t('records', 'records')}`}</span>
+            {stats.totalAmount > 0 && (
+              <>
+                <span className="w-[1px] h-3 bg-border mx-1" />
+                <span className="text-text-muted">{formatCurrency(stats.totalAmount)}</span>
+              </>
+            )}
           </>
         )}
       </div>
       <div className="flex items-center gap-1.5">
-        {toast ? (
-          <div className="flex items-center gap-2 text-3 text-text-secondary">
-            <span>{toast.message}</span>
+        {stats.totalRecords > 0 && (
+          toast ? (
+            <div className="flex items-center gap-2 text-3 text-text-secondary">
+              <span>{toast.message}</span>
+              <button
+                className="bg-transparent border border-border rounded px-2 py-[2px] text-2.75 text-accent cursor-pointer hover:bg-bg-hover"
+                onClick={handleOpenExportFile}
+              >{t('open', 'Open')}</button>
+            </div>
+          ) : (
             <button
-              className="bg-transparent border border-border rounded px-2 py-[2px] text-2.75 text-accent cursor-pointer hover:bg-bg-hover"
-              onClick={handleOpenExportFile}
-            >{t('open', 'Open')}</button>
-          </div>
-        ) : (
-          <button
-            className="bg-accent text-white border-none rounded px-2.5 py-1 text-3 cursor-pointer font-medium transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-default"
-            onClick={handleExport}
-            disabled={exporting}
-            aria-label="Export XLSX"
-            title="Export XLSX (Ctrl+S)"
-          >
-            {exporting ? `${t('exporting', 'Exporting')}...` : <Icons.download size={ICON_SIZE.SM} />}
-          </button>
+              className="bg-accent text-white border-none rounded px-2.5 py-1 text-3 cursor-pointer font-medium transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-default"
+              onClick={handleExport}
+              disabled={exporting}
+              aria-label="Export XLSX"
+              title="Export XLSX (Ctrl+S)"
+            >
+              {exporting ? `${t('exporting', 'Exporting')}...` : <Icons.download size={ICON_SIZE.SM} />}
+            </button>
+          )
         )}
         {onWindowlize && (
           <button className={iconBtnClass} onClick={onWindowlize} aria-label="Open as window" title="Open as window">
@@ -115,7 +119,7 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
           </button>
         )}
         {onSettingsClick && (
-          <button className={iconBtnClass} onClick={onSettingsClick} aria-label="Settings" title="Settings">
+          <button className={iconBtnClass} onClick={onSettingsClick} aria-label="Settings" title="Settings (⌘,)">
             <Icons.settings size={ICON_SIZE.SM} />
           </button>
         )}
