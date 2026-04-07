@@ -312,7 +312,7 @@ async function startVault(vaultPath: string): Promise<void> {
   eventBus.on('extraction:completed', async (data) => {
     if (!jeGenerator) return;
     try {
-      // Mark records as pending for JE classification
+      // Mark records as pending for JE generation
       const records = getRecordsByFileId(data.fileId);
       if (records.length > 0) {
         const ids = records.map(r => r.id);

@@ -186,7 +186,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
               {item.description || item.relative_path}
             </span>
             <span className="text-2.75 text-accent shrink-0">
-              {item.je_status === 'processing' ? t('classifying', 'Classifying') : t('classification_pending', 'Classification pending')}
+              {item.je_status === 'processing' ? t('generating_je', 'Generating JE') : t('je_generation_pending', 'JE generation pending')}
             </span>
             <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.created_at)}</span>
           </li>
@@ -497,7 +497,7 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
               <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={item.relative_path}>
                 {item.description || item.relative_path}
               </span>
-              <span className="text-2.75 text-confidence-low">{t('classification_failed', 'Classification failed')}</span>
+              <span className="text-2.75 text-confidence-low">{t('je_generation_failed', 'JE generation failed')}</span>
             </div>
             <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.updated_at)}</span>
           </li>

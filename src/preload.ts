@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus, JEClassificationStatus } from './shared/types';
+import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryInput, SearchFilters, FileStatus, JEGenerationStatus } from './shared/types';
 
 const api: InvoiceVaultAPI = {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => ipcRenderer.invoke('search', query, offset ?? 0, folder ?? null, filePath ?? null),
@@ -71,16 +71,16 @@ const api: InvoiceVaultAPI = {
   getJournalEntries: (recordId: string) => ipcRenderer.invoke('get-journal-entries', recordId),
   saveJournalEntry: (input: JournalEntryInput) => ipcRenderer.invoke('save-journal-entry', input),
   deleteJournalEntry: (id: string) => ipcRenderer.invoke('delete-journal-entry', id),
-  reclassifyRecord: (recordId: string) => ipcRenderer.invoke('reclassify-record', recordId),
-  reclassifyRecordAIOnly: (recordId: string) => ipcRenderer.invoke('reclassify-record-ai-only', recordId),
-  reclassifyFiltered: (filters: SearchFilters, aiOnly: boolean) => ipcRenderer.invoke('reclassify-filtered', filters, aiOnly),
+  regenerateJE: (recordId: string) => ipcRenderer.invoke('regenerate-je-record', recordId),
+  regenerateJEAIOnly: (recordId: string) => ipcRenderer.invoke('regenerate-je-record-ai-only', recordId),
+  regenerateJEFiltered: (filters: SearchFilters, aiOnly: boolean) => ipcRenderer.invoke('regenerate-je-filtered', filters, aiOnly),
   getJEInstructions: () => ipcRenderer.invoke('get-je-instructions'),
   saveJEInstructions: (content: string) => ipcRenderer.invoke('save-je-instructions', content),
-  // JE classification status
+  // JE generation status
   getJeQueueItems: () => ipcRenderer.invoke('get-je-queue-items'),
   getJeErrorItems: () => ipcRenderer.invoke('get-je-error-items'),
   onJeStatusChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: { recordIds: string[]; status: JEClassificationStatus }) => callback(data);
+    const listener = (_event: Electron.IpcRendererEvent, data: { recordIds: string[]; status: JEGenerationStatus }) => callback(data);
     ipcRenderer.on('je-status-changed', listener);
     return () => ipcRenderer.removeListener('je-status-changed', listener);
   },

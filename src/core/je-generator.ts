@@ -334,7 +334,7 @@ export class JEGenerator {
 
   /**
    * Collect all classifiable items for a record, skipping similarity matching.
-   * Used by AI-only reclassification.
+   * Used by AI-only regeneration.
    */
   private collectAllItemsForAI(recordId: string): UnclassifiedItem[] {
     const db = getDatabase();

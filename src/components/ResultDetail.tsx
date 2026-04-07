@@ -1,6 +1,6 @@
 import { t } from '../lib/i18n';
 import React, { useEffect, useState, useMemo } from 'react';
-import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo, JournalEntry, JEClassificationStatus } from '../shared/types';
+import { SearchResult, DocType, InvoiceLineItem, FieldOverrideInfo, JournalEntry, JEGenerationStatus } from '../shared/types';
 import { EditableField } from './EditableField';
 import { EditableCell } from './EditableCell';
 import { JeCell } from './JeCell';
@@ -17,10 +17,10 @@ interface Props {
 }
 
 const JE_STATUS_ICON_CONFIG: Record<string, { icon: LucideIcon; className: string; title: string }> = {
-  pending:    { icon: Icons.hourglass, className: 'text-text-muted',                title: 'Queued for classification' },
-  processing: { icon: Icons.loader,    className: 'text-accent animate-spin-slow',    title: 'Classifying...' },
-  done:       { icon: Icons.check,     className: 'text-confidence-high',             title: 'Classified — click to reclassify · Ctrl/⌘+click for AI only' },
-  error:      { icon: Icons.error,     className: 'text-confidence-low',              title: 'Classification failed — click to retry · Ctrl/⌘+click for AI only' },
+  pending:    { icon: Icons.hourglass, className: 'text-text-muted',                title: 'Queued for JE generation' },
+  processing: { icon: Icons.loader,    className: 'text-accent animate-spin-slow',    title: 'Generating JE...' },
+  done:       { icon: Icons.check,     className: 'text-confidence-high',             title: 'JE generated — click to regenerate · Ctrl/⌘+click for AI only' },
+  error:      { icon: Icons.error,     className: 'text-confidence-low',              title: 'JE generation failed — click to retry · Ctrl/⌘+click for AI only' },
 };
 
 export const ResultDetail: React.FC<Props> = ({ result }) => {
@@ -28,7 +28,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
     total_amount: result.total_amount,
     total_before_tax: result.total_before_tax,
   });
-  const [jeStatusRaw, setJeStatusRaw] = useState<JEClassificationStatus | null>(result.je_status);
+  const [jeStatusRaw, setJeStatusRaw] = useState<JEGenerationStatus | null>(result.je_status);
   const isBank = result.doc_type === DocType.BankStatement;
   const isInvoice = result.doc_type === DocType.InvoiceIn || result.doc_type === DocType.InvoiceOut;
 
@@ -118,14 +118,14 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   };
 
   // eslint-disable-next-line @spaced-out/i18n/no-static-labels
-  const jeStatus: JEClassificationStatus | null = jeStatusRaw ?? (journalEntries.length > 0 ? 'done' : null);
+  const jeStatus: JEGenerationStatus | null = jeStatusRaw ?? (journalEntries.length > 0 ? 'done' : null);
 
-  const handleReclassify = (e: React.MouseEvent) => {
+  const handleRegenerateJE = (e: React.MouseEvent) => {
     setJeStatusRaw('pending');
     if (e.ctrlKey || e.metaKey) {
-      window.api.reclassifyRecordAIOnly(result.id);
+      window.api.regenerateJEAIOnly(result.id);
     } else {
-      window.api.reclassifyRecord(result.id);
+      window.api.regenerateJE(result.id);
     }
   };
 
@@ -174,7 +174,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       <span
         className={`inline-flex items-center ml-1.5 align-middle cursor-pointer shrink-0 ${config.className}`}
         title={config.title}
-        onClick={(e) => handleReclassify(e)}
+        onClick={(e) => handleRegenerateJE(e)}
         role="button"
         tabIndex={0}
       >

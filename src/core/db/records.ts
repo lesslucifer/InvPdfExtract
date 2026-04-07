@@ -3,7 +3,7 @@ import { getDatabase } from './database';
 import {
   ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
-  FolderInfo, JEClassificationStatus, JeQueueItem, JeErrorItem,
+  FolderInfo, JEGenerationStatus, JeQueueItem, JeErrorItem,
   FieldOverrideInfo, SearchFilters, AggregateStats, SearchResult,
 } from '../../shared/types';
 
@@ -135,7 +135,7 @@ export function getRecordsByFileId(fileId: string): DbRecord[] {
   return db.prepare('SELECT * FROM records WHERE file_id = ? AND deleted_at IS NULL').all(fileId) as DbRecord[];
 }
 
-export function updateJeStatus(recordIds: string[], status: JEClassificationStatus): void {
+export function updateJeStatus(recordIds: string[], status: JEGenerationStatus): void {
   const db = getDatabase();
   const stmt = db.prepare('UPDATE records SET je_status = ?, updated_at = datetime(\'now\') WHERE id = ?');
   const tx = db.transaction(() => {

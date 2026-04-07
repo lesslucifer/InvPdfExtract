@@ -815,35 +815,35 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('reclassify-record', async (_event, recordId: string) => {
+    ipcMain.handle('regenerate-je-record', async (_event, recordId: string) => {
       try {
         if (!this.callbacks) return;
         updateJeStatus([recordId], 'pending');
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
         // Fire and forget — status updates come via events
         this.callbacks.onGenerateJE(recordId).catch((err: Error) => {
-          console.error('[JournalEntry] Reclassify failed:', err);
+          console.error('[JournalEntry] Regenerate JE failed:', err);
         });
       } catch (err) {
-        console.error('[JournalEntry] Reclassify record failed:', err);
+        console.error('[JournalEntry] Regenerate JE record failed:', err);
       }
     });
 
-    ipcMain.handle('reclassify-record-ai-only', async (_event, recordId: string) => {
+    ipcMain.handle('regenerate-je-record-ai-only', async (_event, recordId: string) => {
       try {
         if (!this.callbacks) return;
         updateJeStatus([recordId], 'pending');
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
         // Fire and forget — status updates come via events
         this.callbacks.onGenerateJEAIOnly(recordId).catch((err: Error) => {
-          console.error('[JournalEntry] Reclassify AI-only failed:', err);
+          console.error('[JournalEntry] Regenerate JE AI-only failed:', err);
         });
       } catch (err) {
-        console.error('[JournalEntry] Reclassify AI-only record failed:', err);
+        console.error('[JournalEntry] Regenerate JE AI-only record failed:', err);
       }
     });
 
-    ipcMain.handle('reclassify-filtered', async (_event, filters: SearchFilters, aiOnly: boolean) => {
+    ipcMain.handle('regenerate-je-filtered', async (_event, filters: SearchFilters, aiOnly: boolean) => {
       try {
         if (!this.callbacks) return { count: 0 };
         const recordIds = getRecordIdsByFilters(filters);
@@ -851,11 +851,11 @@ export class OverlayWindow {
         updateJeStatus(recordIds, 'pending');
         eventBus.emit('je:status-changed', { recordIds, status: 'pending' });
         this.callbacks.onGenerateJEForFilters(filters, aiOnly).catch((err: Error) => {
-          console.error('[JournalEntry] Reclassify filtered failed:', err);
+          console.error('[JournalEntry] Regenerate JE filtered failed:', err);
         });
         return { count: recordIds.length };
       } catch (err) {
-        console.error('[JournalEntry] Reclassify filtered handler failed:', err);
+        console.error('[JournalEntry] Regenerate JE filtered handler failed:', err);
         return { count: 0 };
       }
     });
