@@ -274,7 +274,6 @@ Located relative to: ${vaultRoot}`;
       ];
 
       const proc = spawn(this.cliPath, args, {
-        timeout: this.timeout,
         cwd: cwd ?? undefined,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env },
@@ -282,9 +281,22 @@ Located relative to: ${vaultRoot}`;
 
       let stdout = '';
       let stderr = '';
+      let completed = false;
+
+      const killTimer = setTimeout(() => {
+        if (!completed) {
+          proc.kill('SIGTERM');
+        }
+      }, this.timeout);
 
       proc.stdout.on('data', (data: Buffer) => {
         stdout += data.toString();
+        // Cancel the kill timer as soon as we see a completed result envelope —
+        // the process has finished its work; no need to kill it.
+        if (!completed && stdout.includes('"stop_reason":"end_turn"')) {
+          completed = true;
+          clearTimeout(killTimer);
+        }
       });
 
       proc.stderr.on('data', (data: Buffer) => {
@@ -292,15 +304,46 @@ Located relative to: ${vaultRoot}`;
       });
 
       proc.on('close', (code) => {
+        clearTimeout(killTimer);
         if (code === 0) {
           resolve(stdout.trim());
         } else {
-          const sessionId = extractSessionId(stdout.trim());
+          // CLI may have completed successfully but been killed after writing output
+          // (e.g. timeout SIGTERM arrives just after process finishes). If stdout contains
+          // a completed result envelope (possibly truncated mid-stream), treat it as success.
+          const trimmed = stdout.trim();
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed?.type === 'result' && parsed?.is_error === false && parsed?.stop_reason === 'end_turn') {
+              console.warn(`[ClaudeCodeRunner] CLI exited ${code} but stdout has completed result — treating as success`);
+              resolve(trimmed);
+              return;
+            }
+          } catch { /* not a complete valid envelope — try repair below */ }
+
+          // If stdout was truncated mid-stream, attempt to salvage using repairTruncatedJSON.
+          // This handles the race where SIGTERM arrives just as stdout is being flushed.
+          if (trimmed.includes('"type":"result"') && trimmed.includes('"stop_reason":"end_turn"')) {
+            const repaired = repairTruncatedJSON(trimmed);
+            if (repaired) {
+              try {
+                const parsed = JSON.parse(repaired);
+                if (parsed?.type === 'result' && parsed?.is_error === false && parsed?.stop_reason === 'end_turn') {
+                  console.warn(`[ClaudeCodeRunner] CLI exited ${code} but repaired truncated envelope — treating as success`);
+                  resolve(repaired);
+                  return;
+                }
+              } catch { /* repair didn't help */ }
+            }
+          }
+
+          const sessionId = extractSessionId(trimmed);
           reject(new CliError(code, stderr, stdout, sessionId));
         }
       });
 
       proc.on('error', (err) => {
+        clearTimeout(killTimer);
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
           reject(new CliError(null, `Claude CLI not found at "${this.cliPath}". Install it from https://claude.ai/code`, '', null));
         } else {
