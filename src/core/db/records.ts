@@ -662,7 +662,7 @@ function buildOrderByClause(parsed: ParsedQuery): string {
 
 const BASE_JOINS = `
   FROM records r
-  JOIN files f ON r.file_id = f.id
+  JOIN files f ON r.file_id = f.id AND f.deleted_at IS NULL
   LEFT JOIN invoice_data id2 ON r.id = id2.record_id
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 

@@ -93,6 +93,11 @@ const api: InvoiceVaultAPI = {
     ipcRenderer.on('db-error', listener);
     return () => ipcRenderer.removeListener('db-error', listener);
   },
+  onFileDeleted: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: { relativePath: string }) => callback(data);
+    ipcRenderer.on('file-deleted', listener);
+    return () => ipcRenderer.removeListener('file-deleted', listener);
+  },
   getDbError: () => ipcRenderer.invoke('get-db-error'),
   // Window state persistence
   saveOverlayUIState: (state: PersistedUIState) => ipcRenderer.invoke('save-overlay-ui-state', state),

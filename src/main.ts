@@ -297,6 +297,9 @@ async function startVault(vaultPath: string): Promise<void> {
   });
   await fileWatcher.start();
 
+  // Reconcile DB against disk — soft-delete any tracked files that no longer exist
+  syncEngine.reconcileMissingFiles().catch(err => console.error('[SyncEngine] Reconcile failed:', err));
+
   // Build path cache in background — non-blocking
   vaultPathCache = new VaultPathCache(currentVault.rootPath);
   vaultPathCache.build().catch(err => console.error('[VaultPathCache] Build failed:', err));

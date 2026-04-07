@@ -59,6 +59,7 @@ interface SearchStore {
 
   // File status updates from IPC
   updateFileStatuses: (statuses: Record<string, FileStatus>) => void;
+  removeResultsForFile: (relativePath: string) => void;
 }
 
 function buildSearchFilters(text: string, filters: ParsedQuery, folder: string | null, file: string | null = null): SearchFilters {
@@ -301,6 +302,12 @@ export const useSearchStore = create<SearchStore>()(
           const newStatus = statuses[r.relative_path];
           if (newStatus !== undefined) r.file_status = newStatus;
         }
+      });
+    },
+
+    removeResultsForFile: (relativePath) => {
+      set(s => {
+        s.results = s.results.filter(r => r.relative_path !== relativePath);
       });
     },
   }))

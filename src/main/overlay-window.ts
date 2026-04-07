@@ -460,6 +460,9 @@ export class OverlayWindow {
     eventBus.on('je:status-changed', (data) => {
       this.broadcastToAll('je-status-changed', data);
     });
+    eventBus.on('file:deleted', (data) => {
+      this.broadcastToAll('file-deleted', data);
+    });
   }
 
   registerIpcHandlers(): void {
