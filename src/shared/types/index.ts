@@ -540,6 +540,8 @@ export interface InvoiceVaultAPI {
   saveJournalEntry: (input: JournalEntryInput) => Promise<JournalEntry>;
   deleteJournalEntry: (id: string) => Promise<void>;
   reclassifyRecord: (recordId: string) => Promise<void>;
+  reclassifyRecordAIOnly: (recordId: string) => Promise<void>;
+  reclassifyFiltered: (filters: SearchFilters, aiOnly: boolean) => Promise<{ count: number }>;
   getJEInstructions: () => Promise<string>;
   saveJEInstructions: (content: string) => Promise<void>;
   // JE classification status

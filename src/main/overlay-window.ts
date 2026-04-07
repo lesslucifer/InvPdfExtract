@@ -13,7 +13,7 @@ import {
   getAggregates, gatherJEExportData,
   getErrorLogsWithPath, getProcessedFilesWithStats,
   updateJeStatus, getJeQueueItems, getJeErrorItems,
-  getSessionLogForFile,
+  getSessionLogForFile, getRecordIdsByFilters,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
@@ -44,7 +44,9 @@ export interface OverlayCallbacks {
   onClearPendingQueue: () => number;
   onQuit: () => Promise<void>;
   onGenerateJE: (recordId: string) => Promise<number>;
+  onGenerateJEAIOnly: (recordId: string) => Promise<number>;
   onGenerateJEForFile: (fileId: string) => Promise<number>;
+  onGenerateJEForFilters: (filters: SearchFilters, aiOnly: boolean) => Promise<number>;
   getVaultRoot: () => string | null;
 }
 
@@ -824,6 +826,37 @@ export class OverlayWindow {
         });
       } catch (err) {
         console.error('[JournalEntry] Reclassify record failed:', err);
+      }
+    });
+
+    ipcMain.handle('reclassify-record-ai-only', async (_event, recordId: string) => {
+      try {
+        if (!this.callbacks) return;
+        updateJeStatus([recordId], 'pending');
+        eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
+        // Fire and forget — status updates come via events
+        this.callbacks.onGenerateJEAIOnly(recordId).catch((err: Error) => {
+          console.error('[JournalEntry] Reclassify AI-only failed:', err);
+        });
+      } catch (err) {
+        console.error('[JournalEntry] Reclassify AI-only record failed:', err);
+      }
+    });
+
+    ipcMain.handle('reclassify-filtered', async (_event, filters: SearchFilters, aiOnly: boolean) => {
+      try {
+        if (!this.callbacks) return { count: 0 };
+        const recordIds = getRecordIdsByFilters(filters);
+        if (recordIds.length === 0) return { count: 0 };
+        updateJeStatus(recordIds, 'pending');
+        eventBus.emit('je:status-changed', { recordIds, status: 'pending' });
+        this.callbacks.onGenerateJEForFilters(filters, aiOnly).catch((err: Error) => {
+          console.error('[JournalEntry] Reclassify filtered failed:', err);
+        });
+        return { count: recordIds.length };
+      } catch (err) {
+        console.error('[JournalEntry] Reclassify filtered handler failed:', err);
+        return { count: 0 };
       }
     });
 

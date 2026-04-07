@@ -142,6 +142,7 @@
   "records": "records",
   "records_extracted_from": "record(s) extracted from",
   "records_in": "record(s) in",
+  "reload_all_je": "Reload all JE",
   "remove_from_queue": "Remove from queue",
   "removed_records_archived": "removed — records archived",
   "reprocess": "Reprocess",

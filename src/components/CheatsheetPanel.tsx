@@ -107,6 +107,7 @@ export const CheatsheetPanel: React.FC = () => {
         </div>
         <div className="mt-2 text-2.75 text-text-secondary italic">{t('same_modifiers_apply_in_path_browser_click_set_scope_open_in_finder_reprocess', 'Same modifiers apply in path browser: click = set scope, ⌘ = open in Finder, ⌥ = reprocess')}</div>
       </div>
+
     </div>
   );
 };

@@ -11,7 +11,7 @@ import { ExtractionQueue } from './core/extraction-queue';
 import { ClaudeCodeRunner } from './core/claude-cli';
 import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
-import { VaultFile, VaultHandle, FileStatus } from './shared/types';
+import { VaultFile, VaultHandle, FileStatus, SearchFilters } from './shared/types';
 import { startIpcBridge, stopIpcBridge } from './main/ipc-bridge';
 import { JESimilarityEngine } from './core/je-similarity';
 import { JEGenerator } from './core/je-generator';
@@ -22,7 +22,7 @@ import {
   getFilesByStatus, getFilesByStatuses, updateFileStatus, getFileByPath, getFilesByFolder,
   cancelQueueItem, clearPendingQueue, resetStaleProcessingFiles,
 } from './core/db/files';
-import { getRecordsByFileId, updateJeStatus } from './core/db/records';
+import { getRecordsByFileId, updateJeStatus, getRecordIdsByFilters } from './core/db/records';
 import { WATCHED_EXTENSIONS, INVOICEVAULT_DIR } from './shared/constants';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -216,9 +216,19 @@ app.on('ready', async () => {
       if (!jeGenerator) return 0;
       return jeGenerator.generateForRecord(recordId);
     },
+    onGenerateJEAIOnly: async (recordId: string) => {
+      if (!jeGenerator) return 0;
+      return jeGenerator.generateForRecordAIOnly(recordId);
+    },
     onGenerateJEForFile: async (fileId: string) => {
       if (!jeGenerator) return 0;
       return jeGenerator.generateForFile(fileId);
+    },
+    onGenerateJEForFilters: async (filters: SearchFilters, aiOnly: boolean) => {
+      if (!jeGenerator) return 0;
+      const recordIds = getRecordIdsByFilters(filters);
+      if (aiOnly) return jeGenerator.generateBatchAIOnly(recordIds);
+      return jeGenerator.generateBatch(recordIds);
     },
     getVaultRoot: () => currentVault?.rootPath ?? null,
   });

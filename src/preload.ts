@@ -72,6 +72,8 @@ const api: InvoiceVaultAPI = {
   saveJournalEntry: (input: JournalEntryInput) => ipcRenderer.invoke('save-journal-entry', input),
   deleteJournalEntry: (id: string) => ipcRenderer.invoke('delete-journal-entry', id),
   reclassifyRecord: (recordId: string) => ipcRenderer.invoke('reclassify-record', recordId),
+  reclassifyRecordAIOnly: (recordId: string) => ipcRenderer.invoke('reclassify-record-ai-only', recordId),
+  reclassifyFiltered: (filters: SearchFilters, aiOnly: boolean) => ipcRenderer.invoke('reclassify-filtered', filters, aiOnly),
   getJEInstructions: () => ipcRenderer.invoke('get-je-instructions'),
   saveJEInstructions: (content: string) => ipcRenderer.invoke('save-je-instructions', content),
   // JE classification status
