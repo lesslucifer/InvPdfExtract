@@ -553,6 +553,7 @@ export interface InvoiceVaultAPI {
   getJeErrorItems: () => Promise<JeErrorItem[]>;
   onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEGenerationStatus }) => void) => () => void;
   onDbError: (callback: (error: string) => void) => () => void;
+  onFileDeleted: (callback: (data: { relativePath: string }) => void) => () => void;
   getDbError: () => Promise<string | null>;
   // Debug / session logs
   getSessionLogForFile: (fileId: string) => Promise<string | null>;

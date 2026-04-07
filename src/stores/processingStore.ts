@@ -65,11 +65,22 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
       useOverlayStore.getState().setOverlayState(OverlayState.DbError);
     });
 
+    const unsubFileDeleted = window.api.onFileDeleted(async ({ relativePath }) => {
+      useHomeData.invalidate();
+      useFolderStatuses.invalidate();
+      useQueueData.invalidate();
+      useProcessedData.invalidate();
+      useErrorData.invalidate();
+      const { useSearchStore } = await import('./searchStore');
+      useSearchStore.getState().removeResultsForFile(relativePath);
+    });
+
     return () => {
       unsubStatus();
       unsubFile();
       unsubJe();
       unsubDbError();
+      unsubFileDeleted();
     };
   },
 }));

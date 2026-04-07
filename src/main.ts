@@ -297,6 +297,9 @@ async function startVault(vaultPath: string): Promise<void> {
   });
   await fileWatcher.start();
 
+  // Reconcile DB against disk — soft-delete any tracked files that no longer exist
+  syncEngine.reconcileMissingFiles().catch(err => console.error('[SyncEngine] Reconcile failed:', err));
+
   // Build path cache in background — non-blocking
   vaultPathCache = new VaultPathCache(currentVault.rootPath);
   vaultPathCache.build().catch(err => console.error('[VaultPathCache] Build failed:', err));
@@ -356,9 +359,9 @@ async function startVault(vaultPath: string): Promise<void> {
             await scan(rel);
           } else if (entry.isFile()) {
             const ext = path.extname(entry.name).toLowerCase();
-            if (WATCHED_EXTENSIONS.has(ext) && !getFileByPath(rel)) {
+            if (WATCHED_EXTENSIONS.has(ext)) {
               const fullPath = path.join(vaultPath, rel);
-              syncEngine?.handleEvent('file:added', rel, fullPath);
+              syncEngine?.handleEvent(getFileByPath(rel) ? 'file:changed' : 'file:added', rel, fullPath);
               scanned++;
             }
           }
@@ -367,7 +370,7 @@ async function startVault(vaultPath: string): Promise<void> {
     };
     await scan('');
     if (scanned > 0) {
-      console.log(`[InvoiceVault] Initial scan found ${scanned} untracked file(s), scheduling extraction`);
+      console.log(`[InvoiceVault] Initial scan processed ${scanned} file(s), scheduling extraction`);
       scheduleExtraction();
     }
   }

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
-import { insertFile, getFileByPath, updateFileHash, softDeleteFile } from './db/files';
+import { insertFile, getFileByPath, updateFileHash, softDeleteFile, getAllActiveFiles } from './db/files';
 import { eventBus } from './event-bus';
 import { FILE_TYPE_MAP } from '../shared/constants';
 import { WatcherEvent } from './watcher';
@@ -81,6 +81,19 @@ export class SyncEngine {
 
     eventBus.emit('file:deleted', { relativePath });
     console.log(`[SyncEngine] Deleted: ${relativePath}`);
+  }
+
+  async reconcileMissingFiles(): Promise<void> {
+    const activeFiles = getAllActiveFiles();
+    for (const file of activeFiles) {
+      const fullPath = path.join(this.vaultRoot, file.relative_path);
+      const exists = await fs.promises.access(fullPath).then(() => true).catch(() => false);
+      if (!exists) {
+        softDeleteFile(file.id);
+        eventBus.emit('file:deleted', { relativePath: file.relative_path });
+        console.log(`[SyncEngine] Reconciled missing file: ${file.relative_path}`);
+      }
+    }
   }
 }
 
