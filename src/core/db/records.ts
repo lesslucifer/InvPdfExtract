@@ -609,6 +609,15 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
   return { conditions, params };
 }
 
+export function getRecordIdsByFilters(filters: SearchFilters): string[] {
+  const db = getDatabase();
+  const parsed = filtersToParsed(filters);
+  const { conditions, params } = buildFilterClauses(parsed);
+  const rows = db.prepare(`SELECT r.id ${BASE_JOINS} WHERE ${conditions.join(' AND ')}`)
+    .all(...params) as { id: string }[];
+  return rows.map(r => r.id);
+}
+
 /** Convert SearchFilters (from renderer) to ParsedQuery (for DB layer). */
 function filtersToParsed(filters: SearchFilters): ParsedQuery {
   return {

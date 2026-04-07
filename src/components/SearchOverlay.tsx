@@ -1,6 +1,6 @@
 import { t } from '../lib/i18n';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { OverlayState } from '../shared/types';
+import { OverlayState, SearchFilters } from '../shared/types';
 import { parseSearchQuery, ParsedQuery } from '../shared/parse-query';
 import { getSuggestions, getActiveToken } from '../shared/suggestion-engine';
 import { SuggestionItem, EMPTY_HINT_ITEMS, AMOUNT_SUGGESTION_ITEMS, getDateSuggestionItems } from '../shared/suggestion-data';
@@ -360,6 +360,22 @@ export const SearchOverlay: React.FC = () => {
     }
   }, []);
 
+  const handleBreadcrumbReloadJE = useCallback((aiOnly: boolean) => {
+    const ss = useSearchStore.getState();
+    const filters: SearchFilters = {
+      text: ss.query.trim() || undefined,
+      folder: ss.folderScope || undefined,
+      filePath: ss.fileScope || undefined,
+      docType: ss.filters.docType,
+      status: ss.filters.status,
+      taxId: ss.filters.taxId,
+      amountMin: ss.filters.amountMin,
+      amountMax: ss.filters.amountMax,
+      dateFilter: ss.filters.dateFilter,
+    };
+    window.api.reclassifyFiltered(filters, aiOnly);
+  }, []);
+
   const handleVaultChanged = useCallback(() => {
     useSearchStore.getState().resetSearch();
     initialLoadDone.current = false;
@@ -632,6 +648,14 @@ export const SearchOverlay: React.FC = () => {
       <div className={overlayClass}>
         {titleBar}
         <SearchInput value={query} onChange={handleQueryChange} onCursorChange={handleCursorChange} onStatusDotClick={handleStatusDotClick} />
+        {(folderScope || fileScope) && (
+          <BreadcrumbBar
+            onNavigate={handleFolderNavigate}
+            onOpenFolder={() => folderScope && handleLocateFolder(folderScope)}
+            onReload={handleBreadcrumbReload}
+            onReloadJE={handleBreadcrumbReloadJE}
+          />
+        )}
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -690,6 +714,7 @@ export const SearchOverlay: React.FC = () => {
           onNavigate={handleFolderNavigate}
           onOpenFolder={() => folderScope && handleLocateFolder(folderScope)}
           onReload={handleBreadcrumbReload}
+          onReloadJE={handleBreadcrumbReloadJE}
         />
       )}
       {hasSearched && (

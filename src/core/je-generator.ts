@@ -37,6 +37,7 @@ export class JEGenerator {
     eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'processing' });
 
     try {
+      this.similarityEngine.refresh();
       const unmatched = this.classifyRecord(recordId);
       if (unmatched.length > 0) {
         await this.flushUnclassified(unmatched);
@@ -56,6 +57,46 @@ export class JEGenerator {
     } finally {
       this.processing.delete(recordId);
     }
+  }
+
+  /**
+   * Generate JEs for a single record using AI only — skips similarity matching.
+   * All items are sent directly to AI regardless of similarity cache hits.
+   */
+  async generateForRecordAIOnly(recordId: string): Promise<number> {
+    if (this.processing.has(recordId)) return 0;
+    this.processing.add(recordId);
+
+    updateJeStatus([recordId], 'processing');
+    eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'processing' });
+
+    try {
+      const unmatched = this.collectAllItemsForAI(recordId);
+      if (unmatched.length > 0) {
+        await this.flushUnclassified(unmatched);
+      }
+      this.generateAutoEntries(recordId);
+      const entries = getJournalEntriesByRecord(recordId);
+
+      updateJeStatus([recordId], 'done');
+      eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'done' });
+      eventBus.emit('je:generated', { recordId, count: entries.length, source: 'ai' });
+      return entries.length;
+    } catch (err) {
+      updateJeStatus([recordId], 'error');
+      eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'error' });
+      throw err;
+    } finally {
+      this.processing.delete(recordId);
+    }
+  }
+
+  async generateBatchAIOnly(recordIds: string[]): Promise<number> {
+    let total = 0;
+    for (const recordId of recordIds) {
+      total += await this.generateForRecordAIOnly(recordId);
+    }
+    return total;
   }
 
   /**
@@ -79,6 +120,8 @@ export class JEGenerator {
     // Mark all as processing
     updateJeStatus(activeIds, 'processing');
     eventBus.emit('je:status-changed', { recordIds: activeIds, status: 'processing' });
+
+    this.similarityEngine.refresh();
 
     for (const recordId of activeIds) {
       this.processing.add(recordId);
@@ -287,6 +330,69 @@ export class JEGenerator {
       description: bankData.description,
       totalWithTax: bankData.amount ?? undefined,
     }];
+  }
+
+  /**
+   * Collect all classifiable items for a record, skipping similarity matching.
+   * Used by AI-only reclassification.
+   */
+  private collectAllItemsForAI(recordId: string): UnclassifiedItem[] {
+    const db = getDatabase();
+    const record = db.prepare('SELECT * FROM records WHERE id = ? AND deleted_at IS NULL').get(recordId) as DbRecord | undefined;
+    if (!record) return [];
+
+    deleteJournalEntriesByRecord(recordId, true);
+
+    const isInvoice = record.doc_type === DocType.InvoiceIn || record.doc_type === DocType.InvoiceOut;
+    const isBank = record.doc_type === DocType.BankStatement;
+
+    if (isInvoice) {
+      const lineItems = getLineItemsByRecord(record.id);
+      const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(record.id) as {
+        counterparty_name?: string;
+        tax_id?: string;
+        total_before_tax?: number;
+        total_amount?: number;
+      } | undefined;
+
+      return lineItems
+        .filter(item => !db.prepare("SELECT id FROM journal_entries WHERE line_item_id = ? AND user_edited = 1").get(item.id))
+        .map(item => {
+          const rawDescription = item.description?.trim() ?? '';
+          let effectiveDescription: string;
+          if (rawDescription.length <= 3) {
+            const parts: string[] = [];
+            if (invoiceData?.counterparty_name) parts.push(invoiceData.counterparty_name);
+            parts.push(record.doc_type);
+            if (item.subtotal != null) parts.push(`${item.subtotal.toLocaleString()} VND`);
+            else if (invoiceData?.total_before_tax != null) parts.push(`${invoiceData.total_before_tax.toLocaleString()} VND`);
+            effectiveDescription = parts.join(' - ') || record.doc_type;
+          } else {
+            effectiveDescription = rawDescription;
+          }
+          return {
+            id: item.id,
+            recordId: record.id,
+            docType: record.doc_type,
+            description: effectiveDescription,
+            counterpartyName: invoiceData?.counterparty_name ?? undefined,
+            taxId: invoiceData?.tax_id ?? undefined,
+            taxRate: item.tax_rate ?? undefined,
+            totalWithTax: item.total_with_tax ?? undefined,
+            subtotal: item.subtotal ?? undefined,
+          };
+        });
+    } else if (isBank) {
+      const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(record.id) as BankStatementData | undefined;
+      if (!bankData?.description) return [];
+      const existingUserEdited = db.prepare(
+        "SELECT id FROM journal_entries WHERE record_id = ? AND line_item_id IS NULL AND entry_type = 'bank' AND user_edited = 1"
+      ).get(record.id);
+      if (existingUserEdited) return [];
+      return [{ id: record.id, recordId: record.id, docType: record.doc_type, description: bankData.description, totalWithTax: bankData.amount ?? undefined }];
+    }
+
+    return [];
   }
 
   /**

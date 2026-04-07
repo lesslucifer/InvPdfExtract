@@ -19,8 +19,8 @@ interface Props {
 const JE_STATUS_ICON_CONFIG: Record<string, { icon: LucideIcon; className: string; title: string }> = {
   pending:    { icon: Icons.hourglass, className: 'text-text-muted',                title: 'Queued for classification' },
   processing: { icon: Icons.loader,    className: 'text-accent animate-spin-slow',    title: 'Classifying...' },
-  done:       { icon: Icons.check,     className: 'text-confidence-high',             title: 'Classified — click to reclassify' },
-  error:      { icon: Icons.error,     className: 'text-confidence-low',              title: 'Classification failed — click to retry' },
+  done:       { icon: Icons.check,     className: 'text-confidence-high',             title: 'Classified — click to reclassify · Ctrl/⌘+click for AI only' },
+  error:      { icon: Icons.error,     className: 'text-confidence-low',              title: 'Classification failed — click to retry · Ctrl/⌘+click for AI only' },
 };
 
 export const ResultDetail: React.FC<Props> = ({ result }) => {
@@ -120,9 +120,13 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   // eslint-disable-next-line @spaced-out/i18n/no-static-labels
   const jeStatus: JEClassificationStatus | null = jeStatusRaw ?? (journalEntries.length > 0 ? 'done' : null);
 
-  const handleReclassify = () => {
+  const handleReclassify = (e: React.MouseEvent) => {
     setJeStatusRaw('pending');
-    window.api.reclassifyRecord(result.id);
+    if (e.ctrlKey || e.metaKey) {
+      window.api.reclassifyRecordAIOnly(result.id);
+    } else {
+      window.api.reclassifyRecord(result.id);
+    }
   };
 
   const lastJeUpdate = useProcessingStore(s => s.lastJeUpdate);
@@ -170,7 +174,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       <span
         className={`inline-flex items-center ml-1.5 align-middle cursor-pointer shrink-0 ${config.className}`}
         title={config.title}
-        onClick={handleReclassify}
+        onClick={(e) => handleReclassify(e)}
         role="button"
         tabIndex={0}
       >

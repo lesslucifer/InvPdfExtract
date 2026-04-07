@@ -6,6 +6,7 @@ interface Props {
   onNavigate: (folder: string) => void;
   onOpenFolder: () => void;
   onReload?: () => void;
+  onReloadJE?: (aiOnly: boolean) => void;
 }
 
 interface Segment {
@@ -28,7 +29,7 @@ function extractFileName(filePath: string): string {
 
 const actionBtnClass = 'bg-transparent border-none text-text-muted cursor-pointer px-1 py-[1px] rounded inline-flex items-center hover:text-text hover:bg-bg-hover';
 
-export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onReload }) => {
+export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onReload, onReloadJE }) => {
   const folder = useSearchStore(s => s.folderScope);
   const file = useSearchStore(s => s.fileScope);
   const clearFolderScope = useSearchStore(s => s.clearFolderScope);
@@ -69,6 +70,16 @@ export const BreadcrumbBar: React.FC<Props> = ({ onNavigate, onOpenFolder, onRel
         </>
       )}
       <div className="ml-auto flex gap-1 shrink-0">
+        {onReloadJE && (
+          <button
+            className={actionBtnClass}
+            onClick={(e) => onReloadJE(e.ctrlKey || e.metaKey)}
+            title="Reload JE for all records in scope · Ctrl/⌘+click for AI only"
+            aria-label="Reload JE"
+          >
+            <Icons.refreshJE size={ICON_SIZE.MD} />
+          </button>
+        )}
         {onReload && (
           <button
             className={actionBtnClass}
