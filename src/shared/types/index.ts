@@ -437,6 +437,7 @@ export interface JournalEntry {
   line_item_id: string | null;
   entry_type: JEEntryType;
   account: string | null;
+  contra_account: string | null;
   cash_flow: CashFlowType | null;
   source: JESource;
   similarity_score: number | null;
@@ -451,12 +452,14 @@ export interface JournalEntryInput {
   lineItemId?: string;
   entryType: JEEntryType;
   account: string;
+  contraAccount?: string | null;
   cashFlow?: CashFlowType;
 }
 
 export interface JEClassificationResult {
   lineItemId?: string;
   account: string;
+  contraAccount?: string | null;
   cashFlow?: CashFlowType;
 }
 

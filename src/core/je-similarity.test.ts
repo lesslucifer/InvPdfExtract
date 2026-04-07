@@ -38,7 +38,7 @@ describe('JESimilarityEngine', () => {
 
   it('finds exact match with score 1.0', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'Van phong pham', record_id: 'r1', line_item_id: 'li1', account: '6422', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Van phong pham', record_id: 'r1', line_item_id: 'li1', account: '6422', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
@@ -52,7 +52,7 @@ describe('JESimilarityEngine', () => {
 
   it('matches similar descriptions above threshold', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'Dich vu tu van ke toan thang 3', record_id: 'r1', line_item_id: 'li1', account: '642', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Dich vu tu van ke toan thang 3', record_id: 'r1', line_item_id: 'li1', account: '642', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
@@ -65,7 +65,7 @@ describe('JESimilarityEngine', () => {
 
   it('returns null for dissimilar descriptions', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'Van phong pham', record_id: 'r1', line_item_id: 'li1', account: '6422', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Van phong pham', record_id: 'r1', line_item_id: 'li1', account: '6422', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
@@ -76,7 +76,7 @@ describe('JESimilarityEngine', () => {
 
   it('normalizes case for matching', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'Van Phong Pham', record_id: 'r1', line_item_id: 'li1', account: '6422', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Van Phong Pham', record_id: 'r1', line_item_id: 'li1', account: '6422', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
@@ -88,7 +88,7 @@ describe('JESimilarityEngine', () => {
 
   it('returns null for very short strings (< 2 chars)', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'A', record_id: 'r1', line_item_id: 'li1', account: '156', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'A', record_id: 'r1', line_item_id: 'li1', account: '156', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
@@ -98,8 +98,8 @@ describe('JESimilarityEngine', () => {
 
   it('returns the best match when multiple candidates exist', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'Dich vu internet thang 3', record_id: 'r1', line_item_id: 'li1', account: '6427', cash_flow: 'operating', entry_type: 'line' },
-      { description: 'Dich vu tu van thue thang 3', record_id: 'r2', line_item_id: 'li2', account: '642', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Dich vu internet thang 3', record_id: 'r1', line_item_id: 'li1', account: '6427', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Dich vu tu van thue thang 3', record_id: 'r2', line_item_id: 'li2', account: '642', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
@@ -111,11 +111,11 @@ describe('JESimilarityEngine', () => {
 
   it('reports cache size correctly', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'Item 1', record_id: 'r1', line_item_id: 'li1', account: '156', cash_flow: 'operating', entry_type: 'line' },
-      { description: 'Item 2', record_id: 'r2', line_item_id: 'li2', account: '642', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Item 1', record_id: 'r1', line_item_id: 'li1', account: '156', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Item 2', record_id: 'r2', line_item_id: 'li2', account: '642', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([
-      { description: 'Bank item', record_id: 'b1', line_item_id: null, account: '131', cash_flow: 'operating', entry_type: 'bank' },
+      { description: 'Bank item', record_id: 'b1', line_item_id: null, account: '131', contra_account: null, cash_flow: 'operating', entry_type: 'bank' },
     ]);
     engine.initialize();
 
@@ -124,9 +124,9 @@ describe('JESimilarityEngine', () => {
 
   it('filters out empty descriptions', () => {
     mockGetLineItems.mockReturnValue([
-      { description: '', record_id: 'r1', line_item_id: 'li1', account: '156', cash_flow: 'operating', entry_type: 'line' },
-      { description: '  ', record_id: 'r2', line_item_id: 'li2', account: '642', cash_flow: 'operating', entry_type: 'line' },
-      { description: 'Valid', record_id: 'r3', line_item_id: 'li3', account: '156', cash_flow: 'operating', entry_type: 'line' },
+      { description: '', record_id: 'r1', line_item_id: 'li1', account: '156', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
+      { description: '  ', record_id: 'r2', line_item_id: 'li2', account: '642', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Valid', record_id: 'r3', line_item_id: 'li3', account: '156', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
@@ -136,7 +136,7 @@ describe('JESimilarityEngine', () => {
 
   it('destroy clears cache and state', () => {
     mockGetLineItems.mockReturnValue([
-      { description: 'Test', record_id: 'r1', line_item_id: 'li1', account: '156', cash_flow: 'operating', entry_type: 'line' },
+      { description: 'Test', record_id: 'r1', line_item_id: 'li1', account: '156', contra_account: null, cash_flow: 'operating', entry_type: 'line' },
     ]);
     mockGetBankItems.mockReturnValue([]);
     engine.initialize();
