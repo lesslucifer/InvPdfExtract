@@ -166,6 +166,15 @@ export const SearchOverlay: React.FC = () => {
       }
       setSuggestionIndex(0);
       setShowHintBar(false);
+      // Remove any partial prefix token the user had typed (e.g. "amou", "dat")
+      const ss = useSearchStore.getState();
+      if (ss.query) {
+        const { text: activeToken, startIndex } = getActiveToken(ss.query, cursorPosRef.current);
+        if (activeToken) {
+          const newQuery = (ss.query.slice(0, startIndex) + ss.query.slice(startIndex + activeToken.length)).trim();
+          ss.setQuery(newQuery);
+        }
+      }
       return;
     }
 
@@ -188,8 +197,12 @@ export const SearchOverlay: React.FC = () => {
       if (parsed.dateFilter) newFilters.dateFilter = parsed.dateFilter;
       if (parsed.sortField) { newFilters.sortField = parsed.sortField; newFilters.sortDirection = parsed.sortDirection; }
       ss.setFilters(newFilters);
+      // Remove the typed prefix token from the query
+      const { text: activeToken, startIndex } = getActiveToken(ss.query, cursorPosRef.current);
+      const newQuery = (ss.query.slice(0, startIndex) + ss.query.slice(startIndex + activeToken.length)).trim();
+      ss.setQuery(newQuery);
       if (os.overlayState === OverlayState.Home) os.setOverlayState(OverlayState.Search);
-      ss.doSearch(ss.query, newFilters, ss.folderScope, false, ss.fileScope);
+      ss.doSearch(newQuery, newFilters, ss.folderScope, false, ss.fileScope);
       setSuggestions([]);
       setSuggestionIndex(0);
       return;

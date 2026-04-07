@@ -240,8 +240,8 @@ export const PREFIX_HINTS: PrefixHint[] = [
   { prefix: 'type', label: 'Filter by document type', icon: 'clipboardList', insertText: 'type:' },
   { prefix: 'status', label: 'Filter by status', icon: 'zap', insertText: 'status:' },
   { prefix: 'sort', label: 'Sort results', icon: 'arrowUpDown', insertText: 'sort:' },
-  { prefix: 'amount', label: 'Filter by amount', icon: 'amount', insertText: '' },
-  { prefix: 'date', label: 'Filter by date', icon: 'calendar', insertText: '' },
+  { prefix: 'amount', label: 'Filter by amount', icon: 'amount', insertText: '__show:amount' },
+  { prefix: 'date', label: 'Filter by date', icon: 'calendar', insertText: '__show:date' },
 ];
 
 /** Hint chips shown when input is empty — uses SuggestionItem for unified rendering.
@@ -250,6 +250,6 @@ export const EMPTY_HINT_ITEMS: SuggestionItem[] = [
   { category: 'type', icon: 'clipboardList', label: 'type:', insertText: 'type:', hint: '', keywords: [], filterKey: 'docType' },
   { category: 'status', icon: 'zap', label: 'status:', insertText: 'status:', hint: '', keywords: [], filterKey: 'status' },
   { category: 'sort', icon: 'arrowUpDown', label: 'sort:', insertText: 'sort:', hint: '', keywords: [], filterKey: 'sortField' },
-  { category: 'amount', icon: 'amount', label: 'amount', insertText: '', hint: '', keywords: [], filterKey: 'amountMin' },
-  { category: 'date', icon: 'calendar', label: 'date', insertText: '', hint: '', keywords: [], filterKey: 'dateFilter' },
+  { category: 'amount', icon: 'amount', label: 'amount', insertText: '__show:amount', hint: '', keywords: [], filterKey: 'amountMin' },
+  { category: 'date', icon: 'calendar', label: 'date', insertText: '__show:date', hint: '', keywords: [], filterKey: 'dateFilter' },
 ];
