@@ -60,6 +60,7 @@ export class OverlayWindow {
   private spawnedWindows: Set<BrowserWindow> = new Set();
   private initialStateMap: Map<number, string> = new Map();
   private blurTimeout: ReturnType<typeof setTimeout> | null = null;
+  private suppressBlur = false;
   private pendingDbError: string | null = null;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
@@ -171,7 +172,7 @@ export class OverlayWindow {
     this.window.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
     this.window.on('blur', () => {
-      if (!this.isHiding) {
+      if (!this.isHiding && !this.suppressBlur) {
         // Debounce blur to avoid hiding during internal click sequences
         // (e.g. Alt+click on macOS can cause momentary focus loss)
         if (this.blurTimeout) clearTimeout(this.blurTimeout);
@@ -750,8 +751,9 @@ export class OverlayWindow {
     });
 
     ipcMain.handle('export-filtered', async (_event, filters: SearchFilters) => {
+      this.suppressBlur = true;
       try {
-        const result = await dialog.showSaveDialog({
+        const result = await dialog.showSaveDialog(this.window!, {
           title: t('export_to_xlsx', 'Export to XLSX'),
           defaultPath: 'je-export.xlsx',
           filters: [{ name: 'Excel', extensions: ['xlsx'] }],
@@ -766,6 +768,8 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Overlay] export-filtered failed:', err);
         return { filePath: null };
+      } finally {
+        this.suppressBlur = false;
       }
     });
 

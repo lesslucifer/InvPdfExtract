@@ -70,6 +70,7 @@ interface ExportInvoiceLineItemRow extends InvoiceLineItem {
 }
 
 export interface JEExportRow {
+  record_id: string;
   doc_date: string | null;
   doc_type: string;
   relative_path: string;
@@ -84,6 +85,7 @@ export interface JEExportRow {
   total_before_tax: number | null;
   entry_type: string;
   account: string | null;
+  contra_account: string | null;
   cash_flow: string | null;
   bank_amount: number | null;
 }
@@ -759,6 +761,7 @@ export function gatherJEExportData(filters: SearchFilters): JEExportRow[] {
 
   return db.prepare(`
     SELECT
+      r.id AS record_id,
       r.doc_date,
       r.doc_type,
       f.relative_path,
@@ -773,6 +776,7 @@ export function gatherJEExportData(filters: SearchFilters): JEExportRow[] {
       li.total_with_tax      AS li_total_with_tax,
       je.entry_type,
       je.account,
+      je.contra_account,
       je.cash_flow,
       bsd.amount             AS bank_amount
     ${BASE_JOINS}
