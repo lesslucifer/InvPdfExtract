@@ -483,7 +483,7 @@ export interface JeErrorItem {
 
 export interface InvoiceVaultAPI {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => Promise<SearchResult[]>;
-  openFile: (relativePath: string) => Promise<void>;
+  locateFile: (relativePath: string) => Promise<void>;
   getLineItems: (recordId: string) => Promise<InvoiceLineItem[]>;
   saveFieldOverride: (input: FieldOverrideInput) => Promise<void>;
   getFieldOverrides: (recordId: string) => Promise<FieldOverrideInfo[]>;
@@ -500,7 +500,7 @@ export interface InvoiceVaultAPI {
   removeVault: (vaultPath: string) => Promise<void>;
   clearVaultData: (vaultPath: string) => Promise<void>;
   pickFolder: () => Promise<string | null>;
-  openFolder: (relativePath: string) => Promise<void>;
+  locateFolder: (relativePath: string) => Promise<void>;
   listRecentFolders: (limit?: number) => Promise<FolderInfo[]>;
   listTopFolders: () => Promise<FolderInfo[]>;
   getAggregates: (filters: SearchFilters) => Promise<AggregateStats>;
