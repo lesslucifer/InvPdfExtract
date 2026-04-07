@@ -8,22 +8,24 @@ import {
   DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_FILTER_CONFIG, FILTER_CONFIG_FILE,
 } from '../shared/constants';
 
-export function isVault(folderPath: string): boolean {
+const pathExists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
+
+export async function isVault(folderPath: string): Promise<boolean> {
   const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
-  return fs.existsSync(dotPath) && fs.existsSync(path.join(dotPath, CONFIG_FILE));
+  return (await pathExists(dotPath)) && (await pathExists(path.join(dotPath, CONFIG_FILE)));
 }
 
-export function initVault(folderPath: string): VaultHandle {
+export async function initVault(folderPath: string): Promise<VaultHandle> {
   const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
 
-  if (isVault(folderPath)) {
+  if (await isVault(folderPath)) {
     throw new Error(`Folder is already an InvoiceVault: ${folderPath}`);
   }
 
   // Create .invoicevault/ and subdirectories
-  fs.mkdirSync(dotPath, { recursive: true });
+  await fs.promises.mkdir(dotPath, { recursive: true });
   for (const sub of VAULT_SUBDIRS) {
-    fs.mkdirSync(path.join(dotPath, sub), { recursive: true });
+    await fs.promises.mkdir(path.join(dotPath, sub), { recursive: true });
   }
 
   // Write config.json
@@ -32,10 +34,10 @@ export function initVault(folderPath: string): VaultHandle {
     created_at: new Date().toISOString(),
     confidence_threshold: DEFAULT_CONFIDENCE_THRESHOLD,
   };
-  fs.writeFileSync(path.join(dotPath, CONFIG_FILE), JSON.stringify(config, null, 2));
+  await fs.promises.writeFile(path.join(dotPath, CONFIG_FILE), JSON.stringify(config, null, 2));
 
   // Write default filter config
-  fs.writeFileSync(path.join(dotPath, FILTER_CONFIG_FILE), JSON.stringify(DEFAULT_FILTER_CONFIG, null, 2));
+  await fs.promises.writeFile(path.join(dotPath, FILTER_CONFIG_FILE), JSON.stringify(DEFAULT_FILTER_CONFIG, null, 2));
 
   // Initialize database
   const dbPath = path.join(dotPath, DB_FILE);
@@ -43,28 +45,28 @@ export function initVault(folderPath: string): VaultHandle {
   setActiveDatabase(db);
 
   // Write default extraction prompt
-  writeDefaultExtractionPrompt(dotPath);
+  await writeDefaultExtractionPrompt(dotPath);
 
   console.log(`[Vault] Initialized at ${folderPath}`);
 
   return { rootPath: folderPath, dotPath, dbPath, config, db };
 }
 
-export function openVault(folderPath: string): VaultHandle {
-  if (!isVault(folderPath)) {
+export async function openVault(folderPath: string): Promise<VaultHandle> {
+  if (!await isVault(folderPath)) {
     throw new Error(`Not an InvoiceVault: ${folderPath}`);
   }
 
   const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
   const dbPath = path.join(dotPath, DB_FILE);
-  const configRaw = fs.readFileSync(path.join(dotPath, CONFIG_FILE), 'utf-8');
+  const configRaw = await fs.promises.readFile(path.join(dotPath, CONFIG_FILE), 'utf-8');
   const config: VaultConfig = JSON.parse(configRaw);
 
   const db = openDatabase(dbPath);
   setActiveDatabase(db);
 
   // Ensure extraction prompt exists (may be missing in older vaults)
-  writeDefaultExtractionPrompt(dotPath);
+  await writeDefaultExtractionPrompt(dotPath);
 
   console.log(`[Vault] Opened ${folderPath}`);
 
@@ -80,37 +82,39 @@ export function closeVault(handle?: VaultHandle): void {
   console.log('[Vault] Closed');
 }
 
-export function clearVaultData(folderPath: string): void {
+export async function clearVaultData(folderPath: string): Promise<void> {
   const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
-  if (fs.existsSync(dotPath)) {
-    fs.rmSync(dotPath, { recursive: true, force: true });
+  try {
+    await fs.promises.access(dotPath);
+    await fs.promises.rm(dotPath, { recursive: true, force: true });
     console.log(`[Vault] Cleared data at ${folderPath}`);
-  }
+  } catch { /* dotPath doesn't exist, nothing to clear */ }
 }
 
-export function getVaultConfig(dotPath: string): VaultConfig {
-  const raw = fs.readFileSync(path.join(dotPath, CONFIG_FILE), 'utf-8');
+export async function getVaultConfig(dotPath: string): Promise<VaultConfig> {
+  const raw = await fs.promises.readFile(path.join(dotPath, CONFIG_FILE), 'utf-8');
   return JSON.parse(raw);
 }
 
-export function updateVaultConfig(dotPath: string, updates: Partial<VaultConfig>): void {
-  const config = getVaultConfig(dotPath);
+export async function updateVaultConfig(dotPath: string, updates: Partial<VaultConfig>): Promise<void> {
+  const config = await getVaultConfig(dotPath);
   const merged = { ...config, ...updates };
-  fs.writeFileSync(path.join(dotPath, CONFIG_FILE), JSON.stringify(merged, null, 2));
+  await fs.promises.writeFile(path.join(dotPath, CONFIG_FILE), JSON.stringify(merged, null, 2));
 }
 
-function writeDefaultExtractionPrompt(dotPath: string): void {
+async function writeDefaultExtractionPrompt(dotPath: string): Promise<void> {
   const promptPath = path.join(dotPath, 'extraction-prompt.md');
   const hashPath = path.join(dotPath, 'extraction-prompt.hash');
 
   const templateHash = createHash('sha256').update(EXTRACTION_PROMPT_TEMPLATE).digest('hex');
-  const existingHash = fs.existsSync(hashPath)
-    ? fs.readFileSync(hashPath, 'utf-8').trim()
-    : '';
+  let existingHash = '';
+  try {
+    existingHash = (await fs.promises.readFile(hashPath, 'utf-8')).trim();
+  } catch { /* hash file doesn't exist yet */ }
 
   if (templateHash !== existingHash) {
-    fs.writeFileSync(promptPath, EXTRACTION_PROMPT_TEMPLATE);
-    fs.writeFileSync(hashPath, templateHash);
+    await fs.promises.writeFile(promptPath, EXTRACTION_PROMPT_TEMPLATE);
+    await fs.promises.writeFile(hashPath, templateHash);
   }
 }
 

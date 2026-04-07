@@ -11,7 +11,7 @@ vi.mock('./content-sniffer', () => ({
   contentSniffer: vi.fn(),
   extractPdfText: vi.fn().mockResolvedValue(''),
   extractSpreadsheetText: vi.fn().mockReturnValue(''),
-  extractXmlText: vi.fn().mockReturnValue(''),
+  extractXmlText: vi.fn().mockResolvedValue(''),
 }));
 
 vi.mock('./ai-triage', () => ({
@@ -31,7 +31,7 @@ const mockConfig = {
 };
 
 vi.mock('./config', () => ({
-  loadFilterConfig: vi.fn(() => ({ ...mockConfig })),
+  loadFilterConfig: vi.fn(() => Promise.resolve({ ...mockConfig })),
 }));
 
 let _testDb: Database.Database;
@@ -54,7 +54,7 @@ describe('RelevanceFilter.filterFiles', () => {
   beforeEach(() => {
     _testDb = createInMemoryDb();
     vi.clearAllMocks();
-    vi.mocked(loadFilterConfig).mockReturnValue({ ...mockConfig });
+    vi.mocked(loadFilterConfig).mockResolvedValue({ ...mockConfig });
   });
 
   afterEach(() => {
@@ -63,7 +63,7 @@ describe('RelevanceFilter.filterFiles', () => {
 
   it('accepts file with strong filename signal (Layer 1 process)', async () => {
     const file = insertFile('accounting/invoice_2024_001.pdf', 'hash1', 'pdf', 5000);
-    const filter = new RelevanceFilter(mockVault);
+    const filter = await RelevanceFilter.create(mockVault);
 
     const result = await filter.filterFiles([file]);
 
@@ -82,7 +82,7 @@ describe('RelevanceFilter.filterFiles', () => {
       decision: 'skip',
     });
 
-    const filter = new RelevanceFilter(mockVault);
+    const filter = await RelevanceFilter.create(mockVault);
     const result = await filter.filterFiles([file]);
 
     expect(result).toHaveLength(0);
@@ -100,7 +100,7 @@ describe('RelevanceFilter.filterFiles', () => {
       decision: 'process',
     });
 
-    const filter = new RelevanceFilter(mockVault);
+    const filter = await RelevanceFilter.create(mockVault);
     const result = await filter.filterFiles([file]);
 
     expect(result).toHaveLength(1);
@@ -124,7 +124,7 @@ describe('RelevanceFilter.filterFiles', () => {
       decision: 'process',
     }]);
 
-    const filter = new RelevanceFilter(mockVault);
+    const filter = await RelevanceFilter.create(mockVault);
     const result = await filter.filterFiles([file]);
 
     expect(result).toHaveLength(1);
@@ -141,9 +141,9 @@ describe('RelevanceFilter.filterFiles', () => {
       layer: 2,
       decision: 'uncertain',
     });
-    vi.mocked(loadFilterConfig).mockReturnValue({ ...mockConfig, aiTriageEnabled: false });
+    vi.mocked(loadFilterConfig).mockResolvedValue({ ...mockConfig, aiTriageEnabled: false });
 
-    const filter = new RelevanceFilter(mockVault);
+    const filter = await RelevanceFilter.create(mockVault);
     const result = await filter.filterFiles([file]);
 
     expect(result).toHaveLength(1);
@@ -151,7 +151,7 @@ describe('RelevanceFilter.filterFiles', () => {
   });
 
   it('returns empty when given empty list', async () => {
-    const filter = new RelevanceFilter(mockVault);
+    const filter = await RelevanceFilter.create(mockVault);
     const result = await filter.filterFiles([]);
     expect(result).toHaveLength(0);
   });

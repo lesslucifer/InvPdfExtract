@@ -121,12 +121,12 @@ describe('extractXmlText', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('extracts element names from XML', () => {
+  it('extracts element names from XML', async () => {
     const xml = '<HoaDon><MaSoThue>123</MaSoThue></HoaDon>';
     const file = path.join(tmpDir, 'test.xml');
     fs.writeFileSync(file, xml);
 
-    const text = extractXmlText(file);
+    const text = await extractXmlText(file);
     expect(text).toContain('HoaDon');
     expect(text).toContain('MaSoThue');
   });

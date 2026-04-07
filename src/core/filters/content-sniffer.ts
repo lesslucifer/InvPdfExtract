@@ -24,7 +24,7 @@ export async function contentSniffer(
         textSample = extractSpreadsheetText(fullPath);
         break;
       case '.xml':
-        textSample = extractXmlText(fullPath);
+        textSample = await extractXmlText(fullPath);
         break;
       case '.jpg':
       case '.jpeg':
@@ -110,7 +110,7 @@ async function extractPdfText(fullPath: string): Promise<string> {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath}`;
   }
 
-  const buffer = fs.readFileSync(fullPath);
+  const buffer = await fs.promises.readFile(fullPath);
   const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
   try {
     const pdf = await loadingTask.promise;
@@ -149,18 +149,19 @@ function extractSpreadsheetText(fullPath: string): string {
   return parts.join('\n');
 }
 
-function extractXmlText(fullPath: string): string {
-  const fd = fs.openSync(fullPath, 'r');
-  const buffer = Buffer.alloc(8192);
-  const bytesRead = fs.readSync(fd, buffer, 0, 8192, 0);
-  fs.closeSync(fd);
-
-  const xmlSnippet = buffer.toString('utf-8', 0, bytesRead);
-  const elementNames = xmlSnippet.match(/<([a-zA-Z_][a-zA-Z0-9_:.-]*)/g)?.map(m => m.slice(1)) || [];
-  const attrValues = xmlSnippet.match(/="([^"]+)"/g)?.map(m => m.slice(2, -1)) || [];
-  const textContent = xmlSnippet.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-
-  return [...elementNames, ...attrValues, textContent].join(' ');
+async function extractXmlText(fullPath: string): Promise<string> {
+  const fh = await fs.promises.open(fullPath, 'r');
+  try {
+    const buffer = Buffer.alloc(8192);
+    const { bytesRead } = await fh.read(buffer, 0, 8192, 0);
+    const xmlSnippet = buffer.toString('utf-8', 0, bytesRead);
+    const elementNames = xmlSnippet.match(/<([a-zA-Z_][a-zA-Z0-9_:.-]*)/g)?.map(m => m.slice(1)) || [];
+    const attrValues = xmlSnippet.match(/="([^"]+)"/g)?.map(m => m.slice(2, -1)) || [];
+    const textContent = xmlSnippet.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return [...elementNames, ...attrValues, textContent].join(' ');
+  } finally {
+    await fh.close();
+  }
 }
 
 export { extractPdfText, extractSpreadsheetText, extractXmlText };

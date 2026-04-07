@@ -1,4 +1,7 @@
-import { spawn, execSync } from 'child_process';
+import { spawn, exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -200,9 +203,9 @@ export class ClaudeCodeRunner {
     this.model = modelTier ? MODEL_TIER_MAP[modelTier] : undefined;
   }
 
-  static isAvailable(cliPath?: string): boolean {
+  static async isAvailable(cliPath?: string): Promise<boolean> {
     try {
-      execSync(`${cliPath || 'claude'} --version`, { stdio: 'pipe' });
+      await execAsync(`${cliPath || 'claude'} --version`);
       return true;
     } catch {
       return false;
@@ -210,7 +213,7 @@ export class ClaudeCodeRunner {
   }
 
   async processFiles(filePaths: string[], vaultRoot: string, systemPromptPath: string): Promise<{ result: ExtractionResult; sessionLog: string }> {
-    const systemPrompt = fs.readFileSync(systemPromptPath, 'utf-8');
+    const systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
 
     const relativePaths = filePaths.map(fp => path.relative(vaultRoot, fp));
     const fileList = relativePaths.map(p => `- ${p}`).join('\n');

@@ -27,8 +27,8 @@ afterEach(() => {
 
 describe('app-config', () => {
   describe('loadAppConfig', () => {
-    it('returns defaults when no config file exists', () => {
-      const config = loadAppConfig();
+    it('returns defaults when no config file exists', async () => {
+      const config = await loadAppConfig();
 
       expect(config).toEqual({
         lastVaultPath: null,
@@ -40,14 +40,14 @@ describe('app-config', () => {
       });
     });
 
-    it('loads saved config from disk', () => {
+    it('loads saved config from disk', async () => {
       const saved = {
         lastVaultPath: '/Users/test/vault1',
         vaultPaths: ['/Users/test/vault1', '/Users/test/vault2'],
       };
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(saved));
 
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
 
       expect(config.lastVaultPath).toBe('/Users/test/vault1');
       expect(config.vaultPaths).toEqual(['/Users/test/vault1', '/Users/test/vault2']);
@@ -56,10 +56,10 @@ describe('app-config', () => {
       expect(config.autoStart).toBe(false);
     });
 
-    it('returns defaults for corrupted config file', () => {
+    it('returns defaults for corrupted config file', async () => {
       fs.writeFileSync(CONFIG_PATH, 'not json {{{');
 
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
 
       expect(config.lastVaultPath).toBeNull();
       expect(config.vaultPaths).toEqual([]);
@@ -67,8 +67,8 @@ describe('app-config', () => {
   });
 
   describe('saveAppConfig', () => {
-    it('creates config file with partial data merged into defaults', () => {
-      saveAppConfig({ lastVaultPath: '/Users/test/vault1' });
+    it('creates config file with partial data merged into defaults', async () => {
+      await saveAppConfig({ lastVaultPath: '/Users/test/vault1' });
 
       const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
       expect(raw.lastVaultPath).toBe('/Users/test/vault1');
@@ -76,16 +76,16 @@ describe('app-config', () => {
       expect(raw.autoStart).toBe(false);
     });
 
-    it('merges with existing config on save', () => {
-      saveAppConfig({
+    it('merges with existing config on save', async () => {
+      await saveAppConfig({
         lastVaultPath: '/Users/test/vault1',
         vaultPaths: ['/Users/test/vault1'],
       });
-      saveAppConfig({
+      await saveAppConfig({
         lastVaultPath: '/Users/test/vault2',
       });
 
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       expect(config.lastVaultPath).toBe('/Users/test/vault2');
       // vaultPaths from the first save should be preserved
       expect(config.vaultPaths).toEqual(['/Users/test/vault1']);
@@ -93,77 +93,77 @@ describe('app-config', () => {
   });
 
   describe('multi-vault operations', () => {
-    it('supports adding multiple vaults', () => {
+    it('supports adding multiple vaults', async () => {
       const vaults = ['/vault/a', '/vault/b', '/vault/c'];
-      saveAppConfig({ vaultPaths: vaults, lastVaultPath: vaults[0] });
+      await saveAppConfig({ vaultPaths: vaults, lastVaultPath: vaults[0] });
 
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       expect(config.vaultPaths).toHaveLength(3);
       expect(config.lastVaultPath).toBe('/vault/a');
     });
 
-    it('supports switching active vault', () => {
-      saveAppConfig({
+    it('supports switching active vault', async () => {
+      await saveAppConfig({
         vaultPaths: ['/vault/a', '/vault/b'],
         lastVaultPath: '/vault/a',
       });
 
       // Simulate switch
-      saveAppConfig({ lastVaultPath: '/vault/b' });
+      await saveAppConfig({ lastVaultPath: '/vault/b' });
 
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       expect(config.lastVaultPath).toBe('/vault/b');
       expect(config.vaultPaths).toEqual(['/vault/a', '/vault/b']);
     });
 
-    it('supports removing a vault from the list', () => {
-      saveAppConfig({
+    it('supports removing a vault from the list', async () => {
+      await saveAppConfig({
         vaultPaths: ['/vault/a', '/vault/b', '/vault/c'],
         lastVaultPath: '/vault/b',
       });
 
       // Simulate remove-vault for /vault/b (active)
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       const remaining = config.vaultPaths.filter(p => p !== '/vault/b');
-      saveAppConfig({
+      await saveAppConfig({
         vaultPaths: remaining,
         lastVaultPath: remaining[0] || null,
       });
 
-      const updated = loadAppConfig();
+      const updated = await loadAppConfig();
       expect(updated.vaultPaths).toEqual(['/vault/a', '/vault/c']);
       expect(updated.lastVaultPath).toBe('/vault/a');
     });
 
-    it('sets lastVaultPath to null when all vaults removed', () => {
-      saveAppConfig({
+    it('sets lastVaultPath to null when all vaults removed', async () => {
+      await saveAppConfig({
         vaultPaths: ['/vault/a'],
         lastVaultPath: '/vault/a',
       });
 
-      saveAppConfig({ vaultPaths: [], lastVaultPath: null });
+      await saveAppConfig({ vaultPaths: [], lastVaultPath: null });
 
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       expect(config.vaultPaths).toEqual([]);
       expect(config.lastVaultPath).toBeNull();
     });
 
-    it('preserves lastVaultPath when removing a non-active vault', () => {
-      saveAppConfig({
+    it('preserves lastVaultPath when removing a non-active vault', async () => {
+      await saveAppConfig({
         vaultPaths: ['/vault/a', '/vault/b', '/vault/c'],
         lastVaultPath: '/vault/a',
       });
 
       // Remove /vault/c (not active)
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       const remaining = config.vaultPaths.filter(p => p !== '/vault/c');
       const isActive = config.lastVaultPath === '/vault/c';
-      saveAppConfig({
+      await saveAppConfig({
         vaultPaths: remaining,
         lastVaultPath: isActive ? (remaining[0] || null) : config.lastVaultPath,
       });
 
-      const updated = loadAppConfig();
+      const updated = await loadAppConfig();
       expect(updated.vaultPaths).toEqual(['/vault/a', '/vault/b']);
       expect(updated.lastVaultPath).toBe('/vault/a'); // unchanged
     });

@@ -86,7 +86,7 @@ app.on('ready', async () => {
   }
 
   // Check Claude CLI availability
-  if (!ClaudeCodeRunner.isAvailable()) {
+  if (!await ClaudeCodeRunner.isAvailable()) {
     console.warn('[InvoiceVault] Claude CLI not found. Extraction will fail until installed.');
   }
 
@@ -98,22 +98,22 @@ app.on('ready', async () => {
   overlayWindow = new OverlayWindow();
   overlayWindow.setCallbacks({
     onInitVault: async (folderPath: string) => {
-      if (isVault(folderPath)) {
+      if (await isVault(folderPath)) {
         await startVault(folderPath);
       } else {
-        initVault(folderPath);
+        await initVault(folderPath);
         await startVault(folderPath);
       }
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       const vaultPaths = config.vaultPaths || [];
       if (!vaultPaths.includes(folderPath)) {
         vaultPaths.push(folderPath);
       }
-      saveAppConfig({ lastVaultPath: folderPath, vaultPaths });
+      await saveAppConfig({ lastVaultPath: folderPath, vaultPaths });
     },
     onSwitchVault: async (vaultPath: string) => {
       await startVault(vaultPath);
-      saveAppConfig({ lastVaultPath: vaultPath });
+      await saveAppConfig({ lastVaultPath: vaultPath });
     },
     onStopVault: async () => {
       await stopVault();
@@ -148,7 +148,7 @@ app.on('ready', async () => {
       }
       return 0;
     },
-    onReprocessFolder: (folderPrefix: string) => {
+    onReprocessFolder: async (folderPrefix: string) => {
       if (!currentVault) return 0;
       const files = getFilesByFolder(folderPrefix);
       for (const file of files) {
@@ -157,13 +157,13 @@ app.on('ready', async () => {
       // Also scan filesystem for untracked files in this folder
       const trackedPaths = new Set(files.map((f: VaultFile) => f.relative_path));
       let newCount = 0;
-      const scanDir = (dir: string) => {
+      const scanDir = async (dir: string) => {
         try {
-          const entries = fs.readdirSync(path.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          const entries = await fs.promises.readdir(path.join(currentVault!.rootPath, dir), { withFileTypes: true });
           for (const entry of entries) {
             const rel = dir ? `${dir}/${entry.name}` : entry.name;
             if (entry.isDirectory() && !entry.name.startsWith('.')) {
-              scanDir(rel);
+              await scanDir(rel);
             } else if (entry.isFile()) {
               const ext = path.extname(entry.name).toLowerCase();
               if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
@@ -175,25 +175,25 @@ app.on('ready', async () => {
           }
         } catch { /* skip unreadable dirs */ }
       };
-      scanDir(folderPrefix);
+      await scanDir(folderPrefix);
       if (files.length > 0 || newCount > 0) {
         scheduleExtraction();
       }
       return files.length + newCount;
     },
-    onCountFolderFiles: (folderPrefix: string) => {
+    onCountFolderFiles: async (folderPrefix: string) => {
       if (!currentVault) return 0;
       // Count both tracked DB files and untracked filesystem files
       const dbFiles = getFilesByFolder(folderPrefix);
       const trackedPaths = new Set(dbFiles.map((f: VaultFile) => f.relative_path));
       let total = dbFiles.length;
-      const scanDir = (dir: string) => {
+      const scanDir = async (dir: string) => {
         try {
-          const entries = fs.readdirSync(path.join(currentVault!.rootPath, dir), { withFileTypes: true });
+          const entries = await fs.promises.readdir(path.join(currentVault!.rootPath, dir), { withFileTypes: true });
           for (const entry of entries) {
             const rel = dir ? `${dir}/${entry.name}` : entry.name;
             if (entry.isDirectory() && !entry.name.startsWith('.')) {
-              scanDir(rel);
+              await scanDir(rel);
             } else if (entry.isFile()) {
               const ext = path.extname(entry.name).toLowerCase();
               if (WATCHED_EXTENSIONS.has(ext) && !trackedPaths.has(rel)) {
@@ -203,7 +203,7 @@ app.on('ready', async () => {
           }
         } catch { /* skip unreadable dirs */ }
       };
-      scanDir(folderPrefix);
+      await scanDir(folderPrefix);
       return total;
     },
     onCancelQueueItem: (fileId: string) => {
@@ -272,8 +272,8 @@ app.on('ready', async () => {
   }
 
   // Try to open last vault
-  const appConfig = loadAppConfig();
-  if (appConfig.lastVaultPath && isVault(appConfig.lastVaultPath)) {
+  const appConfig = await loadAppConfig();
+  if (appConfig.lastVaultPath && await isVault(appConfig.lastVaultPath)) {
     try {
       await startVault(appConfig.lastVaultPath);
     } catch (err) {
@@ -302,7 +302,7 @@ async function startVault(vaultPath: string): Promise<void> {
   // Close existing vault if open
   await stopVault();
 
-  currentVault = openVault(vaultPath);
+  currentVault = await openVault(vaultPath);
 
   // Start sync engine
   syncEngine = new SyncEngine(currentVault.rootPath);
@@ -314,7 +314,7 @@ async function startVault(vaultPath: string): Promise<void> {
     if (event === 'file:added') vaultPathCache?.onFileAdded(relativePath);
     else if (event === 'file:deleted') vaultPathCache?.onFileDeleted(relativePath);
   });
-  fileWatcher.start();
+  await fileWatcher.start();
 
   // Build path cache in background — non-blocking
   vaultPathCache = new VaultPathCache(currentVault.rootPath);
@@ -322,14 +322,14 @@ async function startVault(vaultPath: string): Promise<void> {
   overlayWindow?.setPathCache(vaultPathCache);
 
   // Start extraction queue
-  const appConfig = loadAppConfig();
+  const appConfig = await loadAppConfig();
   extractionQueue = new ExtractionQueue(currentVault, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
 
   // Start relevance filter
-  relevanceFilter = new RelevanceFilter(currentVault, appConfig.claudeCliPath || undefined);
+  relevanceFilter = await RelevanceFilter.create(currentVault, appConfig.claudeCliPath || undefined);
 
   // Initialize JE similarity engine & generator
-  writeDefaultInstructions(currentVault.rootPath);
+  await writeDefaultInstructions(currentVault.rootPath);
   similarityEngine = new JESimilarityEngine();
   similarityEngine.initialize();
   jeGenerator = new JEGenerator(currentVault.rootPath, similarityEngine, appConfig.claudeCliPath || undefined);
@@ -367,14 +367,14 @@ async function startVault(vaultPath: string): Promise<void> {
   // Initial scan: pick up existing files not yet tracked in the DB
   {
     let scanned = 0;
-    const scan = (dir: string) => {
+    const scan = async (dir: string) => {
       try {
-        const entries = fs.readdirSync(path.join(vaultPath, dir), { withFileTypes: true });
+        const entries = await fs.promises.readdir(path.join(vaultPath, dir), { withFileTypes: true });
         for (const entry of entries) {
           const rel = dir ? `${dir}/${entry.name}` : entry.name;
           if (entry.isDirectory()) {
             if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === INVOICEVAULT_DIR) continue;
-            scan(rel);
+            await scan(rel);
           } else if (entry.isFile()) {
             const ext = path.extname(entry.name).toLowerCase();
             if (WATCHED_EXTENSIONS.has(ext) && !getFileByPath(rel)) {
@@ -386,7 +386,7 @@ async function startVault(vaultPath: string): Promise<void> {
         }
       } catch { /* skip unreadable dirs */ }
     };
-    scan('');
+    await scan('');
     if (scanned > 0) {
       console.log(`[InvoiceVault] Initial scan found ${scanned} untracked file(s), scheduling extraction`);
       scheduleExtraction();

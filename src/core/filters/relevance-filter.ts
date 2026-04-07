@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { VaultFile, FileStatus, FilterResult, VaultHandle } from '../../shared/types';
+import { VaultFile, FileStatus, FilterResult, RelevanceFilterConfig, VaultHandle } from '../../shared/types';
 import { updateFileFilterResult } from '../db/files';
 import { eventBus } from '../event-bus';
 import { loadFilterConfig } from './config';
@@ -9,17 +9,22 @@ import { aiTriageBatch, TriageInput } from './ai-triage';
 
 export class RelevanceFilter {
   private vault: VaultHandle;
-  private config: ReturnType<typeof loadFilterConfig>;
+  private config: RelevanceFilterConfig;
   private cliPath: string | undefined;
 
-  constructor(vault: VaultHandle, cliPath?: string) {
+  private constructor(vault: VaultHandle, config: RelevanceFilterConfig, cliPath?: string) {
     this.vault = vault;
-    this.config = loadFilterConfig(vault.dotPath);
+    this.config = config;
     this.cliPath = cliPath;
   }
 
-  reloadConfig(): void {
-    this.config = loadFilterConfig(this.vault.dotPath);
+  static async create(vault: VaultHandle, cliPath?: string): Promise<RelevanceFilter> {
+    const config = await loadFilterConfig(vault.dotPath);
+    return new RelevanceFilter(vault, config, cliPath);
+  }
+
+  async reloadConfig(): Promise<void> {
+    this.config = await loadFilterConfig(this.vault.dotPath);
   }
 
   async filterFiles(files: VaultFile[]): Promise<VaultFile[]> {
@@ -68,7 +73,7 @@ export class RelevanceFilter {
           const ext = path.extname(fullPath).toLowerCase();
           if (ext === '.pdf') textSample = await extractPdfText(fullPath);
           else if (ext === '.xlsx' || ext === '.csv') textSample = extractSpreadsheetText(fullPath);
-          else if (ext === '.xml') textSample = extractXmlText(fullPath);
+          else if (ext === '.xml') textSample = await extractXmlText(fullPath);
         } catch { /* empty text */ }
 
         triageInputs.push({
