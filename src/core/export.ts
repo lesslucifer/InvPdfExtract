@@ -156,37 +156,26 @@ export function exportToXlsx(data: ExportData): Buffer {
 }
 
 /**
- * Exports JE (journal entry) data to a single-sheet XLSX file.
- * One row per journal entry, with debit/credit account columns.
+ * Exports JE (journal entry) data to a single-sheet XLSX file in NKC (Nhat Ky Chung) format.
+ * One row per journal entry.
  */
 export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
   const wb = XLSX.utils.book_new();
 
   const headers = [
-    'Ngay', 'Loai', 'So HD / Dien giai', 'Dien giai chi tiet',
-    'TK No', 'TK Co', 'So tien', 'Dong tien', 'Doi tac', 'File',
+    'Ngày hạch toán', 'Ngày chứng từ', 'Số chứng từ', 'Ngày hóa đơn', 'Số hóa đơn',
+    'Diễn giải chung', 'Diễn giải',
+    'Tài khoản', 'TK Đối ứng',
+    'Phát sinh Nợ', 'Phát sinh Có',
+    'Mã đối tượng', 'Tên đối tượng',
+    'Mã KMCP', 'Tên KMCP',
+    'Mục thu/chi', 'Tên mục thu/chi',
   ];
 
   const data = rows.map(row => {
     const entryType = row.entry_type as JEEntryType;
     const docType = row.doc_type as DocType;
     const side = getJeSide(docType, entryType);
-
-    const tkNo = side === 'debit'  ? row.account : null;
-    const tkCo = side === 'credit' ? row.account : null;
-
-    const soHdDienGiai = docType === DocType.BankStatement
-      ? row.bank_description
-      : row.invoice_number;
-
-    let dienGiaiChiTiet: string | null;
-    switch (entryType) {
-      case 'line':       dienGiaiChiTiet = row.li_description;   break;
-      case 'tax':        dienGiaiChiTiet = 'Thue GTGT';          break;
-      case 'settlement': dienGiaiChiTiet = 'Thanh toan';         break;
-      case 'bank':       dienGiaiChiTiet = row.bank_description; break;
-      default:           dienGiaiChiTiet = null;
-    }
 
     let soTien: number | null;
     switch (entryType) {
@@ -197,8 +186,41 @@ export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
       default:           soTien = null;
     }
 
-    return [row.doc_date, row.doc_type, soHdDienGiai, dienGiaiChiTiet,
-            tkNo, tkCo, soTien, row.cash_flow, row.counterparty_name, row.relative_path];
+    let dienGiai: string | null;
+    switch (entryType) {
+      case 'line':       dienGiai = row.li_description;   break;
+      case 'tax':        dienGiai = 'Thuế GTGT';            break;
+      case 'settlement': dienGiai = 'Thanh toán';           break;
+      case 'bank':       dienGiai = row.bank_description;  break;
+      default:           dienGiai = null;
+    }
+
+    let dienGiaiChung: string | null;
+    if (docType === DocType.BankStatement) {
+      dienGiaiChung = row.bank_description;
+    } else if (docType === DocType.InvoiceIn) {
+      dienGiaiChung = row.counterparty_name && row.invoice_number
+        ? `Mua hàng của ${row.counterparty_name} theo hóa đơn số ${row.invoice_number}`
+        : row.counterparty_name ?? row.invoice_number ?? null;
+    } else {
+      dienGiaiChung = row.counterparty_name && row.invoice_number
+        ? `Bán hàng cho ${row.counterparty_name} theo hóa đơn số ${row.invoice_number}`
+        : row.counterparty_name ?? row.invoice_number ?? null;
+    }
+
+    const soChungTu = docType !== DocType.BankStatement ? row.invoice_number : null;
+
+    return [
+      row.doc_date, row.doc_date, soChungTu, row.doc_date, soChungTu,
+      dienGiaiChung, dienGiai,
+      side === 'debit'  ? row.account : null,
+      side === 'credit' ? row.account : null,
+      side === 'debit'  ? soTien : null,
+      side === 'credit' ? soTien : null,
+      null, row.counterparty_name,
+      null, null,
+      null, null,
+    ];
   });
 
   const sheetData = data.length === 0 ? [['No data']] : [headers, ...data];
