@@ -544,6 +544,9 @@ export interface InvoiceVaultAPI {
   regenerateJEFiltered: (filters: SearchFilters, aiOnly: boolean) => Promise<{ count: number }>;
   getJEInstructions: () => Promise<string>;
   saveJEInstructions: (content: string) => Promise<void>;
+  getExtractionPrompt: () => Promise<string>;
+  exportInstructions: () => Promise<{ success: boolean; canceled?: boolean; error?: string }>;
+  openInstructionFile: (file: 'extraction-prompt' | 'je-instructions') => Promise<void>;
   // JE generation status
   getJeQueueItems: () => Promise<JeQueueItem[]>;
   getJeErrorItems: () => Promise<JeErrorItem[]>;
@@ -601,5 +604,6 @@ export interface AppEvents {
   'je:updated': { recordId: string };
   'je:status-changed': { recordIds: string[]; status: JEGenerationStatus };
   'je:instructions-changed': Record<string, never>;
+  'instructions:changed': { file: string };
   'file:filtered': { fileId: string; relativePath: string; score: number; reason: string };
 }

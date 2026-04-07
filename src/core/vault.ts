@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { openDatabase, closeDatabase, setActiveDatabase } from './db/database';
@@ -6,7 +5,9 @@ import { VaultConfig, VaultHandle } from '../shared/types';
 import {
   INVOICEVAULT_DIR, CONFIG_FILE, DB_FILE, VAULT_SUBDIRS,
   DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_FILTER_CONFIG, FILTER_CONFIG_FILE,
+  INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE,
 } from '../shared/constants';
+import { writeInstruction } from './instruction-manager';
 
 const pathExists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
 
@@ -46,6 +47,7 @@ export async function initVault(folderPath: string): Promise<VaultHandle> {
 
   // Write default extraction prompt
   await writeDefaultExtractionPrompt(dotPath);
+  await migrateOldExtractionPrompt(dotPath);
 
   console.log(`[Vault] Initialized at ${folderPath}`);
 
@@ -66,6 +68,7 @@ export async function openVault(folderPath: string): Promise<VaultHandle> {
   setActiveDatabase(db);
 
   // Ensure extraction prompt exists (may be missing in older vaults)
+  await migrateOldExtractionPrompt(dotPath);
   await writeDefaultExtractionPrompt(dotPath);
 
   console.log(`[Vault] Opened ${folderPath}`);
@@ -101,22 +104,36 @@ export async function updateVaultConfig(dotPath: string, updates: Partial<VaultC
 }
 
 async function writeDefaultExtractionPrompt(dotPath: string): Promise<void> {
-  const promptPath = path.join(dotPath, 'extraction-prompt.md');
-  const hashPath = path.join(dotPath, 'extraction-prompt.hash');
-
-  const templateHash = createHash('sha256').update(EXTRACTION_PROMPT_TEMPLATE).digest('hex');
-  let existingHash = '';
-  try {
-    existingHash = (await fs.promises.readFile(hashPath, 'utf-8')).trim();
-  } catch { /* hash file doesn't exist yet */ }
-
-  if (templateHash !== existingHash) {
-    await fs.promises.writeFile(promptPath, EXTRACTION_PROMPT_TEMPLATE);
-    await fs.promises.writeFile(hashPath, templateHash);
-  }
+  const promptPath = path.join(dotPath, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
+  await writeInstruction(promptPath, EXTRACTION_PROMPT_SYSTEM_ZONE);
 }
 
-const EXTRACTION_PROMPT_TEMPLATE = `# InvoiceVault Extraction System Prompt
+async function migrateOldExtractionPrompt(dotPath: string): Promise<void> {
+  const oldPath = path.join(dotPath, 'extraction-prompt.md');
+  const oldHashPath = path.join(dotPath, 'extraction-prompt.hash');
+  const newPath = path.join(dotPath, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
+
+  try {
+    await fs.promises.access(oldPath);
+  } catch {
+    return; // old file doesn't exist, nothing to migrate
+  }
+
+  try {
+    await fs.promises.access(newPath);
+  } catch {
+    // new path doesn't exist yet — move old file there
+    await fs.promises.mkdir(path.join(dotPath, INSTRUCTIONS_SUBDIR), { recursive: true });
+    await fs.promises.rename(oldPath, newPath);
+  }
+
+  // Clean up old hash sidecar regardless
+  try { await fs.promises.unlink(oldHashPath); } catch { /* ignore */ }
+  // Remove old prompt file if it still exists (wasn't moved because new already existed)
+  try { await fs.promises.unlink(oldPath); } catch { /* ignore */ }
+}
+
+const EXTRACTION_PROMPT_SYSTEM_ZONE = `# InvoiceVault Extraction System Prompt
 
 You are an accounting document extraction agent for Vietnamese businesses. You process PDF files containing Vietnamese VAT invoices (hóa đơn GTGT) and bank statements (sao kê ngân hàng).
 

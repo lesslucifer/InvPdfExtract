@@ -1,6 +1,7 @@
 import { BrowserWindow, globalShortcut, screen, ipcMain, shell, dialog, app, nativeImage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import archiver from 'archiver';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -22,7 +23,9 @@ import {
   getJournalEntriesByRecord, insertJournalEntry, updateJournalEntry,
   deleteJournalEntry as dbDeleteJE, findExistingEntry,
 } from '../core/db/journal-entries';
-import { readInstructions, writeInstructions } from '../core/je-instructions';
+import { readInstructions, writeInstructions, getInstructionsPath } from '../core/je-instructions';
+import { readInstruction } from '../core/instruction-manager';
+import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { clearVaultData } from '../core/vault';
@@ -902,6 +905,63 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[JournalEntry] Save instructions failed:', err);
         throw err;
+      }
+    });
+
+    ipcMain.handle('get-extraction-prompt', async () => {
+      try {
+        const root = this.callbacks?.getVaultRoot();
+        if (!root) return '';
+        const p = path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
+        return await readInstruction(p);
+      } catch (err) {
+        console.error('[Instructions] Get extraction prompt failed:', err);
+        return '';
+      }
+    });
+
+    ipcMain.handle('export-instructions', async () => {
+      try {
+        const root = this.callbacks?.getVaultRoot();
+        if (!root) return { success: false };
+
+        const { canceled, filePath: destPath } = await dialog.showSaveDialog({
+          title: 'Export Instructions',
+          defaultPath: 'instructions.zip',
+          filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+        });
+        if (canceled || !destPath) return { success: false, canceled: true };
+
+        const instructionsDir = path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR);
+
+        await new Promise<void>((resolve, reject) => {
+          const output = fs.createWriteStream(destPath);
+          const archive = archiver('zip', { zlib: { level: 9 } });
+          output.on('close', resolve);
+          archive.on('error', reject);
+          archive.pipe(output);
+          archive.file(path.join(instructionsDir, EXTRACTION_PROMPT_FILE), { name: EXTRACTION_PROMPT_FILE });
+          archive.file(getInstructionsPath(root), { name: 'je-instructions.md' });
+          archive.finalize();
+        });
+
+        return { success: true };
+      } catch (err) {
+        console.error('[Instructions] Export failed:', err);
+        return { success: false, error: (err as Error).message };
+      }
+    });
+
+    ipcMain.handle('open-instruction-file', async (_event, file: 'extraction-prompt' | 'je-instructions') => {
+      try {
+        const root = this.callbacks?.getVaultRoot();
+        if (!root) return;
+        const filePath = file === 'extraction-prompt'
+          ? path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE)
+          : getInstructionsPath(root);
+        await shell.openPath(filePath);
+      } catch (err) {
+        console.error('[Instructions] Open file failed:', err);
       }
     });
   }

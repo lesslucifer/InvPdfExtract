@@ -322,7 +322,7 @@ export class ExtractionQueue {
     const filePaths = processable.map(f => path.join(this.vault.rootPath, f.relative_path));
 
     try {
-      const systemPromptPath = path.join(this.vault.dotPath, 'extraction-prompt.md');
+      const systemPromptPath = path.join(this.vault.dotPath, 'instructions', 'extraction-prompt.md');
       const { result, sessionLog } = await this.pdfRunner.processFiles(filePaths, this.vault.rootPath, systemPromptPath);
 
       // Reconcile results
