@@ -100,7 +100,6 @@ export async function contentSniffer(
   };
 }
 
-// Runs pdfjs-dist text extraction in a worker thread to avoid blocking the Electron main thread.
 const PDF_WORKER_CODE = `
 const { workerData, parentPort } = require('worker_threads');
 const path = require('path');
@@ -159,8 +158,6 @@ async function extractPdfText(fullPath: string): Promise<string> {
   });
 }
 
-// Runs XLSX.readFile in a worker thread to avoid blocking the Electron main thread.
-// Uses eval mode so no separate worker file needs to be packaged.
 const XLSX_WORKER_CODE = `
 const { workerData, parentPort } = require('worker_threads');
 const XLSX = require('xlsx');

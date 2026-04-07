@@ -91,14 +91,4 @@ export class RelevanceFilter {
     );
     return 'accepted';
   }
-
-  async filterFiles(files: VaultFile[]): Promise<VaultFile[]> {
-    const toProcess: VaultFile[] = [];
-    for (const file of files) {
-      const outcome = await this.filterFile(file);
-      if (outcome === 'accepted') toProcess.push(file);
-    }
-    console.log(`[RelevanceFilter] Filtered ${files.length} files: ${toProcess.length} to process, ${files.length - toProcess.length} skipped`);
-    return toProcess;
-  }
 }

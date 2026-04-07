@@ -34,7 +34,6 @@ export const SearchOverlay: React.FC = () => {
   const folderScope = useSearchStore(s => s.folderScope);
   const fileScope = useSearchStore(s => s.fileScope);
   const hasSearched = useSearchStore(s => s.hasSearched);
-  const aggregates = useSearchStore(s => s.aggregates);
 
   // Initialize windowlized flag once on mount
   useEffect(() => { useOverlayStore.getState().initWindowlized(); }, []);

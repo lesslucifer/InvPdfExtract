@@ -6,7 +6,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { ExtractionResult, ModelTier, MODEL_TIER_MAP } from '../shared/types';
-import { DEFAULT_CLI_TIMEOUT } from '../shared/constants';
+import { DEFAULT_CLI_TIMEOUT, MIN_PDF_TEXT_CHARS } from '../shared/constants';
+import { extractPdfText } from './filters/content-sniffer';
 
 export class CliError extends Error {
   constructor(
@@ -196,6 +197,7 @@ export class ClaudeCodeRunner {
   private cliPath: string;
   private timeout: number;
   private model: string | undefined;
+  private systemPromptCache = new Map<string, string>();
 
   constructor(cliPath?: string, timeout?: number, modelTier?: ModelTier) {
     this.cliPath = cliPath || 'claude';
@@ -213,34 +215,71 @@ export class ClaudeCodeRunner {
   }
 
   async processFiles(filePaths: string[], vaultRoot: string, systemPromptPath: string): Promise<{ result: ExtractionResult; sessionLog: string }> {
-    const systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
+    let systemPrompt = this.systemPromptCache.get(systemPromptPath);
+    if (!systemPrompt) {
+      systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
+      this.systemPromptCache.set(systemPromptPath, systemPrompt);
+    }
 
-    const relativePaths = filePaths.map(fp => path.relative(vaultRoot, fp));
-    const fileList = relativePaths.map(p => `- ${p}`).join('\n');
+    // Pre-extract text from PDFs in parallel using worker threads (non-blocking).
+    // PDFs with insufficient text are scanned images — they fall back to Claude's vision via Read tool.
+    const textResults = await Promise.all(
+      filePaths.map(async fp => {
+        try {
+          const text = await extractPdfText(fp);
+          return { filePath: fp, text, isTextBased: text.trim().length >= MIN_PDF_TEXT_CHARS };
+        } catch {
+          return { filePath: fp, text: '', isTextBased: false };
+        }
+      })
+    );
+
+    const textBased = textResults.filter(r => r.isTextBased);
+    const imageBased = textResults.filter(r => !r.isTextBased);
+
+    console.log(`[ClaudeCodeRunner] Text-based: ${textBased.length}, image-based: ${imageBased.length}`);
+
+    // Build prompt sections
+    const textSection = textBased.length > 0
+      ? `## Text-extractable files (classify and extract from the text below)\n\n${
+          textBased.map(r => {
+            const rel = path.relative(vaultRoot, r.filePath);
+            return `### File: ${rel}\n${r.text.trim()}`;
+          }).join('\n\n')
+        }`
+      : '';
+
+    const imageSection = imageBased.length > 0
+      ? `## Image-only files (use Read tool for vision processing)\n${
+          imageBased.map(r => `- ${path.relative(vaultRoot, r.filePath)}`).join('\n')
+        }`
+      : '';
 
     const userPrompt = `Process these accounting files and return structured JSON.
 
-Files:
-${fileList}
+${[textSection, imageSection].filter(Boolean).join('\n\n')}
 
-The files are located relative to: ${vaultRoot}
-
-For each file:
+For each file, return a result with relative_path matching exactly as shown above.
 1. CLASSIFY: Determine document type (bank_statement, invoice_out, invoice_in)
-2. EXTRACT: Read the document using vision and extract all fields per the schema
-3. SCORE: Provide confidence 0.0-1.0 per field and overall
-4. Return the JSON output matching the exact format specified in the system prompt
+2. EXTRACT: All fields per the schema in the system prompt
+3. SCORE: Confidence 0.0-1.0 per field and overall
 
 IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
-    const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt, vaultRoot);
+    // Only allow Read tool if there are image-based files that need vision processing.
+    // Disable all tools when all files have extracted text — no tool loop needed.
+    const toolArgs = imageBased.length > 0
+      ? ['--allowedTools', 'Read']
+      : ['--tools', ''];
+
+    const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt, vaultRoot, toolArgs);
+    const allRelative = filePaths.map(fp => path.relative(vaultRoot, fp));
     let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
 
     try {
       const result = this.parseResponse(stdout);
       return { result, sessionLog };
     } catch (firstErr) {
-      // Retry once with a strong JSON-only prompt
       console.warn(`[ClaudeCodeRunner] Parse failed, retrying with JSON emphasis: ${(firstErr as Error).message}`);
 
       const retryPrompt = `Your previous response could not be parsed as valid JSON.
@@ -249,11 +288,11 @@ Do NOT include any explanation, thinking, commentary, or markdown — output raw
 If your previous output was truncated, produce a shorter response.
 
 Files:
-${fileList}
+${allRelative.map(p => `- ${p}`).join('\n')}
 
 Located relative to: ${vaultRoot}`;
 
-      const retryStdout = await this.invokeClaudeCLI(retryPrompt, systemPrompt, vaultRoot);
+      const retryStdout = await this.invokeClaudeCLI(retryPrompt, systemPrompt, vaultRoot, toolArgs);
       sessionLog += `\n\nRETRY PROMPT:\n${retryPrompt}\n\nRETRY RESPONSE:\n${retryStdout}`;
 
       const result = this.parseResponse(retryStdout);
@@ -266,11 +305,12 @@ Located relative to: ${vaultRoot}`;
     return unwrapEnvelope(raw) ?? raw;
   }
 
-  private invokeClaudeCLI(prompt: string, systemPrompt: string, cwd?: string): Promise<string> {
+  private invokeClaudeCLI(prompt: string, systemPrompt: string, cwd?: string, toolArgs?: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
       const args = [
         '--print',
         '--output-format', 'json',
+        ...(toolArgs ?? []),
         ...(this.model ? ['--model', this.model] : []),
         '--system-prompt', systemPrompt,
         prompt,

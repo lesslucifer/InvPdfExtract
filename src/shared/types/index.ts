@@ -205,6 +205,7 @@ export interface VaultConfig {
   version: number;
   created_at: string;
   confidence_threshold: number;
+  extractionBatchSize?: number;
 }
 
 export interface VaultHandle {

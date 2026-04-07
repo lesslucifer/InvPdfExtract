@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import { getFilesByStatuses, updateFileStatus } from './db/files';
 import { addLog } from './db/records';
@@ -11,10 +12,18 @@ import { executeScript } from './script-sandbox';
 import { parseXmlInvoice } from './parsers/xml-invoice-parser';
 import { extractMetadata } from './parsers/spreadsheet-metadata';
 import { RelevanceFilter } from './filters/relevance-filter';
+import { extractPdfText } from './filters/content-sniffer';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
-import { DEFAULT_BATCH_SIZE, DEFAULT_CLAUDE_MODELS } from '../shared/constants';
+import {
+  DEFAULT_BATCH_SIZE,
+  DEFAULT_CLAUDE_MODELS,
+  MAX_BATCH_CONTEXT_BYTES,
+  MIN_PDF_TEXT_CHARS,
+  TEXT_TO_CONTEXT_RATIO,
+  IMAGE_TO_CONTEXT_RATIO,
+} from '../shared/constants';
 
 const STRUCTURED_EXTENSIONS = new Set(['.xml', '.xlsx', '.csv']);
 const SPREADSHEET_EXTENSIONS = new Set(['.xlsx', '.csv']);
@@ -44,7 +53,7 @@ export class ExtractionQueue {
     this.matcherEvaluator = new MatcherEvaluator();
     this.scriptGenerator = new ScriptGenerator(this.scriptRunner);
     this.scriptVerifier = new ScriptVerifier(this.scriptRunner);
-    this.batchSize = DEFAULT_BATCH_SIZE;
+    this.batchSize = vault.config.extractionBatchSize ?? DEFAULT_BATCH_SIZE;
   }
 
   trigger(): void {
@@ -83,36 +92,42 @@ export class ExtractionQueue {
 
         if (toExtract.length === 0) continue;
 
-        const fileIds = toExtract.map(f => f.id);
-        console.log(`[ExtractionQueue] Processing batch of ${toExtract.length} files`);
-        eventBus.emit('extraction:started', { fileIds });
-
-        // Mark as processing
-        for (const file of toExtract) {
-          updateFileStatus(file.id, FileStatus.Processing);
-        }
-
         // Separate structured files (XML, Excel, CSV) from unstructured (PDF, images)
-        const structuredFiles: VaultFile[] = [];
-        const unstructuredFiles: VaultFile[] = [];
+        const structuredCandidates: VaultFile[] = [];
+        const unstructuredCandidates: VaultFile[] = [];
 
         for (const file of toExtract) {
           const ext = path.extname(file.relative_path).toLowerCase();
           if (STRUCTURED_EXTENSIONS.has(ext)) {
-            structuredFiles.push(file);
+            structuredCandidates.push(file);
           } else {
-            unstructuredFiles.push(file);
+            unstructuredCandidates.push(file);
           }
         }
 
+        // For unstructured files, pre-extract text and slice by context budget.
+        // This avoids sending oversized batches to Claude that would slow inference or timeout.
+        const unstructuredBatch = await this.sliceByContextBudget(unstructuredCandidates);
+
+        const fileToProcess = [...structuredCandidates, ...unstructuredBatch];
+        if (fileToProcess.length === 0) break;
+
+        const fileIds = fileToProcess.map(f => f.id);
+        console.log(`[ExtractionQueue] Processing batch of ${fileToProcess.length} files (${structuredCandidates.length} structured, ${unstructuredBatch.length} unstructured)`);
+        eventBus.emit('extraction:started', { fileIds });
+
+        for (const file of fileToProcess) {
+          updateFileStatus(file.id, FileStatus.Processing);
+        }
+
         // Process structured files individually (parser/script-based)
-        for (const file of structuredFiles) {
+        for (const file of structuredCandidates) {
           await this.processStructuredFile(file);
         }
 
         // Process unstructured files via Claude CLI in batch
-        if (unstructuredFiles.length > 0) {
-          await this.processUnstructuredBatch(unstructuredFiles);
+        if (unstructuredBatch.length > 0) {
+          await this.processUnstructuredBatch(unstructuredBatch);
         }
       }
     } finally {
@@ -122,6 +137,50 @@ export class ExtractionQueue {
         this.trigger();
       }
     }
+  }
+
+  private async sliceByContextBudget(files: VaultFile[]): Promise<VaultFile[]> {
+    if (files.length === 0) return [];
+
+    const selected: VaultFile[] = [];
+    let estimatedBytes = 0;
+
+    for (const file of files) {
+      const fullPath = path.join(this.vault.rootPath, file.relative_path);
+      const ext = path.extname(file.relative_path).toLowerCase();
+
+      let fileEstimate: number;
+      if (ext === '.pdf') {
+        try {
+          const text = await extractPdfText(fullPath);
+          if (text.trim().length >= MIN_PDF_TEXT_CHARS) {
+            fileEstimate = text.length * TEXT_TO_CONTEXT_RATIO;
+          } else {
+            // Scanned PDF — estimate from file size (base64 + context overhead)
+            const stat = fs.statSync(fullPath);
+            fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
+          }
+        } catch {
+          const stat = fs.statSync(fullPath);
+          fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
+        }
+      } else {
+        // Non-PDF unstructured (images) — estimate from file size
+        const stat = fs.statSync(fullPath);
+        fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
+      }
+
+      // Always include at least one file even if it exceeds the budget alone
+      if (selected.length === 0 || estimatedBytes + fileEstimate <= MAX_BATCH_CONTEXT_BYTES) {
+        selected.push(file);
+        estimatedBytes += fileEstimate;
+      } else {
+        break;
+      }
+    }
+
+    console.log(`[ExtractionQueue] Context budget: ~${(estimatedBytes / 1024 / 1024).toFixed(1)}MB for ${selected.length}/${files.length} unstructured files`);
+    return selected;
   }
 
   private async processStructuredFile(file: VaultFile): Promise<void> {
