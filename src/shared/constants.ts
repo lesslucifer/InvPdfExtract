@@ -20,8 +20,12 @@ export const IGNORED_DIRS = [
 ];
 
 export const DEFAULT_CONFIDENCE_THRESHOLD = 0.8;
-export const DEFAULT_BATCH_SIZE = 5;
+export const DEFAULT_BATCH_SIZE = 10;
 export const DEFAULT_CLI_TIMEOUT = 600_000; // 10 minutes
+export const MAX_BATCH_CONTEXT_BYTES = 5_000_000; // 5MB context budget per batch
+export const MIN_PDF_TEXT_CHARS = 50; // below this → treat PDF as scanned/image-only
+export const TEXT_TO_CONTEXT_RATIO = 1.5; // text bytes → estimated context bytes
+export const IMAGE_TO_CONTEXT_RATIO = 6; // file bytes → estimated context bytes (base64 + overhead)
 export const WATCHER_DEBOUNCE_MS = 300;
 
 export const DEFAULT_CLAUDE_MODELS: ClaudeModelConfig = {

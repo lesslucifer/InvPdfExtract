@@ -110,7 +110,7 @@ describe('Integration: XLSX to Reconciler', () => {
   it('end-to-end: execute parser script on XLSX and reconcile into database', async () => {
     const relativePath = 'xlsx/hoadon_sold_2026-03-22 (1).xlsx';
     const file = insertFile(relativePath, 'xlsxhash123', 'xlsx', 13302);
-    expect(file.status).toBe(FileStatus.Pending);
+    expect(file.status).toBe(FileStatus.Unfiltered);
 
     // Execute the hand-written parser script on the real XLSX file
     // modulePaths needed so the forked process can resolve require('xlsx') from project node_modules

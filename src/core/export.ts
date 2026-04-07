@@ -179,10 +179,11 @@ export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
 
     let soTien: number | null;
     switch (entryType) {
-      case 'line':       soTien = row.li_total_with_tax; break;
-      case 'tax':        soTien = row.li_tax_amount;     break;
-      case 'settlement': soTien = row.total_amount;      break;
-      case 'bank':       soTien = row.bank_amount;       break;
+      case 'line':       soTien = row.li_total_with_tax;  break;
+      case 'invoice':    soTien = row.total_before_tax;   break;
+      case 'tax':        soTien = row.li_tax_amount;      break;
+      case 'settlement': soTien = row.total_amount;       break;
+      case 'bank':       soTien = row.bank_amount;        break;
       default:           soTien = null;
     }
 

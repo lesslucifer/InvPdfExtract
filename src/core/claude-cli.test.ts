@@ -3,7 +3,9 @@ import { ClaudeCodeRunner, unwrapEnvelope, extractJSON, repairTruncatedJSON } fr
 import { ModelTier, MODEL_TIER_MAP } from '../shared/types';
 
 vi.mock('fs', () => ({
-  readFileSync: vi.fn().mockReturnValue('system prompt'),
+  promises: {
+    readFile: vi.fn().mockResolvedValue('system prompt'),
+  },
 }));
 
 const VALID_JSON = JSON.stringify({

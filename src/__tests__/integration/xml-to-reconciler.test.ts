@@ -23,7 +23,7 @@ describe('Integration: XML to Reconciler', () => {
 
     // Simulate file being tracked (as the watcher/sync-engine would do)
     const file = insertFile(relativePath, 'abc123hash', 'xml', 1024);
-    expect(file.status).toBe(FileStatus.Pending);
+    expect(file.status).toBe(FileStatus.Unfiltered);
 
     // Parse the XML
     const fileResult = parseXmlInvoice(XML_FILES.inKyThuatSo911, relativePath);

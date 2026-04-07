@@ -1,5 +1,6 @@
+import * as fs from 'fs';
 import * as path from 'path';
-import { getFilesByStatus, updateFileStatus } from './db/files';
+import { getFilesByStatuses, updateFileStatus } from './db/files';
 import { addLog } from './db/records';
 import { ClaudeCodeRunner, CliError, getSessionLogPath } from './claude-cli';
 import { Reconciler } from './reconciler';
@@ -10,10 +11,19 @@ import { ScriptVerifier } from './script-verifier';
 import { executeScript } from './script-sandbox';
 import { parseXmlInvoice } from './parsers/xml-invoice-parser';
 import { extractMetadata } from './parsers/spreadsheet-metadata';
+import { RelevanceFilter } from './filters/relevance-filter';
+import { extractPdfText } from './filters/content-sniffer';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
-import { DEFAULT_BATCH_SIZE, DEFAULT_CLAUDE_MODELS } from '../shared/constants';
+import {
+  DEFAULT_BATCH_SIZE,
+  DEFAULT_CLAUDE_MODELS,
+  MAX_BATCH_CONTEXT_BYTES,
+  MIN_PDF_TEXT_CHARS,
+  TEXT_TO_CONTEXT_RATIO,
+  IMAGE_TO_CONTEXT_RATIO,
+} from '../shared/constants';
 
 const STRUCTURED_EXTENSIONS = new Set(['.xml', '.xlsx', '.csv']);
 const SPREADSHEET_EXTENSIONS = new Set(['.xlsx', '.csv']);
@@ -27,12 +37,14 @@ export class ExtractionQueue {
   private scriptGenerator: ScriptGenerator;
   private scriptVerifier: ScriptVerifier;
   private vault: VaultHandle;
+  private relevanceFilter: RelevanceFilter;
   private batchSize: number;
   private processing = false;
   private pendingTrigger = false;
 
-  constructor(vault: VaultHandle, cliPath?: string, cliTimeout?: number, modelConfig?: ClaudeModelConfig) {
+  constructor(vault: VaultHandle, relevanceFilter: RelevanceFilter, cliPath?: string, cliTimeout?: number, modelConfig?: ClaudeModelConfig) {
     this.vault = vault;
+    this.relevanceFilter = relevanceFilter;
     const models = modelConfig ?? DEFAULT_CLAUDE_MODELS;
     this.pdfRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.pdfExtraction);
     this.scriptRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration);
@@ -41,7 +53,7 @@ export class ExtractionQueue {
     this.matcherEvaluator = new MatcherEvaluator();
     this.scriptGenerator = new ScriptGenerator(this.scriptRunner);
     this.scriptVerifier = new ScriptVerifier(this.scriptRunner);
-    this.batchSize = DEFAULT_BATCH_SIZE;
+    this.batchSize = vault.config.extractionBatchSize ?? DEFAULT_BATCH_SIZE;
   }
 
   trigger(): void {
@@ -59,42 +71,63 @@ export class ExtractionQueue {
 
     try {
       while (true) {
-        const pendingFiles = getFilesByStatus(FileStatus.Pending);
-        if (pendingFiles.length === 0) break;
+        const allWork = getFilesByStatuses([FileStatus.Unfiltered, FileStatus.Pending]);
+        if (allWork.length === 0) break;
 
-        // Take a batch
-        const batch = pendingFiles.slice(0, this.batchSize);
-        const fileIds = batch.map(f => f.id);
+        // Take a batch — unfiltered files come first (ordered by updated_at DESC from DB)
+        const batch = allWork.slice(0, this.batchSize);
 
-        console.log(`[ExtractionQueue] Processing batch of ${batch.length} files`);
-        eventBus.emit('extraction:started', { fileIds });
-
-        // Mark as processing
+        // Run relevance filter on any unfiltered files in this batch before extraction
+        const toExtract: VaultFile[] = [];
         for (const file of batch) {
-          updateFileStatus(file.id, FileStatus.Processing);
-        }
-
-        // Separate structured files (XML, Excel, CSV) from unstructured (PDF, images)
-        const structuredFiles: VaultFile[] = [];
-        const unstructuredFiles: VaultFile[] = [];
-
-        for (const file of batch) {
-          const ext = path.extname(file.relative_path).toLowerCase();
-          if (STRUCTURED_EXTENSIONS.has(ext)) {
-            structuredFiles.push(file);
+          if (file.status === FileStatus.Unfiltered) {
+            const outcome = await this.relevanceFilter.filterFile(file);
+            if (outcome === 'skipped') continue;
+            // Re-fetch to get updated status/filter fields
+            toExtract.push({ ...file, status: FileStatus.Pending });
           } else {
-            unstructuredFiles.push(file);
+            toExtract.push(file);
           }
         }
 
+        if (toExtract.length === 0) continue;
+
+        // Separate structured files (XML, Excel, CSV) from unstructured (PDF, images)
+        const structuredCandidates: VaultFile[] = [];
+        const unstructuredCandidates: VaultFile[] = [];
+
+        for (const file of toExtract) {
+          const ext = path.extname(file.relative_path).toLowerCase();
+          if (STRUCTURED_EXTENSIONS.has(ext)) {
+            structuredCandidates.push(file);
+          } else {
+            unstructuredCandidates.push(file);
+          }
+        }
+
+        // For unstructured files, pre-extract text and slice by context budget.
+        // This avoids sending oversized batches to Claude that would slow inference or timeout.
+        const unstructuredBatch = await this.sliceByContextBudget(unstructuredCandidates);
+
+        const fileToProcess = [...structuredCandidates, ...unstructuredBatch];
+        if (fileToProcess.length === 0) break;
+
+        const fileIds = fileToProcess.map(f => f.id);
+        console.log(`[ExtractionQueue] Processing batch of ${fileToProcess.length} files (${structuredCandidates.length} structured, ${unstructuredBatch.length} unstructured)`);
+        eventBus.emit('extraction:started', { fileIds });
+
+        for (const file of fileToProcess) {
+          updateFileStatus(file.id, FileStatus.Processing);
+        }
+
         // Process structured files individually (parser/script-based)
-        for (const file of structuredFiles) {
+        for (const file of structuredCandidates) {
           await this.processStructuredFile(file);
         }
 
         // Process unstructured files via Claude CLI in batch
-        if (unstructuredFiles.length > 0) {
-          await this.processUnstructuredBatch(unstructuredFiles);
+        if (unstructuredBatch.length > 0) {
+          await this.processUnstructuredBatch(unstructuredBatch);
         }
       }
     } finally {
@@ -104,6 +137,50 @@ export class ExtractionQueue {
         this.trigger();
       }
     }
+  }
+
+  private async sliceByContextBudget(files: VaultFile[]): Promise<VaultFile[]> {
+    if (files.length === 0) return [];
+
+    const selected: VaultFile[] = [];
+    let estimatedBytes = 0;
+
+    for (const file of files) {
+      const fullPath = path.join(this.vault.rootPath, file.relative_path);
+      const ext = path.extname(file.relative_path).toLowerCase();
+
+      let fileEstimate: number;
+      if (ext === '.pdf') {
+        try {
+          const text = await extractPdfText(fullPath);
+          if (text.trim().length >= MIN_PDF_TEXT_CHARS) {
+            fileEstimate = text.length * TEXT_TO_CONTEXT_RATIO;
+          } else {
+            // Scanned PDF — estimate from file size (base64 + context overhead)
+            const stat = fs.statSync(fullPath);
+            fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
+          }
+        } catch {
+          const stat = fs.statSync(fullPath);
+          fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
+        }
+      } else {
+        // Non-PDF unstructured (images) — estimate from file size
+        const stat = fs.statSync(fullPath);
+        fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
+      }
+
+      // Always include at least one file even if it exceeds the budget alone
+      if (selected.length === 0 || estimatedBytes + fileEstimate <= MAX_BATCH_CONTEXT_BYTES) {
+        selected.push(file);
+        estimatedBytes += fileEstimate;
+      } else {
+        break;
+      }
+    }
+
+    console.log(`[ExtractionQueue] Context budget: ~${(estimatedBytes / 1024 / 1024).toFixed(1)}MB for ${selected.length}/${files.length} unstructured files`);
+    return selected;
   }
 
   private async processStructuredFile(file: VaultFile): Promise<void> {

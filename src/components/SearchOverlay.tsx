@@ -34,7 +34,6 @@ export const SearchOverlay: React.FC = () => {
   const folderScope = useSearchStore(s => s.folderScope);
   const fileScope = useSearchStore(s => s.fileScope);
   const hasSearched = useSearchStore(s => s.hasSearched);
-  const aggregates = useSearchStore(s => s.aggregates);
 
   // Initialize windowlized flag once on mount
   useEffect(() => { useOverlayStore.getState().initWindowlized(); }, []);
@@ -333,12 +332,12 @@ export const SearchOverlay: React.FC = () => {
     ss.doSearch(ss.query, ss.filters, folder);
   }, []);
 
-  const handleOpenFolder = useCallback((relativePath: string) => {
-    window.api.openFolder(relativePath);
+  const handleLocateFolder = useCallback((relativePath: string) => {
+    window.api.locateFolder(relativePath);
   }, []);
 
-  const handleOpenFile = useCallback((relativePath: string) => {
-    window.api.openFile(relativePath);
+  const handleLocateFile = useCallback((relativePath: string) => {
+    window.api.locateFile(relativePath);
   }, []);
 
   const handleReprocessFile = useCallback(async (relativePath: string) => {
@@ -640,8 +639,8 @@ export const SearchOverlay: React.FC = () => {
           onSelectFile={handlePathSearchSelectFile}
           onReprocessFile={handleReprocessFile}
           onReprocessFolder={handleReprocessFolder}
-          onOpenFile={handleOpenFile}
-          onOpenFolder={handleOpenFolder}
+          onOpenFile={handleLocateFile}
+          onOpenFolder={handleLocateFolder}
         />
       </div>
     );
@@ -689,14 +688,14 @@ export const SearchOverlay: React.FC = () => {
       {(folderScope || fileScope) && (
         <BreadcrumbBar
           onNavigate={handleFolderNavigate}
-          onOpenFolder={() => folderScope && handleOpenFolder(folderScope)}
+          onOpenFolder={() => folderScope && handleLocateFolder(folderScope)}
           onReload={handleBreadcrumbReload}
         />
       )}
       {hasSearched && (
         <ResultList
-          onOpenFile={handleOpenFile}
-          onOpenFolder={handleOpenFolder}
+          onOpenFile={handleLocateFile}
+          onOpenFolder={handleLocateFolder}
           onReprocessFile={handleReprocessFile}
           onReprocessFolder={handleReprocessFolder}
         />

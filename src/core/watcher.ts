@@ -6,20 +6,18 @@ import { WATCHED_EXTENSIONS, INVOICEVAULT_DIR, WATCHER_DEBOUNCE_MS } from '../sh
 export type WatcherEvent = 'file:added' | 'file:changed' | 'file:deleted';
 export type WatcherCallback = (event: WatcherEvent, relativePath: string, fullPath: string) => void;
 
-function loadIgnorePatterns(vaultRoot: string): string[] {
+async function loadIgnorePatterns(vaultRoot: string): Promise<string[]> {
   const ignoreFile = path.join(vaultRoot, '.invoicevaultignore');
   const defaults = ['node_modules', '.git', '.DS_Store', 'Thumbs.db'];
 
   try {
-    if (fs.existsSync(ignoreFile)) {
-      const content = fs.readFileSync(ignoreFile, 'utf-8');
-      const patterns = content
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#'));
-      return [...defaults, ...patterns];
-    }
-  } catch { /* ignore */ }
+    const content = await fs.promises.readFile(ignoreFile, 'utf-8');
+    const patterns = content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'));
+    return [...defaults, ...patterns];
+  } catch { /* ignore file doesn't exist or can't be read */ }
 
   return defaults;
 }
@@ -35,12 +33,12 @@ export class FileWatcher {
     this.callback = callback;
   }
 
-  start(): void {
+  async start(): Promise<void> {
     if (this.watcher) return;
 
     console.log(`[Watcher] Starting watch on ${this.vaultRoot}`);
 
-    const ignorePatterns = loadIgnorePatterns(this.vaultRoot);
+    const ignorePatterns = await loadIgnorePatterns(this.vaultRoot);
 
     this.watcher = watch(this.vaultRoot, {
       ignored: [

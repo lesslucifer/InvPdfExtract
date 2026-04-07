@@ -66,7 +66,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   }, [clearConfirmVault, onVaultChanged]);
 
   const handleOpenVault = useCallback((_vaultPath: string) => {
-    window.api.openFolder('');
+    window.api.locateFolder('');
   }, []);
 
   const handleReprocessAll = useCallback(async () => {
@@ -119,7 +119,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
               {config.lastVaultPath}
             </span>
             <div className="flex gap-1.5 shrink-0">
-              <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title="Open in file manager">{t('open', 'Open')}</button>
+              <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title="Locate in file manager">{t('locate', 'Locate')}</button>
               <button
                 className={clearConfirmVault === config.lastVaultPath ? confirmBtnClass : dangerBtnClass}
                 onClick={(e) => handleDisconnectVault(config.lastVaultPath!, e)}

@@ -15,7 +15,7 @@ export function insertFile(relativePath: string, fileHash: string, fileType: str
     db.prepare(`
       UPDATE files SET file_hash = ?, file_type = ?, file_size = ?, status = ?, deleted_at = NULL, updated_at = ?
       WHERE id = ?
-    `).run(fileHash, fileType, fileSize, FileStatus.Pending, now, deleted.id);
+    `).run(fileHash, fileType, fileSize, FileStatus.Unfiltered, now, deleted.id);
     return getFileById(deleted.id)!;
   }
 
@@ -23,7 +23,7 @@ export function insertFile(relativePath: string, fileHash: string, fileType: str
   db.prepare(`
     INSERT INTO files (id, relative_path, file_hash, file_type, file_size, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, relativePath, fileHash, fileType, fileSize, FileStatus.Pending, now, now);
+  `).run(id, relativePath, fileHash, fileType, fileSize, FileStatus.Unfiltered, now, now);
 
   return getFileById(id)!;
 }
@@ -53,7 +53,7 @@ export function updateFileHash(id: string, newHash: string, fileSize: number): v
   db.prepare(`
     UPDATE files SET file_hash = ?, file_size = ?, status = ?, updated_at = datetime('now')
     WHERE id = ?
-  `).run(newHash, fileSize, FileStatus.Pending, id);
+  `).run(newHash, fileSize, FileStatus.Unfiltered, id);
 }
 
 export function updateFileStatus(id: string, status: FileStatus): void {
@@ -100,8 +100,9 @@ export function getAllActiveFiles(): VaultFile[] {
 
 export function cancelQueueItem(fileId: string): boolean {
   const db = getDatabase();
-  const file = db.prepare('SELECT * FROM files WHERE id = ? AND status = ? AND deleted_at IS NULL')
-    .get(fileId, FileStatus.Pending) as VaultFile | undefined;
+  const file = db.prepare(
+    `SELECT * FROM files WHERE id = ? AND status IN ('${FileStatus.Unfiltered}', '${FileStatus.Pending}') AND deleted_at IS NULL`
+  ).get(fileId) as VaultFile | undefined;
   if (!file) return false;
 
   const { cnt } = db.prepare(
@@ -122,12 +123,13 @@ export function cancelQueueItem(fileId: string): boolean {
 
 export function clearPendingQueue(): number {
   const db = getDatabase();
-  const pending = db.prepare('SELECT id FROM files WHERE status = ? AND deleted_at IS NULL')
-    .all(FileStatus.Pending) as { id: string }[];
-  for (const row of pending) {
+  const queued = db.prepare(
+    `SELECT id FROM files WHERE status IN ('${FileStatus.Unfiltered}', '${FileStatus.Pending}') AND deleted_at IS NULL`
+  ).all() as { id: string }[];
+  for (const row of queued) {
     cancelQueueItem(row.id);
   }
-  return pending.length;
+  return queued.length;
 }
 
 export function resetStaleProcessingFiles(): number {

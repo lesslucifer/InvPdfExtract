@@ -4,6 +4,7 @@ import { FileStatus, OverlayState } from '../shared/types';
 // === StatusIcon logic ===
 
 const STATUS_TITLES: Record<FileStatus, string> = {
+  [FileStatus.Unfiltered]: 'Queuing',
   [FileStatus.Pending]: 'Queuing',
   [FileStatus.Processing]: 'Processing...',
   [FileStatus.Done]: 'Processed',
@@ -17,6 +18,7 @@ function getStatusTitle(status: FileStatus): string {
 }
 
 const STATUS_ICON_NAMES: Record<FileStatus, string> = {
+  [FileStatus.Unfiltered]: 'hourglass',
   [FileStatus.Pending]:    'hourglass',
   [FileStatus.Processing]: 'loader',
   [FileStatus.Done]:       'success',

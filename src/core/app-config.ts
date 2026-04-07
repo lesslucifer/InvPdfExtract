@@ -10,7 +10,7 @@ function getConfigPath(): string {
   return path.join(app.getPath('userData'), CONFIG_FILENAME);
 }
 
-export function loadAppConfig(): AppConfig {
+export async function loadAppConfig(): Promise<AppConfig> {
   const configPath = getConfigPath();
   const defaults: AppConfig = {
     lastVaultPath: null,
@@ -21,21 +21,17 @@ export function loadAppConfig(): AppConfig {
     locale: 'en',
   };
 
-  if (!fs.existsSync(configPath)) {
-    return defaults;
-  }
-
   try {
-    const raw = fs.readFileSync(configPath, 'utf-8');
+    const raw = await fs.promises.readFile(configPath, 'utf-8');
     return { ...defaults, ...JSON.parse(raw) };
   } catch {
     return defaults;
   }
 }
 
-export function saveAppConfig(config: Partial<AppConfig>): void {
+export async function saveAppConfig(config: Partial<AppConfig>): Promise<void> {
   const configPath = getConfigPath();
-  const existing = loadAppConfig();
+  const existing = await loadAppConfig();
   const merged = { ...existing, ...config };
-  fs.writeFileSync(configPath, JSON.stringify(merged, null, 2));
+  await fs.promises.writeFile(configPath, JSON.stringify(merged, null, 2));
 }

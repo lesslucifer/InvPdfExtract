@@ -1,6 +1,7 @@
 import { InvoiceLineItem } from '../shared/types';
 
-const TOLERANCE = 1; // 1 VND rounding tolerance
+const TOLERANCE = 1; // 1 VND rounding tolerance for line item calculations
+export const TOTAL_TOLERANCE = 1000; // 1000 VND tolerance for invoice-level totals
 
 /**
  * Check if total_amount (after-tax) matches the sum of line item total_with_tax (after-tax).
@@ -13,7 +14,7 @@ export function computeTotalMismatch(
     return { hasMismatch: false, sum: 0 };
   }
   const sum = lineItems.reduce((acc, item) => acc + (item.total_with_tax ?? 0), 0);
-  const hasMismatch = Math.abs(sum - totalAmount) > TOLERANCE;
+  const hasMismatch = Math.abs(sum - totalAmount) > TOTAL_TOLERANCE;
   return { hasMismatch, sum };
 }
 
@@ -28,7 +29,7 @@ export function computeBeforeTaxTotalMismatch(
     return { hasMismatch: false, sum: 0 };
   }
   const sum = lineItems.reduce((acc, item) => acc + (item.subtotal ?? 0), 0);
-  const hasMismatch = Math.abs(sum - totalBeforeTax) > TOLERANCE;
+  const hasMismatch = Math.abs(sum - totalBeforeTax) > TOTAL_TOLERANCE;
   return { hasMismatch, sum };
 }
 
@@ -38,7 +39,7 @@ export function computeBeforeTaxTotalMismatch(
 export function computeLineItemMismatch(
   item: { unit_price?: number | null; quantity?: number | null; subtotal?: number | null },
 ): { hasMismatch: boolean; expected: number | null } {
-  if (item.unit_price == null || item.quantity == null || item.subtotal == null) {
+  if (!item.unit_price || !item.quantity || item.subtotal == null) {
     return { hasMismatch: false, expected: null };
   }
   const expected = Math.round(item.unit_price * item.quantity);

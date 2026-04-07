@@ -6,23 +6,28 @@ export function getInstructionsPath(vaultRoot: string): string {
   return path.join(vaultRoot, INVOICEVAULT_DIR, JE_INSTRUCTIONS_FILE);
 }
 
-export function readInstructions(vaultRoot: string): string {
+export async function readInstructions(vaultRoot: string): Promise<string> {
   const p = getInstructionsPath(vaultRoot);
-  if (!fs.existsSync(p)) {
-    writeDefaultInstructions(vaultRoot);
+  try {
+    return await fs.promises.readFile(p, 'utf-8');
+  } catch {
+    await writeDefaultInstructions(vaultRoot);
+    return await fs.promises.readFile(p, 'utf-8');
   }
-  return fs.readFileSync(p, 'utf-8');
 }
 
-export function writeInstructions(vaultRoot: string, content: string): void {
+export async function writeInstructions(vaultRoot: string, content: string): Promise<void> {
   const p = getInstructionsPath(vaultRoot);
-  fs.writeFileSync(p, content, 'utf-8');
+  await fs.promises.writeFile(p, content, 'utf-8');
 }
 
-export function writeDefaultInstructions(vaultRoot: string): void {
+export async function writeDefaultInstructions(vaultRoot: string): Promise<void> {
   const p = getInstructionsPath(vaultRoot);
-  if (fs.existsSync(p)) return;
-  fs.writeFileSync(p, DEFAULT_JE_INSTRUCTIONS, 'utf-8');
+  try {
+    await fs.promises.access(p);
+  } catch {
+    await fs.promises.writeFile(p, DEFAULT_JE_INSTRUCTIONS, 'utf-8');
+  }
 }
 
 const DEFAULT_JE_INSTRUCTIONS = `HUONG DAN PHAN LOAI TAI KHOAN (Account Classification Instructions)

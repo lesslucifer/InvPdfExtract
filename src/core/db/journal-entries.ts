@@ -30,7 +30,7 @@ export function getJournalEntriesByRecord(recordId: string): JournalEntry[] {
     SELECT * FROM journal_entries
     WHERE record_id = ?
     ORDER BY
-      CASE entry_type WHEN 'line' THEN 0 WHEN 'tax' THEN 1 WHEN 'settlement' THEN 2 WHEN 'bank' THEN 3 END,
+      CASE entry_type WHEN 'invoice' THEN 0 WHEN 'line' THEN 1 WHEN 'tax' THEN 2 WHEN 'settlement' THEN 3 WHEN 'bank' THEN 4 END,
       line_item_id
   `).all(recordId) as JournalEntry[];
 }

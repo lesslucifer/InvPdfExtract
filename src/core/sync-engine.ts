@@ -44,7 +44,7 @@ export class SyncEngine {
     const hash = await hashFile(fullPath);
     const ext = path.extname(fullPath).toLowerCase();
     const fileType = FILE_TYPE_MAP[ext] || 'unknown';
-    const stats = fs.statSync(fullPath);
+    const stats = await fs.promises.stat(fullPath);
 
     insertFile(relativePath, hash, fileType, stats.size);
 
@@ -66,7 +66,7 @@ export class SyncEngine {
       return;
     }
 
-    const stats = fs.statSync(fullPath);
+    const stats = await fs.promises.stat(fullPath);
     updateFileHash(existing.id, newHash, stats.size);
 
     eventBus.emit('file:changed', { relativePath, fullPath });

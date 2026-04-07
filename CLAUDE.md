@@ -25,6 +25,16 @@ Package manager is **pnpm**.
 > pnpm add <package>         # now safe to add new packages
 > ```
 
+## ⚠️ Session Verification (IMPORTANT)
+
+**After every coding session, always run and fix all failures before finishing:**
+
+```bash
+pnpm tsc --noEmit   # Type check
+pnpm lint           # Lint
+pnpm test           # Tests
+```
+
 ## Linting
 
 **ESLint v9** flat config (`eslint.config.mjs`). Bug-catching rules only, no style enforcement.
@@ -90,6 +100,10 @@ Use `/10` opacity modifier: `text-confidence-high bg-confidence-high/10`
 **Write self-documenting code.** Avoid comments unless essential for complex logic or critical context (SUPER CRITICAL - ALWAYS FOLLOW THIS).
 
 **Prefer lodash utilities for better performance and readability.** Use `_.orderBy` instead of native `sort()`, and leverage lodash functions over verbose native alternatives. Exception: Use native `filter()` and `map()` for simple array operations. Avoid `reduce()` - use `_.groupBy`, `_.keyBy`, or other lodash functions instead. For long data transformation chains, use lodash chaining (`_()`).
+
+## Async File I/O
+
+All `src/` fs ops must be async (`fs.promises.*`, `promisify(exec)`). Sync calls block Electron's main thread. Prefer read+catch over existsSync+read. Exceptions: `scripts/`, test setup, `.find()` sync callbacks, `XLSX.readFile`.
 
 ## Architecture
 

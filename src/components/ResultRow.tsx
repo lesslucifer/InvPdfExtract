@@ -120,7 +120,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           {amount > 0 && (
             <span className="font-semibold tabular-nums text-3.25">
               {formatCurrency(amount)}
-              {!isBank && result.line_item_sum != null && result.total_amount > 0 && Math.abs(result.line_item_sum - result.total_amount) > 1 && (
+              {!isBank && result.line_item_sum != null && result.total_amount > 0 && Math.abs(result.line_item_sum - result.total_amount) > 1000 && (
                 <span className="text-confidence-low text-2.75 font-bold ml-[3px]" title={`Sum of items: ${formatCurrency(result.line_item_sum)}`}>!</span>
               )}
             </span>

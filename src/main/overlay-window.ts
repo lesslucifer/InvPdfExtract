@@ -1,7 +1,10 @@
 import { BrowserWindow, globalShortcut, screen, ipcMain, shell, dialog, app, nativeImage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 import {
   searchRecords, getLineItemsByRecord, getFieldOverrides, getFieldOverridesByLineItemId,
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
@@ -35,8 +38,8 @@ export interface OverlayCallbacks {
   onStopVault: () => Promise<void>;
   onReprocessAll: () => number;
   onReprocessFile: (relativePath: string) => number;
-  onReprocessFolder: (folderPrefix: string) => number;
-  onCountFolderFiles: (folderPrefix: string) => number;
+  onReprocessFolder: (folderPrefix: string) => Promise<number>;
+  onCountFolderFiles: (folderPrefix: string) => Promise<number>;
   onCancelQueueItem: (fileId: string) => boolean;
   onClearPendingQueue: () => number;
   onQuit: () => Promise<void>;
@@ -293,10 +296,10 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('open-file', async (_event, relativePath: string) => {
+    ipcMain.handle('locate-file', async (_event, relativePath: string) => {
       if (!this.vaultPath || !relativePath) return;
       const fullPath = path.join(this.vaultPath, relativePath);
-      await shell.openPath(fullPath);
+      shell.showItemInFolder(fullPath);
     });
 
     ipcMain.handle('get-line-items', async (_event, recordId: string) => {
@@ -435,15 +438,15 @@ export class OverlayWindow {
     // === Spotlight UX IPC Handlers ===
 
     ipcMain.handle('get-app-config', async () => {
-      return loadAppConfig();
+      return await loadAppConfig();
     });
 
     ipcMain.handle('get-locale', async () => {
-      return loadAppConfig().locale ?? 'en';
+      return (await loadAppConfig()).locale ?? 'en';
     });
 
     ipcMain.handle('set-locale', async (_event, locale: 'en' | 'vi') => {
-      saveAppConfig({ locale });
+      await saveAppConfig({ locale });
     });
 
     ipcMain.handle('pick-folder', async () => {
@@ -479,7 +482,7 @@ export class OverlayWindow {
     });
 
     ipcMain.handle('remove-vault', async (_event, vaultPath: string) => {
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
       const isActive = config.lastVaultPath === vaultPath;
 
@@ -488,7 +491,7 @@ export class OverlayWindow {
         if (this.callbacks) await this.callbacks.onStopVault();
       }
 
-      saveAppConfig({
+      await saveAppConfig({
         vaultPaths,
         lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
       });
@@ -500,7 +503,7 @@ export class OverlayWindow {
     });
 
     ipcMain.handle('clear-vault-data', async (_event, vaultPath: string) => {
-      const config = loadAppConfig();
+      const config = await loadAppConfig();
       const isActive = config.lastVaultPath === vaultPath;
 
       // Stop the vault if it's active
@@ -510,11 +513,11 @@ export class OverlayWindow {
       }
 
       // Delete the .invoicevault directory
-      clearVaultData(vaultPath);
+      await clearVaultData(vaultPath);
 
       // Remove from config
       const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
-      saveAppConfig({
+      await saveAppConfig({
         vaultPaths,
         lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
       });
@@ -525,10 +528,10 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('open-folder', async (_event, relativePath: string) => {
+    ipcMain.handle('locate-folder', async (_event, relativePath: string) => {
       if (!this.vaultPath) return;
       const fullPath = path.join(this.vaultPath, relativePath);
-      await shell.openPath(fullPath);
+      shell.showItemInFolder(fullPath);
     });
 
     ipcMain.handle('show-item-in-folder', async (_event, absolutePath: string) => {
@@ -537,8 +540,8 @@ export class OverlayWindow {
 
     ipcMain.handle('check-claude-cli', async () => {
       try {
-        const version = execSync('claude --version', { stdio: 'pipe' }).toString().trim();
-        return { available: true, version };
+        const { stdout } = await execAsync('claude --version');
+        return { available: true, version: stdout.trim() };
       } catch {
         return { available: false };
       }
@@ -558,13 +561,13 @@ export class OverlayWindow {
 
     ipcMain.handle('reprocess-folder', async (_event, folderPrefix: string) => {
       if (!this.callbacks) return { count: 0 };
-      const count = this.callbacks.onReprocessFolder(folderPrefix);
+      const count = await this.callbacks.onReprocessFolder(folderPrefix);
       return { count };
     });
 
     ipcMain.handle('count-folder-files', async (_event, folderPrefix: string) => {
       if (!this.callbacks) return { count: 0 };
-      const count = this.callbacks.onCountFolderFiles(folderPrefix);
+      const count = await this.callbacks.onCountFolderFiles(folderPrefix);
       return { count };
     });
 
@@ -683,7 +686,7 @@ export class OverlayWindow {
     ipcMain.handle('read-cli-session-log', async (_event, sessionLogPath: string) => {
       try {
         if (!sessionLogPath.includes('/.claude/projects/')) return null;
-        return fs.existsSync(sessionLogPath) ? fs.readFileSync(sessionLogPath, 'utf-8') : null;
+        return await fs.promises.readFile(sessionLogPath, 'utf-8').catch(() => null);
       } catch (err) {
         console.error('[Overlay] read-cli-session-log failed:', err);
         return null;
@@ -758,8 +761,7 @@ export class OverlayWindow {
         const { exportJEToXlsx } = await import('../core/export');
         const rows = gatherJEExportData(filters);
         const buffer = exportJEToXlsx(rows);
-        const fs = await import('fs');
-        fs.writeFileSync(result.filePath, buffer);
+        await fs.promises.writeFile(result.filePath, buffer);
         return { filePath: result.filePath };
       } catch (err) {
         console.error('[Overlay] export-filtered failed:', err);
@@ -846,7 +848,7 @@ export class OverlayWindow {
       try {
         const root = this.callbacks?.getVaultRoot();
         if (!root) return '';
-        return readInstructions(root);
+        return await readInstructions(root);
       } catch (err) {
         console.error('[JournalEntry] Get instructions failed:', err);
         return '';
@@ -857,7 +859,7 @@ export class OverlayWindow {
       try {
         const root = this.callbacks?.getVaultRoot();
         if (!root) return;
-        writeInstructions(root, content);
+        await writeInstructions(root, content);
         eventBus.emit('je:instructions-changed', {} as never);
       } catch (err) {
         console.error('[JournalEntry] Save instructions failed:', err);

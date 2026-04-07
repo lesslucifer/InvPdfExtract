@@ -146,6 +146,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   const taxJe = useMemo(() => journalEntries.find(je => je.entry_type === 'tax') ?? null, [journalEntries]);
   const settlementJe = useMemo(() => journalEntries.find(je => je.entry_type === 'settlement') ?? null, [journalEntries]);
   const bankJe = useMemo(() => journalEntries.find(je => je.entry_type === 'bank') ?? null, [journalEntries]);
+  const invoiceJe = useMemo(() => journalEntries.find(je => je.entry_type === 'invoice') ?? null, [journalEntries]);
 
   const derivedTaxAmount = useMemo(() => {
     return lineItems
@@ -157,7 +158,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       }, 0);
   }, [lineItems]);
 
-  const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank', lineItemId: string | null, account: string) => {
+  const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank' | 'invoice', lineItemId: string | null, account: string) => {
     await saveJournalEntry.mutateAsync({ recordId: result.id, lineItemId: lineItemId ?? undefined, entryType, account });
   };
 
@@ -191,11 +192,11 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       {isBank && (
         <table className="w-full border-collapse">
           <tbody>
-            <EditableField label="Bank" value={result.bank_name || ''} fieldName="bank_name" tableName="bank_statement_data" recordId={result.id} override={getOverride('bank_name')} onSave={(v) => handleSave('bank_statement_data', 'bank_name', v)} onResolve={(a) => handleResolve('bank_name', a)} />
-            <EditableField label="Account" value={result.account_number || ''} fieldName="account_number" tableName="bank_statement_data" recordId={result.id} override={getOverride('account_number')} onSave={(v) => handleSave('bank_statement_data', 'account_number', v)} onResolve={(a) => handleResolve('account_number', a)} />
-            <EditableField label="Amount" value={String(result.amount || '')} fieldName="amount" tableName="bank_statement_data" recordId={result.id} override={getOverride('amount')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'amount', v)} onResolve={(a) => handleResolve('amount', a)} />
-            <EditableField label="Counterparty" value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="bank_statement_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('bank_statement_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
-            <EditableField label="Description" value={result.description || ''} fieldName="description" tableName="bank_statement_data" recordId={result.id} override={getOverride('description')} onSave={(v) => handleSave('bank_statement_data', 'description', v)} onResolve={(a) => handleResolve('description', a)} />
+            <EditableField label={t('bank', 'Bank')} value={result.bank_name || ''} fieldName="bank_name" tableName="bank_statement_data" recordId={result.id} override={getOverride('bank_name')} onSave={(v) => handleSave('bank_statement_data', 'bank_name', v)} onResolve={(a) => handleResolve('bank_name', a)} />
+            <EditableField label={t('account', 'Account')} value={result.account_number || ''} fieldName="account_number" tableName="bank_statement_data" recordId={result.id} override={getOverride('account_number')} onSave={(v) => handleSave('bank_statement_data', 'account_number', v)} onResolve={(a) => handleResolve('account_number', a)} />
+            <EditableField label={t('amount', 'Amount')} value={String(result.amount || '')} fieldName="amount" tableName="bank_statement_data" recordId={result.id} override={getOverride('amount')} inputType="number" onSave={(v) => handleSave('bank_statement_data', 'amount', v)} onResolve={(a) => handleResolve('amount', a)} />
+            <EditableField label={t('counterparty', 'Counterparty')} value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="bank_statement_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('bank_statement_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
+            <EditableField label={t('description', 'Description')} value={result.description || ''} fieldName="description" tableName="bank_statement_data" recordId={result.id} override={getOverride('description')} onSave={(v) => handleSave('bank_statement_data', 'description', v)} onResolve={(a) => handleResolve('description', a)} />
             <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">{t('date', 'Date')}</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
             <tr>
               <td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">
@@ -212,17 +213,17 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
         <>
           <table className="w-full border-collapse">
             <tbody>
-              <EditableField label="Invoice #" value={result.invoice_number || ''} fieldName="invoice_number" tableName="invoice_data" recordId={result.id} override={getOverride('invoice_number')} onSave={(v) => handleSave('invoice_data', 'invoice_number', v)} onResolve={(a) => handleResolve('invoice_number', a)} />
-              <EditableField label="TaxID" value={result.tax_id || ''} fieldName="tax_id" tableName="invoice_data" recordId={result.id} override={getOverride('tax_id')} onSave={(v) => handleSave('invoice_data', 'tax_id', v)} onResolve={(a) => handleResolve('tax_id', a)} />
-              <EditableField label="Before-tax Total" value={String(localTotals.total_before_tax || '')} fieldName="total_before_tax" tableName="invoice_data" recordId={result.id} override={getOverride('total_before_tax')} inputType="number" derivedValue={beforeTaxTotalMismatch.hasMismatch ? beforeTaxTotalMismatch.sum : null} showMismatchIcon={beforeTaxTotalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_before_tax', v)} onResolve={(a) => handleResolve('total_before_tax', a)} />
-              <EditableField label="Total (incl. tax)" value={String(localTotals.total_amount || '')} fieldName="total_amount" tableName="invoice_data" recordId={result.id} override={getOverride('total_amount')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_amount', v)} onResolve={(a) => handleResolve('total_amount', a)} />
-              <EditableField label="Counterparty" value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('invoice_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
-              <EditableField label="Address" value={result.counterparty_address || ''} fieldName="counterparty_address" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_address')} onSave={(v) => handleSave('invoice_data', 'counterparty_address', v)} onResolve={(a) => handleResolve('counterparty_address', a)} />
+              <EditableField label={t('invoice_number', 'Invoice #')} value={result.invoice_number || ''} fieldName="invoice_number" tableName="invoice_data" recordId={result.id} override={getOverride('invoice_number')} onSave={(v) => handleSave('invoice_data', 'invoice_number', v)} onResolve={(a) => handleResolve('invoice_number', a)} />
+              <EditableField label={t('tax_id_label', 'TaxID')} value={result.tax_id || ''} fieldName="tax_id" tableName="invoice_data" recordId={result.id} override={getOverride('tax_id')} onSave={(v) => handleSave('invoice_data', 'tax_id', v)} onResolve={(a) => handleResolve('tax_id', a)} />
+              <EditableField label={t('before_tax_total', 'Before-tax Total')} value={String(localTotals.total_before_tax || '')} fieldName="total_before_tax" tableName="invoice_data" recordId={result.id} override={getOverride('total_before_tax')} inputType="number" derivedValue={beforeTaxTotalMismatch.hasMismatch ? beforeTaxTotalMismatch.sum : null} showMismatchIcon={beforeTaxTotalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_before_tax', v)} onResolve={(a) => handleResolve('total_before_tax', a)} />
+              <EditableField label={t('total_incl_tax', 'Total (incl. tax)')} value={String(localTotals.total_amount || '')} fieldName="total_amount" tableName="invoice_data" recordId={result.id} override={getOverride('total_amount')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_amount', v)} onResolve={(a) => handleResolve('total_amount', a)} />
+              <EditableField label={t('counterparty', 'Counterparty')} value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('invoice_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
+              <EditableField label={t('address', 'Address')} value={result.counterparty_address || ''} fieldName="counterparty_address" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_address')} onSave={(v) => handleSave('invoice_data', 'counterparty_address', v)} onResolve={(a) => handleResolve('counterparty_address', a)} />
               <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">{t('date', 'Date')}</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>
             </tbody>
           </table>
 
-          {lineItems.length > 0 && (
+          {lineItems.length > 0 ? (
             <div className="mt-2">
               <div className="flex items-center justify-between font-semibold text-3 mb-1 text-text-secondary">
                 <span>{t('line_items', 'Line Items')}</span>
@@ -280,6 +281,37 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                   <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
                   </span>
                   <span className="text-text ml-auto">{derivedTaxAmount > 0 ? formatCurrency(derivedTaxAmount) : '–'}</span>
+                </div>
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">{t('thanh_toan', 'Thanh toan')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
+                  </span>
+                  <span className="text-text ml-auto">{localTotals.total_amount ? formatCurrency(localTotals.total_amount) : '–'}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <div className="flex items-center justify-between font-semibold text-3 mb-1 text-text-secondary">
+                <span>{t('invoice_total', 'Invoice Total')}</span>
+                {jeStatus && renderJeIcon(jeStatus)}
+              </div>
+              <div className="py-1">
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">{t('hang_dich_vu', 'Hàng/dịch vụ')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={invoiceJe?.account ?? null} onSave={(account) => handleSaveJeAccount('invoice', null, account)} />
+                  </span>
+                  <span className="text-text ml-auto">{localTotals.total_before_tax ? formatCurrency(localTotals.total_before_tax) : '–'}</span>
+                </div>
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">{t('thue_gtgt', 'Thue GTGT')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
+                  </span>
+                  <span className="text-text ml-auto">
+                    {(localTotals.total_amount && localTotals.total_before_tax)
+                      ? formatCurrency(localTotals.total_amount - localTotals.total_before_tax)
+                      : '–'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
                   <span className="min-w-[80px] text-text-secondary">{t('thanh_toan', 'Thanh toan')}</span>

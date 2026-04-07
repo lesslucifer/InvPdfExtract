@@ -14,6 +14,7 @@ let _testDb: Database.Database;
 import {
   insertFile,
   getFilesByStatus,
+  getFilesByStatuses,
   getFileById,
   updateFileStatus,
   updateFileHash,
@@ -54,14 +55,14 @@ describe('resetStaleProcessingFiles', () => {
     insertFile('c.pdf', 'hash3', 'pdf', 300);
     updateFileStatus(f1.id, FileStatus.Done);
     updateFileStatus(f2.id, FileStatus.Error);
-    // f3 stays pending
+    // f3 stays unfiltered
 
     const count = resetStaleProcessingFiles();
 
     expect(count).toBe(0);
     expect(getFilesByStatus(FileStatus.Done)).toHaveLength(1);
     expect(getFilesByStatus(FileStatus.Error)).toHaveLength(1);
-    expect(getFilesByStatus(FileStatus.Pending)).toHaveLength(1);
+    expect(getFilesByStatus(FileStatus.Unfiltered)).toHaveLength(1);
   });
 
   it('does not touch soft-deleted processing files', () => {
@@ -92,7 +93,7 @@ describe('cancelQueueItem', () => {
 
   it('soft-deletes a brand-new pending file with no records', () => {
     const file = insertFile('new.pdf', 'hash1', 'pdf', 100);
-    // file starts as Pending, no records linked
+    // file starts as Unfiltered, no records linked
 
     const result = cancelQueueItem(file.id);
 
@@ -111,7 +112,7 @@ describe('cancelQueueItem', () => {
 
     // File content changed — re-queued
     updateFileHash(file.id, 'hash2', 100);
-    expect(getFilesByStatus(FileStatus.Pending)).toHaveLength(1);
+    expect(getFilesByStatus(FileStatus.Unfiltered)).toHaveLength(1);
 
     // User cancels from queue
     const result = cancelQueueItem(file.id);
@@ -162,7 +163,7 @@ describe('clearPendingQueue', () => {
     // Brand new file (no records)
     const brandNew = insertFile('new.pdf', 'hash2', 'pdf', 200);
 
-    expect(getFilesByStatus(FileStatus.Pending)).toHaveLength(2);
+    expect(getFilesByStatuses([FileStatus.Unfiltered, FileStatus.Pending])).toHaveLength(2);
 
     const count = clearPendingQueue();
 
