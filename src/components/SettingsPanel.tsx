@@ -23,6 +23,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const [switchConfirm, setSwitchConfirm] = useState<string | null>(null);
   const [switchNotification, setSwitchNotification] = useState<string | null>(null);
   const [clearConfirmVault, setClearConfirmVault] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const handleAddVault = useCallback(async () => {
     const folderPath = await window.api.pickFolder();
@@ -81,6 +82,13 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
 
   const handleQuit = useCallback(async () => {
     await window.api.quitApp();
+  }, []);
+
+  const handleExportInstructions = useCallback(async () => {
+    const result = await window.api.exportInstructions();
+    if (result.canceled) return;
+    setExportStatus(result.success ? 'success' : 'error');
+    setTimeout(() => setExportStatus('idle'), 3000);
   }, []);
 
   if (!config) {
@@ -174,6 +182,29 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
         </button>
         {reprocessResult && <div className="text-3 text-text-secondary mt-1.5">{reprocessResult}</div>}
       </div>
+
+      <div className="px-4 py-2.5">
+        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('ai_instructions', 'AI Instructions')}</div>
+        <div className="flex flex-wrap gap-1.5">
+          <button className={settingsBtnClass} onClick={() => window.api.openInstructionFile('extraction-prompt')}>
+            {t('open_extraction_prompt', 'Open Extraction Prompt')}
+          </button>
+          <button className={settingsBtnClass} onClick={() => window.api.openInstructionFile('je-instructions')}>
+            {t('open_je_instructions', 'Open JE Instructions')}
+          </button>
+          <button className={settingsBtnClass} onClick={handleExportInstructions}>
+            {t('export_instructions', 'Export Instructions')}
+          </button>
+        </div>
+        {exportStatus === 'success' && (
+          <div className="text-3 text-confidence-high mt-1.5">{t('export_instructions_success', 'Instructions exported')}</div>
+        )}
+        {exportStatus === 'error' && (
+          <div className="text-3 text-confidence-low mt-1.5">{t('export_instructions_error', 'Export failed')}</div>
+        )}
+      </div>
+
+      <div className="h-[1px] bg-border mx-4 my-1" />
 
       <div className="px-4 py-2.5">
         <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('claude_cli', 'Claude CLI')}</div>

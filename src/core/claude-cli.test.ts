@@ -139,7 +139,7 @@ describe('ClaudeCodeRunner', () => {
         .mockResolvedValueOnce(VALID_JSON);
 
 
-      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
+      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
       expect(invokeSpy).toHaveBeenCalledTimes(2);
       expect(result.results).toHaveLength(1);
@@ -154,7 +154,7 @@ describe('ClaudeCodeRunner', () => {
         .mockResolvedValueOnce(VALID_JSON);
 
 
-      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
+      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
       expect(invokeSpy).toHaveBeenCalledTimes(1);
       expect(result.results).toHaveLength(1);
@@ -167,7 +167,7 @@ describe('ClaudeCodeRunner', () => {
 
 
       await expect(
-        runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md')
+        runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md')
       ).rejects.toThrow('Failed to parse Claude CLI response');
     });
 
@@ -179,7 +179,7 @@ describe('ClaudeCodeRunner', () => {
         .mockResolvedValueOnce(VALID_JSON);
 
 
-      const { result, sessionLog } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
+      const { result, sessionLog } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
       expect(result.results).toHaveLength(1);
       expect(sessionLog).toContain('RETRY PROMPT:');
@@ -192,7 +192,7 @@ describe('ClaudeCodeRunner', () => {
         .mockResolvedValueOnce(noisy);
 
 
-      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
+      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
       expect(invokeSpy).toHaveBeenCalledTimes(1);
       expect(result.results).toHaveLength(1);
@@ -202,7 +202,7 @@ describe('ClaudeCodeRunner', () => {
       const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')
         .mockResolvedValueOnce(VALID_JSON);
 
-      await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
+      await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
       // The invokeClaudeCLI is mocked, so we check the args it was called with
       // by inspecting the spawn call inside it. Since we mock the whole method,
@@ -254,7 +254,7 @@ describe('model tier configuration', () => {
     const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, 'heavy');
     vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(VALID_JSON);
 
-    await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/extraction-prompt.md');
+    await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
     // invokeClaudeCLI is called with (prompt, systemPrompt, cwd)
     // The --model flag is built inside invokeClaudeCLI, so we verify via the spawn args

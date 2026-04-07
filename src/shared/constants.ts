@@ -7,7 +7,7 @@ export const INVOICEVAULT_DIR = '.invoicevault';
 export const CONFIG_FILE = 'config.json';
 export const DB_FILE = 'vault.db';
 
-export const VAULT_SUBDIRS = ['logs', 'scripts', 'queue'];
+export const VAULT_SUBDIRS = ['logs', 'scripts', 'queue', 'instructions'];
 
 export const WATCHED_EXTENSIONS = new Set([
   '.pdf', '.jpg', '.jpeg', '.png', '.xml', '.xlsx', '.csv',
@@ -44,7 +44,10 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   [DocType.Unknown]:       t('unclassified', 'Chưa phân loại'),
 };
 
-export const JE_INSTRUCTIONS_FILE = 'je-instructions.txt';
+export const INSTRUCTIONS_SUBDIR = 'instructions';
+export const EXTRACTION_PROMPT_FILE = 'extraction-prompt.md';
+export const JE_INSTRUCTIONS_FILE = 'je-instructions.md';
+export const INSTRUCTIONS_WATCHER_DEBOUNCE_MS = 5000;
 export const JE_SIMILARITY_THRESHOLD = 0.9;
 export const JE_SIMILARITY_CACHE_SIZE = 10_000;
 export const JE_AI_BATCH_SIZE = 100;

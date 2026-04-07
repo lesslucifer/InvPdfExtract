@@ -197,7 +197,6 @@ export class ClaudeCodeRunner {
   private cliPath: string;
   private timeout: number;
   private model: string | undefined;
-  private systemPromptCache = new Map<string, string>();
 
   constructor(cliPath?: string, timeout?: number, modelTier?: ModelTier) {
     this.cliPath = cliPath || 'claude';
@@ -215,11 +214,7 @@ export class ClaudeCodeRunner {
   }
 
   async processFiles(filePaths: string[], vaultRoot: string, systemPromptPath: string): Promise<{ result: ExtractionResult; sessionLog: string }> {
-    let systemPrompt = this.systemPromptCache.get(systemPromptPath);
-    if (!systemPrompt) {
-      systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
-      this.systemPromptCache.set(systemPromptPath, systemPrompt);
-    }
+    const systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
 
     // Pre-extract text from PDFs in parallel using worker threads (non-blocking).
     // PDFs with insufficient text are scanned images — they fall back to Claude's vision via Read tool.

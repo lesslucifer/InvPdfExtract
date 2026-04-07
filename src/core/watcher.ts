@@ -1,7 +1,12 @@
 import * as fs from 'fs';
 import { watch, FSWatcher } from 'chokidar';
 import * as path from 'path';
-import { WATCHED_EXTENSIONS, INVOICEVAULT_DIR, WATCHER_DEBOUNCE_MS } from '../shared/constants';
+import {
+  WATCHED_EXTENSIONS, INVOICEVAULT_DIR, WATCHER_DEBOUNCE_MS,
+  INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, JE_INSTRUCTIONS_FILE,
+  INSTRUCTIONS_WATCHER_DEBOUNCE_MS,
+} from '../shared/constants';
+import { eventBus } from './event-bus';
 
 export type WatcherEvent = 'file:added' | 'file:changed' | 'file:deleted';
 export type WatcherCallback = (event: WatcherEvent, relativePath: string, fullPath: string) => void;
@@ -24,6 +29,7 @@ async function loadIgnorePatterns(vaultRoot: string): Promise<string[]> {
 
 export class FileWatcher {
   private watcher: FSWatcher | null = null;
+  private instructionsWatcher: FSWatcher | null = null;
   private vaultRoot: string;
   private callback: WatcherCallback;
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
@@ -78,6 +84,31 @@ export class FileWatcher {
     this.watcher.on('change', (fullPath) => this.handleEvent('file:changed', fullPath));
     this.watcher.on('unlink', (fullPath) => this.handleEvent('file:deleted', fullPath));
     this.watcher.on('error', (err) => console.error('[Watcher] Error:', err));
+
+    this.startInstructionsWatcher();
+  }
+
+  private startInstructionsWatcher(): void {
+    const instructionsDir = path.join(this.vaultRoot, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR);
+    const watchedFiles = new Set([EXTRACTION_PROMPT_FILE, JE_INSTRUCTIONS_FILE]);
+
+    this.instructionsWatcher = watch(instructionsDir, {
+      ignoreInitial: true,
+      persistent: true,
+      awaitWriteFinish: {
+        stabilityThreshold: INSTRUCTIONS_WATCHER_DEBOUNCE_MS,
+        pollInterval: 500,
+      },
+    });
+
+    this.instructionsWatcher.on('change', (fullPath) => {
+      const filename = path.basename(fullPath);
+      if (!watchedFiles.has(filename)) return;
+      console.log(`[Watcher] Instruction file changed: ${filename}`);
+      eventBus.emit('instructions:changed', { file: filename });
+    });
+
+    this.instructionsWatcher.on('error', (err) => console.error('[Watcher] Instructions error:', err));
   }
 
   private handleEvent(event: WatcherEvent, fullPath: string): void {
@@ -109,6 +140,12 @@ export class FileWatcher {
 
     await this.watcher.close();
     this.watcher = null;
+
+    if (this.instructionsWatcher) {
+      await this.instructionsWatcher.close();
+      this.instructionsWatcher = null;
+    }
+
     console.log('[Watcher] Stopped');
   }
 }

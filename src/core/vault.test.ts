@@ -120,7 +120,7 @@ describe('vault core', () => {
 
       await initVault(vaultPath);
 
-      const promptPath = path.join(vaultPath, INVOICEVAULT_DIR, 'extraction-prompt.md');
+      const promptPath = path.join(vaultPath, INVOICEVAULT_DIR, 'instructions', 'extraction-prompt.md');
       expect(fs.existsSync(promptPath)).toBe(true);
     });
 

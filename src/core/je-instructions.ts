@@ -1,18 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { INVOICEVAULT_DIR, JE_INSTRUCTIONS_FILE } from '../shared/constants';
+import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE } from '../shared/constants';
+import { writeInstruction, readInstruction } from './instruction-manager';
 
 export function getInstructionsPath(vaultRoot: string): string {
-  return path.join(vaultRoot, INVOICEVAULT_DIR, JE_INSTRUCTIONS_FILE);
+  return path.join(vaultRoot, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE);
 }
 
 export async function readInstructions(vaultRoot: string): Promise<string> {
+  await migrateOldInstructions(vaultRoot);
   const p = getInstructionsPath(vaultRoot);
   try {
-    return await fs.promises.readFile(p, 'utf-8');
+    return await readInstruction(p);
   } catch {
     await writeDefaultInstructions(vaultRoot);
-    return await fs.promises.readFile(p, 'utf-8');
+    return await readInstruction(p);
   }
 }
 
@@ -23,14 +25,31 @@ export async function writeInstructions(vaultRoot: string, content: string): Pro
 
 export async function writeDefaultInstructions(vaultRoot: string): Promise<void> {
   const p = getInstructionsPath(vaultRoot);
-  try {
-    await fs.promises.access(p);
-  } catch {
-    await fs.promises.writeFile(p, DEFAULT_JE_INSTRUCTIONS, 'utf-8');
-  }
+  await writeInstruction(p, DEFAULT_JE_SYSTEM_ZONE);
 }
 
-const DEFAULT_JE_INSTRUCTIONS = `HUONG DAN PHAN LOAI TAI KHOAN (Account Classification Instructions)
+async function migrateOldInstructions(vaultRoot: string): Promise<void> {
+  const oldPath = path.join(vaultRoot, INVOICEVAULT_DIR, 'je-instructions.txt');
+  const newPath = getInstructionsPath(vaultRoot);
+
+  try {
+    await fs.promises.access(oldPath);
+  } catch {
+    return;
+  }
+
+  try {
+    await fs.promises.access(newPath);
+  } catch {
+    await fs.promises.mkdir(path.dirname(newPath), { recursive: true });
+    await fs.promises.rename(oldPath, newPath);
+    return;
+  }
+
+  try { await fs.promises.unlink(oldPath); } catch { /* ignore */ }
+}
+
+const DEFAULT_JE_SYSTEM_ZONE = `HUONG DAN PHAN LOAI TAI KHOAN (Account Classification Instructions)
 =====================================================================
 
 Day la huong dan cho AI phan loai tai khoan cho cac dong hoa don
