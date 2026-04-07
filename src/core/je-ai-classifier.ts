@@ -1,6 +1,6 @@
 import { ClaudeCodeRunner } from './claude-cli';
 import { readInstructions } from './je-instructions';
-import { JEClassificationResult } from '../shared/types';
+import { CashFlowType, JEClassificationResult } from '../shared/types';
 
 export interface UnclassifiedItem {
   id: string; // line_item_id or record_id
@@ -80,10 +80,11 @@ Return a JSON array with one entry per item.`;
 
     for (const entry of arr) {
       if (!entry.id || !entry.account) continue;
-      results.set(entry.id, {
-        lineItemId: entry.id,
+      const id = String(entry.id);
+      results.set(id, {
+        lineItemId: id,
         account: String(entry.account),
-        cashFlow: entry.cash_flow || 'operating',
+        cashFlow: ((entry.cash_flow as string | undefined) || 'operating') as CashFlowType,
       });
     }
   } catch (err) {

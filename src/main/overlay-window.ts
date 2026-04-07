@@ -328,13 +328,13 @@ export class OverlayWindow {
           const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(input.recordId) as InvoiceData | undefined;
           const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(input.recordId) as BankStatementData | undefined;
           updateFtsIndex(input.recordId, {
-            invoice_number: invoiceData?.invoice_number,
-            tax_id: invoiceData?.tax_id,
-            counterparty_name: invoiceData?.counterparty_name ?? bankData?.counterparty_name,
-            counterparty_address: invoiceData?.counterparty_address,
-            description: bankData?.description,
-            bank_name: bankData?.bank_name,
-            account_number: bankData?.account_number,
+            invoice_number: invoiceData?.invoice_number ?? undefined,
+            tax_id: invoiceData?.tax_id ?? undefined,
+            counterparty_name: invoiceData?.counterparty_name ?? bankData?.counterparty_name ?? undefined,
+            counterparty_address: invoiceData?.counterparty_address ?? undefined,
+            description: bankData?.description ?? undefined,
+            bank_name: bankData?.bank_name ?? undefined,
+            account_number: bankData?.account_number ?? undefined,
           });
         }
       } catch (err) {
@@ -392,7 +392,7 @@ export class OverlayWindow {
         // Get current AI value
         const row = db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(input.lineItemId) as InvoiceLineItem | undefined;
         if (!row) throw new Error(`Line item not found: ${input.lineItemId}`);
-        const currentAiValue = String(row[input.fieldName] ?? '');
+        const currentAiValue = String((row?.[input.fieldName as keyof InvoiceLineItem] ?? ''));
 
         // Update the field value
         const numericFields = ['unit_price', 'quantity', 'tax_rate', 'subtotal', 'total_with_tax'];

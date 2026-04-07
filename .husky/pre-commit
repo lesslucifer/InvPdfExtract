@@ -5,38 +5,22 @@ if [ -f "$(dirname -- "$0")/_/.env" ]; then
   export PATH="${PATH}:${EXT_PATH}"
 fi
 
-echo "Running checks: tsc, lint, test (in parallel)..."
+echo "Running checks in parallel: tsc, lint, test"
 
 pnpm tsc &
+PID_TSC=$!
 pnpm lint &
+PID_LINT=$!
 pnpm test &
+PID_TEST=$!
 
-wait
-echo "OK!"
+FAILED=()
 
-# pnpm tsc &
-# tsc_pid=$!
+wait $PID_TSC || FAILED+=("tsc")
+wait $PID_LINT || FAILED+=("lint")
+wait $PID_TEST || FAILED+=("test")
 
-# pnpm lint &
-# lint_pid=$!
-
-# pnpm test &
-# test_pid=$!
-
-# status=0
-
-# wait_for() {
-#   pid=$1
-#   name=$2
-
-#   if ! wait "$pid"; then
-#     echo "$name failed"
-#     status=1
-#   fi
-# }
-
-# wait_for "$tsc_pid" "tsc"
-# wait_for "$lint_pid" "lint"
-# wait_for "$test_pid" "test"
-
-# exit "$status"
+if [ ${#FAILED[@]} -gt 0 ]; then
+  echo "Failed checks: ${FAILED[*]}"
+  exit 1
+fi

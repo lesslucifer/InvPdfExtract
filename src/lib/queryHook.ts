@@ -21,7 +21,7 @@ export type QueryHookFn<T, P = void, D = void, ST extends object = EmptyObject, 
     setData: (params: P, data: D, newData: T | ((oldData: T | undefined) => T)) => ST | undefined
     data<D2>(fn: (params: P) => D2): QueryHookFn<T, P, D & D2, ST, K, UR>
     params<P2>(fn: (params: P2) => P): QueryHookFn<T, P2, D, ST, K, UR>
-    extend<ST2>(fn: (result: T | undefined, extResult: ST) => ST2): QueryHookFn<T, P, D, ST2, K, UR>
+    extend<ST2 extends object>(fn: (result: T | undefined, extResult: ST) => ST2): QueryHookFn<T, P, D, ST2, K, UR>
 
     context?: typeof QueryHookContext
 }

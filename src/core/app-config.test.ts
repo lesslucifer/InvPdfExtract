@@ -36,6 +36,7 @@ describe('app-config', () => {
         vaultPaths: [],
         autoStart: false,
         claudeModels: DEFAULT_CLAUDE_MODELS,
+        locale: 'en',
       });
     });
 

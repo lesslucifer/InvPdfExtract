@@ -52,7 +52,7 @@ async function invokeHandler(channel: string, ...args: unknown[]): Promise<unkno
   if (!handlers || !handlers.has(channel)) {
     throw new Error(`No handler registered for channel: ${channel}`);
   }
-  const handler = handlers.get(channel);
+  const handler = handlers.get(channel)!;
   // ipcMain handlers receive (event, ...args) — we pass a minimal fake event
   const fakeEvent = { sender: null, senderFrame: null, processId: 0, frameId: 0 };
   return handler(fakeEvent, ...args);

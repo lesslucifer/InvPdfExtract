@@ -29,7 +29,7 @@ export function gatherExportData(options: ExportOptions = {}): ExportData {
     JOIN bank_statement_data bsd ON r.id = bsd.record_id
     WHERE r.doc_type = ? ${deletedClause}
     ORDER BY r.doc_date, bsd.account_number
-  `).all(DocType.BankStatement);
+  `).all(DocType.BankStatement) as ExportData['bankStatements'];
 
   // Invoice headers (both in and out)
   const invoiceHeaders = db.prepare(`
@@ -54,7 +54,7 @@ export function gatherExportData(options: ExportOptions = {}): ExportData {
     ORDER BY r.doc_type, id2.invoice_number, li.line_number
   `).all(DocType.InvoiceIn, DocType.InvoiceOut);
 
-  return { bankStatements, invoiceHeaders, invoiceLineItems };
+  return { bankStatements: bankStatements, invoiceHeaders: invoiceHeaders as ExportData['invoiceHeaders'], invoiceLineItems: invoiceLineItems as ExportData['invoiceLineItems'] };
 }
 
 /**

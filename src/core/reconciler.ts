@@ -139,7 +139,7 @@ export class Reconciler {
       "SELECT COUNT(*) as cnt FROM field_overrides fo JOIN records r ON fo.record_id = r.id WHERE r.file_id = ? AND fo.status = 'conflict' AND fo.resolved_at IS NULL"
     ).get(file.id) as { cnt: number } | undefined;
 
-    if (conflictCount?.cnt > 0) {
+    if (conflictCount?.cnt && conflictCount?.cnt > 0) {
       eventBus.emit('conflicts:detected', { fileId: file.id, conflictCount: conflictCount.cnt });
     }
   }
@@ -164,10 +164,10 @@ export class Reconciler {
       upsertBankStatementData(recordId, { record_id: recordId, ...fields });
 
       updateFtsIndex(recordId, {
-        bank_name: fields.bank_name,
-        account_number: fields.account_number,
-        description: fields.description,
-        counterparty_name: fields.counterparty_name,
+        bank_name: fields.bank_name != null ? String(fields.bank_name) : undefined,
+        account_number: fields.account_number != null ? String(fields.account_number) : undefined,
+        description: fields.description != null ? String(fields.description) : undefined,
+        counterparty_name: fields.counterparty_name != null ? String(fields.counterparty_name) : undefined,
       });
     } else {
       const inv = data as ExtractionInvoiceData;
@@ -189,10 +189,10 @@ export class Reconciler {
       this.reconcileLineItems(recordId, extractedRecord.line_items || []);
 
       updateFtsIndex(recordId, {
-        invoice_number: fields.invoice_number,
-        tax_id: fields.tax_id,
-        counterparty_name: fields.counterparty_name,
-        counterparty_address: fields.counterparty_address,
+        invoice_number: fields.invoice_number != null ? String(fields.invoice_number) : undefined,
+        tax_id: fields.tax_id != null ? String(fields.tax_id) : undefined,
+        counterparty_name: fields.counterparty_name != null ? String(fields.counterparty_name) : undefined,
+        counterparty_address: fields.counterparty_address != null ? String(fields.counterparty_address) : undefined,
       });
     }
   }
