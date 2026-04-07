@@ -182,6 +182,7 @@ export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
     let dienGiaiChiTiet: string | null;
     switch (entryType) {
       case 'line':       dienGiaiChiTiet = row.li_description;   break;
+      case 'invoice':    dienGiaiChiTiet = row.invoice_number;   break;
       case 'tax':        dienGiaiChiTiet = 'Thue GTGT';          break;
       case 'settlement': dienGiaiChiTiet = 'Thanh toan';         break;
       case 'bank':       dienGiaiChiTiet = row.bank_description; break;
@@ -190,10 +191,11 @@ export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
 
     let soTien: number | null;
     switch (entryType) {
-      case 'line':       soTien = row.li_total_with_tax; break;
-      case 'tax':        soTien = row.li_tax_amount;     break;
-      case 'settlement': soTien = row.total_amount;      break;
-      case 'bank':       soTien = row.bank_amount;       break;
+      case 'line':       soTien = row.li_total_with_tax;  break;
+      case 'invoice':    soTien = row.total_before_tax;   break;
+      case 'tax':        soTien = row.li_tax_amount;      break;
+      case 'settlement': soTien = row.total_amount;       break;
+      case 'bank':       soTien = row.bank_amount;        break;
       default:           soTien = null;
     }
 

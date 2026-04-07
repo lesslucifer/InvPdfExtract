@@ -81,6 +81,7 @@ export interface JEExportRow {
   li_subtotal: number | null;
   li_tax_amount: number | null;
   li_total_with_tax: number | null;
+  total_before_tax: number | null;
   entry_type: string;
   account: string | null;
   cash_flow: string | null;
@@ -765,6 +766,7 @@ export function gatherJEExportData(filters: SearchFilters): JEExportRow[] {
       bsd.description        AS bank_description,
       COALESCE(id2.counterparty_name, bsd.counterparty_name) AS counterparty_name,
       id2.total_amount,
+      id2.total_before_tax,
       li.description         AS li_description,
       li.subtotal            AS li_subtotal,
       (COALESCE(li.total_with_tax, 0) - COALESCE(li.subtotal, 0)) AS li_tax_amount,
@@ -783,11 +785,12 @@ export function gatherJEExportData(filters: SearchFilters): JEExportRow[] {
       r.doc_date ASC,
       r.id,
       CASE je.entry_type
-        WHEN 'line'       THEN 0
-        WHEN 'tax'        THEN 1
-        WHEN 'settlement' THEN 2
-        WHEN 'bank'       THEN 3
-        ELSE 4
+        WHEN 'invoice'    THEN 0
+        WHEN 'line'       THEN 1
+        WHEN 'tax'        THEN 2
+        WHEN 'settlement' THEN 3
+        WHEN 'bank'       THEN 4
+        ELSE 5
       END,
       je.line_item_id
   `).all(...params) as JEExportRow[];

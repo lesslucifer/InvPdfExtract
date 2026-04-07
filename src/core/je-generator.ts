@@ -131,8 +131,9 @@ export class JEGenerator {
       SELECT DISTINCT r.id FROM records r
       LEFT JOIN invoice_line_items ili ON r.id = ili.record_id AND ili.deleted_at IS NULL
       LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id
+      LEFT JOIN invoice_data id2 ON r.id = id2.record_id
       WHERE r.deleted_at IS NULL
-        AND (ili.id IS NOT NULL OR bsd.record_id IS NOT NULL)
+        AND (ili.id IS NOT NULL OR bsd.record_id IS NOT NULL OR id2.record_id IS NOT NULL)
     `).all() as Array<{ id: string }>;
 
     return this.generateBatch(recordIds.map(r => r.id));
@@ -165,11 +166,28 @@ export class JEGenerator {
   private classifyInvoiceRecord(record: DbRecord): UnclassifiedItem[] {
     const db = getDatabase();
     const lineItems = getLineItemsByRecord(record.id);
-    const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(record.id) as { counterparty_name?: string; tax_id?: string } | undefined;
+    const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(record.id) as {
+      counterparty_name?: string;
+      tax_id?: string;
+      total_before_tax?: number;
+      total_amount?: number;
+    } | undefined;
     const unmatched: UnclassifiedItem[] = [];
 
     for (const item of lineItems) {
-      if (!item.description) continue;
+      const rawDescription = item.description?.trim() ?? '';
+      let effectiveDescription: string;
+
+      if (rawDescription.length <= 3) {
+        const parts: string[] = [];
+        if (invoiceData?.counterparty_name) parts.push(invoiceData.counterparty_name);
+        parts.push(record.doc_type);
+        if (item.subtotal != null) parts.push(`${item.subtotal.toLocaleString()} VND`);
+        else if (invoiceData?.total_before_tax != null) parts.push(`${invoiceData.total_before_tax.toLocaleString()} VND`);
+        effectiveDescription = parts.join(' - ') || record.doc_type;
+      } else {
+        effectiveDescription = rawDescription;
+      }
 
       // Skip if user already has a manually edited JE for this line item
       const existingUserEdited = db.prepare(
@@ -177,7 +195,7 @@ export class JEGenerator {
       ).get(item.id);
       if (existingUserEdited) continue;
 
-      const match = this.similarityEngine.findMatch(item.description);
+      const match = this.similarityEngine.findMatch(effectiveDescription);
       if (match) {
         insertJournalEntry(
           record.id, item.id, 'line',
@@ -190,13 +208,48 @@ export class JEGenerator {
           id: item.id,
           recordId: record.id,
           docType: record.doc_type,
-          description: item.description,
+          description: effectiveDescription,
           counterpartyName: invoiceData?.counterparty_name ?? undefined,
           taxId: invoiceData?.tax_id ?? undefined,
           taxRate: item.tax_rate ?? undefined,
           totalWithTax: item.total_with_tax ?? undefined,
           subtotal: item.subtotal ?? undefined,
         });
+      }
+    }
+
+    if (lineItems.length === 0) {
+      const existingUserEdited = db.prepare(
+        "SELECT id FROM journal_entries WHERE record_id = ? AND line_item_id IS NULL AND entry_type = 'invoice' AND user_edited = 1"
+      ).get(record.id);
+      if (!existingUserEdited) {
+        const parts: string[] = [];
+        if (invoiceData?.counterparty_name) parts.push(invoiceData.counterparty_name);
+        parts.push(record.doc_type);
+        if (invoiceData?.total_before_tax != null) parts.push(`${invoiceData.total_before_tax.toLocaleString()} VND`);
+        else if (invoiceData?.total_amount != null) parts.push(`${invoiceData.total_amount.toLocaleString()} VND`);
+        const syntheticDescription = parts.join(' - ') || record.doc_type;
+
+        const match = this.similarityEngine.findMatch(syntheticDescription);
+        if (match) {
+          insertJournalEntry(
+            record.id, null, 'invoice',
+            match.account,
+            (match.cashFlow ?? 'operating') as CashFlowType,
+            'similarity', match.score, match.matchedDescription,
+          );
+        } else {
+          unmatched.push({
+            id: record.id,
+            recordId: record.id,
+            docType: record.doc_type,
+            description: syntheticDescription,
+            counterpartyName: invoiceData?.counterparty_name ?? undefined,
+            taxId: invoiceData?.tax_id ?? undefined,
+            totalWithTax: invoiceData?.total_amount ?? undefined,
+            subtotal: invoiceData?.total_before_tax ?? undefined,
+          });
+        }
       }
     }
 
@@ -246,8 +299,9 @@ export class JEGenerator {
       if (!classification) continue;
 
       const isBank = item.docType === DocType.BankStatement;
-      const entryType = isBank ? 'bank' : 'line';
-      const lineItemId = isBank ? null : item.id;
+      const isSyntheticInvoice = !isBank && item.id === item.recordId;
+      const entryType = isBank ? 'bank' : isSyntheticInvoice ? 'invoice' : 'line';
+      const lineItemId = (isBank || isSyntheticInvoice) ? null : item.id;
 
       insertJournalEntry(
         item.recordId, lineItemId, entryType,
@@ -271,12 +325,20 @@ export class JEGenerator {
     if (!isInvoice) return;
 
     const lineItems = getLineItemsByRecord(recordId);
-    if (lineItems.length === 0) return;
 
     // Tax entry — combined across all taxable line items
     const existingTax = findExistingEntry(recordId, null, 'tax');
     if (!existingTax || !existingTax.user_edited) {
-      const hasTaxableItems = lineItems.some(li => li.tax_rate != null && li.tax_rate > 0);
+      let hasTaxableItems: boolean;
+      if (lineItems.length > 0) {
+        hasTaxableItems = lineItems.some(li => li.tax_rate != null && li.tax_rate > 0);
+      } else {
+        const invData = db.prepare('SELECT total_before_tax, total_amount FROM invoice_data WHERE record_id = ?')
+          .get(recordId) as { total_before_tax?: number; total_amount?: number } | undefined;
+        const beforeTax = invData?.total_before_tax ?? 0;
+        const total = invData?.total_amount ?? 0;
+        hasTaxableItems = beforeTax > 0 && total > beforeTax;
+      }
       if (hasTaxableItems) {
         // Delete stale auto tax entry if exists
         if (existingTax) {

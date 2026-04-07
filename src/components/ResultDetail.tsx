@@ -146,6 +146,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   const taxJe = useMemo(() => journalEntries.find(je => je.entry_type === 'tax') ?? null, [journalEntries]);
   const settlementJe = useMemo(() => journalEntries.find(je => je.entry_type === 'settlement') ?? null, [journalEntries]);
   const bankJe = useMemo(() => journalEntries.find(je => je.entry_type === 'bank') ?? null, [journalEntries]);
+  const invoiceJe = useMemo(() => journalEntries.find(je => je.entry_type === 'invoice') ?? null, [journalEntries]);
 
   const derivedTaxAmount = useMemo(() => {
     return lineItems
@@ -157,7 +158,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
       }, 0);
   }, [lineItems]);
 
-  const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank', lineItemId: string | null, account: string) => {
+  const handleSaveJeAccount = async (entryType: 'line' | 'tax' | 'settlement' | 'bank' | 'invoice', lineItemId: string | null, account: string) => {
     await saveJournalEntry.mutateAsync({ recordId: result.id, lineItemId: lineItemId ?? undefined, entryType, account });
   };
 
@@ -222,7 +223,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
             </tbody>
           </table>
 
-          {lineItems.length > 0 && (
+          {lineItems.length > 0 ? (
             <div className="mt-2">
               <div className="flex items-center justify-between font-semibold text-3 mb-1 text-text-secondary">
                 <span>{t('line_items', 'Line Items')}</span>
@@ -280,6 +281,37 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                   <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
                   </span>
                   <span className="text-text ml-auto">{derivedTaxAmount > 0 ? formatCurrency(derivedTaxAmount) : '–'}</span>
+                </div>
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">{t('thanh_toan', 'Thanh toan')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={settlementJe?.account ?? null} onSave={(account) => handleSaveJeAccount('settlement', null, account)} />
+                  </span>
+                  <span className="text-text ml-auto">{localTotals.total_amount ? formatCurrency(localTotals.total_amount) : '–'}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <div className="flex items-center justify-between font-semibold text-3 mb-1 text-text-secondary">
+                <span>{t('invoice_total', 'Invoice Total')}</span>
+                {jeStatus && renderJeIcon(jeStatus)}
+              </div>
+              <div className="py-1">
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">{t('hang_dich_vu', 'Hàng/dịch vụ')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={invoiceJe?.account ?? null} onSave={(account) => handleSaveJeAccount('invoice', null, account)} />
+                  </span>
+                  <span className="text-text ml-auto">{localTotals.total_before_tax ? formatCurrency(localTotals.total_before_tax) : '–'}</span>
+                </div>
+                <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
+                  <span className="min-w-[80px] text-text-secondary">{t('thue_gtgt', 'Thue GTGT')}</span>
+                  <span className="flex items-center gap-0.5 text-text-secondary">{`${t('tk', 'TK')} `}<JeCell account={taxJe?.account ?? null} onSave={(account) => handleSaveJeAccount('tax', null, account)} />
+                  </span>
+                  <span className="text-text ml-auto">
+                    {(localTotals.total_amount && localTotals.total_before_tax)
+                      ? formatCurrency(localTotals.total_amount - localTotals.total_before_tax)
+                      : '–'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 px-1.5 py-0.5 text-2.75">
                   <span className="min-w-[80px] text-text-secondary">{t('thanh_toan', 'Thanh toan')}</span>
