@@ -557,6 +557,20 @@ export interface InvoiceVaultAPI {
   // Debug / session logs
   getSessionLogForFile: (fileId: string) => Promise<string | null>;
   readCliSessionLog: (sessionLogPath: string) => Promise<string | null>;
+  // Window state persistence
+  saveOverlayUIState: (state: PersistedUIState) => Promise<void>;
+  getOverlayUIState: () => Promise<PersistedUIState | null>;
+  saveSpawnedWindowUIState: (state: PersistedUIState) => Promise<void>;
+  saveSpawnedWindowUIStateSync: (state: PersistedUIState) => void;
+}
+
+export interface PersistedUIState {
+  overlayState: OverlayState;
+  query: string;
+  filters: ParsedQuery;
+  folderScope: string | null;
+  fileScope: string | null;
+  expandedId: string | null;
 }
 
 // === Relevance Filter Types ===

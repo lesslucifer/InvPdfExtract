@@ -29,6 +29,11 @@ import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE } from '.
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { clearVaultData, backupVault } from '../core/vault';
+import {
+  loadWindowState, saveWindowState, saveWindowStateSync, sanitizeUIState,
+  getVaultStatePath,
+  WindowState, PersistedWindowGeometry, PersistedSpawnedWindow,
+} from '../core/window-state';
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
@@ -67,6 +72,13 @@ export class OverlayWindow {
   private blurTimeout: ReturnType<typeof setTimeout> | null = null;
   private suppressBlur = false;
   private pendingDbError: string | null = null;
+  private persistedState: WindowState | null = null;
+  private overlayGeometry: PersistedWindowGeometry | null = null;
+  private overlayGeometryDebounce: ReturnType<typeof setTimeout> | null = null;
+  private spawnedWindowStates: Map<number, PersistedSpawnedWindow> = new Map();
+  private spawnedGeometryDebounces: Map<number, ReturnType<typeof setTimeout>> = new Map();
+  private isQuitting = false;
+  private isClosingAllWindows = false;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
     this.callbacks = callbacks;
@@ -74,6 +86,16 @@ export class OverlayWindow {
 
   setPathCache(cache: VaultPathCache): void {
     this.pathCache = cache;
+  }
+
+  private get currentStatePath(): string | null {
+    return this.vaultPath ? getVaultStatePath(this.vaultPath) : null;
+  }
+
+  async loadPersistedState(vaultRoot: string): Promise<void> {
+    const statePath = getVaultStatePath(vaultRoot);
+    this.persistedState = await loadWindowState(statePath);
+    this.overlayGeometry = this.persistedState.overlayGeometry;
   }
 
   registerShortcut(): void {
@@ -147,12 +169,69 @@ export class OverlayWindow {
     }
   }
 
-  closeAllSpawnedWindows(): void {
-    for (const win of this.spawnedWindows) {
-      if (!win.isDestroyed()) win.close();
-    }
+  async closeAllSpawnedWindows(): Promise<void> {
+    const openWins = Array.from(this.spawnedWindows).filter(win => !win.isDestroyed());
+    // Set flag so the closed event handler doesn't overwrite the state that
+    // beforeunload sync IPC is about to write.
+    this.isClosingAllWindows = true;
+    // Await each window's closed event so beforeunload (and the sync IPC) fires first.
+    // Do NOT clear spawnedWindows before this — the isKnown check in the sync IPC handler
+    // depends on windows still being in the set when beforeunload fires.
+    const closePromises = openWins.map(win => new Promise<void>(resolve => {
+      win.once('closed', () => resolve());
+      win.close();
+    }));
+    await Promise.all(closePromises);
+    this.isClosingAllWindows = false;
+    // In-memory cleanup only — beforeunload sync IPC already wrote correct state to disk
     this.spawnedWindows.clear();
     this.initialStateMap.clear();
+    this.spawnedWindowStates.clear();
+  }
+
+  async restoreSpawnedWindows(): Promise<void> {
+    if (!this.persistedState || this.persistedState.spawnedWindows.length === 0) return;
+    for (const persisted of this.persistedState.spawnedWindows) {
+      const { geometry, uiState } = persisted;
+      this.spawnWindowlized(JSON.stringify(uiState), geometry, true);
+    }
+  }
+
+  async flushStateBeforeQuit(): Promise<void> {
+    this.isQuitting = true;
+    // Cancel pending geometry debounces and capture final geometry synchronously
+    if (this.overlayGeometryDebounce) {
+      clearTimeout(this.overlayGeometryDebounce);
+      this.overlayGeometryDebounce = null;
+    }
+    for (const [id, debounce] of this.spawnedGeometryDebounces) {
+      clearTimeout(debounce);
+      this.spawnedGeometryDebounces.delete(id);
+    }
+
+    // Capture overlay geometry
+    if (this.window && !this.window.isDestroyed()) {
+      const [x, y] = this.window.getPosition();
+      const [width, height] = this.window.getSize();
+      this.overlayGeometry = { x, y, width, height };
+    }
+
+    // Close spawned windows gracefully so beforeunload fires in the renderer,
+    // which triggers save-spawned-window-ui-state-sync and populates spawnedWindowStates.
+    // We must call this BEFORE stopIpcBridge so the sync IPC can still be handled.
+    const openWins = Array.from(this.spawnedWindows).filter(win => !win.isDestroyed());
+    const closePromises = openWins.map(win => new Promise<void>(resolve => {
+      win.once('closed', () => resolve());
+      win.close();
+    }));
+    await Promise.all(closePromises);
+
+    if (this.currentStatePath) {
+      saveWindowStateSync(this.currentStatePath, {
+        overlayGeometry: this.overlayGeometry,
+        spawnedWindows: Array.from(this.spawnedWindowStates.values()),
+      });
+    }
   }
 
   destroy(): void {
@@ -169,14 +248,17 @@ export class OverlayWindow {
   }
 
   private createWindow(): void {
+    const geo = this.overlayGeometry;
     this.window = new BrowserWindow({
-      width: OVERLAY_WIDTH,
-      height: OVERLAY_MAX_HEIGHT,
+      width: geo?.width ?? OVERLAY_WIDTH,
+      height: geo?.height ?? OVERLAY_MAX_HEIGHT,
       frame: false,
       transparent: true,
       alwaysOnTop: true,
       skipTaskbar: true,
-      resizable: false,
+      resizable: true,
+      minWidth: 600,
+      minHeight: 400,
       show: false,
       hasShadow: false,
       webPreferences: {
@@ -187,6 +269,19 @@ export class OverlayWindow {
     });
 
     this.window.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+
+    const flushOverlayGeo = () => {
+      if (this.overlayGeometryDebounce) clearTimeout(this.overlayGeometryDebounce);
+      this.overlayGeometryDebounce = setTimeout(() => {
+        if (!this.window || this.window.isDestroyed()) return;
+        const [x, y] = this.window.getPosition();
+        const [width, height] = this.window.getSize();
+        this.overlayGeometry = { x, y, width, height };
+        if (this.currentStatePath) saveWindowState(this.currentStatePath, { overlayGeometry: this.overlayGeometry }).catch(console.error);
+      }, 500);
+    };
+    this.window.on('move', flushOverlayGeo);
+    this.window.on('resize', flushOverlayGeo);
 
     this.window.on('blur', () => {
       if (!this.isHiding && !this.suppressBlur) {
@@ -212,10 +307,22 @@ export class OverlayWindow {
 
   private positionWindow(): void {
     if (!this.window) return;
+    if (this.overlayGeometry && this.isPositionOnScreen(this.overlayGeometry.x, this.overlayGeometry.y)) {
+      const { x, y, width, height } = this.overlayGeometry;
+      this.window.setBounds({ x, y, width, height });
+      return;
+    }
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     const x = Math.round((width - OVERLAY_WIDTH) / 2);
     const y = Math.round(height * 0.2); // 20% from top
     this.window.setPosition(x, y);
+  }
+
+  private isPositionOnScreen(x: number, y: number): boolean {
+    return screen.getAllDisplays().some(d =>
+      x >= d.bounds.x && y >= d.bounds.y &&
+      x < d.bounds.x + d.bounds.width && y < d.bounds.y + d.bounds.height
+    );
   }
 
   private broadcastToAll(channel: string, ...args: unknown[]): void {
@@ -238,11 +345,11 @@ export class OverlayWindow {
     return img.isEmpty() ? undefined : img;
   }
 
-  private spawnWindowlized(serializedState?: string, sourceBounds?: Electron.Rectangle): void {
+  private spawnWindowlized(serializedState?: string, sourceBounds?: Electron.Rectangle, useExactBounds?: boolean): void {
     const width = sourceBounds?.width ?? 800;
     const height = sourceBounds?.height ?? 600;
-    const x = sourceBounds ? sourceBounds.x + 20 : undefined;
-    const y = sourceBounds ? sourceBounds.y + 20 : undefined;
+    const x = sourceBounds ? (useExactBounds ? sourceBounds.x : sourceBounds.x + 20) : undefined;
+    const y = sourceBounds ? (useExactBounds ? sourceBounds.y : sourceBounds.y + 20) : undefined;
     const win = new BrowserWindow({
       width,
       height,
@@ -271,16 +378,60 @@ export class OverlayWindow {
 
     if (serializedState) {
       this.initialStateMap.set(win.webContents.id, serializedState);
+      // Seed spawnedWindowStates immediately so the entry exists even before the
+      // renderer's debounced save fires. Uses the same state the renderer will restore.
+      try {
+        const uiState = sanitizeUIState(JSON.parse(serializedState));
+        const gx = x ?? Math.round(win.getPosition()[0]);
+        const gy = y ?? Math.round(win.getPosition()[1]);
+        this.spawnedWindowStates.set(win.id, {
+          geometry: { x: gx, y: gy, width, height },
+          uiState,
+        });
+        this.flushAllSpawnedWindowStates().catch(console.error);
+      } catch (err) {
+        console.error('[WindowState] spawnWindowlized: failed to seed state:', err);
+      }
     }
+
+    const flushSpawnedGeo = () => {
+      const debounce = this.spawnedGeometryDebounces.get(win.id);
+      if (debounce) clearTimeout(debounce);
+      this.spawnedGeometryDebounces.set(win.id, setTimeout(() => {
+        if (win.isDestroyed()) return;
+        const [wx, wy] = win.getPosition();
+        const [ww, wh] = win.getSize();
+        const existing = this.spawnedWindowStates.get(win.id);
+        const uiState = existing?.uiState ?? sanitizeUIState({});
+        this.spawnedWindowStates.set(win.id, { geometry: { x: wx, y: wy, width: ww, height: wh }, uiState });
+        this.flushAllSpawnedWindowStates().catch(console.error);
+      }, 500));
+    };
+    win.on('move', flushSpawnedGeo);
+    win.on('resize', flushSpawnedGeo);
 
     const wcId = win.webContents.id;
     win.once('ready-to-show', () => win.show());
     win.on('closed', () => {
       this.spawnedWindows.delete(win);
       this.initialStateMap.delete(wcId);
+      const debounce = this.spawnedGeometryDebounces.get(win.id);
+      if (debounce) clearTimeout(debounce);
+      this.spawnedGeometryDebounces.delete(win.id);
+      // During quit or bulk-close, beforeunload sync IPC has already written correct state —
+      // don't overwrite it by flushing a partially-closed window list.
+      if (!this.isQuitting && !this.isClosingAllWindows) {
+        this.spawnedWindowStates.delete(win.id);
+        this.flushAllSpawnedWindowStates().catch(console.error);
+      }
     });
 
     this.spawnedWindows.add(win);
+  }
+
+  private async flushAllSpawnedWindowStates(): Promise<void> {
+    if (!this.currentStatePath) return;
+    await saveWindowState(this.currentStatePath, { spawnedWindows: Array.from(this.spawnedWindowStates.values()) });
   }
 
   subscribeToStatusEvents(): void {
@@ -497,7 +648,7 @@ export class OverlayWindow {
     ipcMain.handle('switch-vault', async (_event, vaultPath: string) => {
       try {
         if (!this.callbacks) throw new Error('Overlay callbacks not set');
-        this.closeAllSpawnedWindows();
+        await this.closeAllSpawnedWindows();
         await this.callbacks.onSwitchVault(vaultPath);
         return { success: true };
       } catch (err) {
@@ -512,7 +663,7 @@ export class OverlayWindow {
       const isActive = config.lastVaultPath === vaultPath;
 
       if (isActive) {
-        this.closeAllSpawnedWindows();
+        await this.closeAllSpawnedWindows();
         if (this.callbacks) await this.callbacks.onStopVault();
       }
 
@@ -554,8 +705,7 @@ export class OverlayWindow {
 
       // Stop the vault if it's active
       if (isActive) {
-        console.log('[Vault] Stopping active vault before clear');
-        this.closeAllSpawnedWindows();
+        await this.closeAllSpawnedWindows();
         if (this.callbacks) await this.callbacks.onStopVault();
       }
 
@@ -1023,6 +1173,39 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Instructions] Open file failed:', err);
       }
+    });
+
+    // === Window State Persistence ===
+
+    ipcMain.handle('get-overlay-ui-state', () => {
+      return this.persistedState?.overlayUIState ?? null;
+    });
+
+    ipcMain.handle('save-overlay-ui-state', async (_event, raw: unknown) => {
+      const uiState = sanitizeUIState(raw as Parameters<typeof sanitizeUIState>[0]);
+      if (this.currentStatePath) await saveWindowState(this.currentStatePath, { overlayUIState: uiState });
+      if (this.persistedState) this.persistedState.overlayUIState = uiState;
+    });
+
+    ipcMain.handle('save-spawned-window-ui-state', async (event, raw: unknown) => {
+      const senderWin = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWin || !this.spawnedWindows.has(senderWin)) return;
+      const uiState = sanitizeUIState(raw as Parameters<typeof sanitizeUIState>[0]);
+      const [x, y] = senderWin.getPosition();
+      const [width, height] = senderWin.getSize();
+      this.spawnedWindowStates.set(senderWin.id, { geometry: { x, y, width, height }, uiState });
+      await this.flushAllSpawnedWindowStates();
+    });
+
+    ipcMain.on('save-spawned-window-ui-state-sync', (event, raw: unknown) => {
+      event.returnValue = null;
+      const senderWin = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWin || !this.spawnedWindows.has(senderWin)) return;
+      const uiState = sanitizeUIState(raw as Parameters<typeof sanitizeUIState>[0]);
+      const [x, y] = senderWin.getPosition();
+      const [width, height] = senderWin.getSize();
+      this.spawnedWindowStates.set(senderWin.id, { geometry: { x, y, width, height }, uiState });
+      if (this.currentStatePath) saveWindowStateSync(this.currentStatePath, { spawnedWindows: Array.from(this.spawnedWindowStates.values()) });
     });
   }
 }
