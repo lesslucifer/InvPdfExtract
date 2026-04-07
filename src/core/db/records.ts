@@ -69,6 +69,24 @@ interface ExportInvoiceLineItemRow extends InvoiceLineItem {
   doc_date: string | null;
 }
 
+export interface JEExportRow {
+  doc_date: string | null;
+  doc_type: string;
+  relative_path: string;
+  invoice_number: string | null;
+  bank_description: string | null;
+  counterparty_name: string | null;
+  total_amount: number | null;
+  li_description: string | null;
+  li_subtotal: number | null;
+  li_tax_amount: number | null;
+  li_total_with_tax: number | null;
+  entry_type: string;
+  account: string | null;
+  cash_flow: string | null;
+  bank_amount: number | null;
+}
+
 // === Extraction Batches ===
 
 export function createBatch(fileId: string, status: BatchStatus, recordCount: number, confidence: number, sessionLog: string | null, scriptId: string | null): ExtractionBatch {
@@ -729,4 +747,48 @@ export function gatherFilteredExportData(filters: SearchFilters): {
   }
 
   return { bankStatements, invoiceHeaders, invoiceLineItems };
+}
+
+/** Gathers JE export data filtered by SearchFilters. One row per journal entry. */
+export function gatherJEExportData(filters: SearchFilters): JEExportRow[] {
+  const db = getDatabase();
+  const parsed = filtersToParsed(filters);
+  const { conditions, params } = buildFilterClauses(parsed);
+  const whereClause = conditions.join(' AND ');
+
+  return db.prepare(`
+    SELECT
+      r.doc_date,
+      r.doc_type,
+      f.relative_path,
+      id2.invoice_number,
+      bsd.description        AS bank_description,
+      COALESCE(id2.counterparty_name, bsd.counterparty_name) AS counterparty_name,
+      id2.total_amount,
+      li.description         AS li_description,
+      li.subtotal            AS li_subtotal,
+      (COALESCE(li.total_with_tax, 0) - COALESCE(li.subtotal, 0)) AS li_tax_amount,
+      li.total_with_tax      AS li_total_with_tax,
+      je.entry_type,
+      je.account,
+      je.cash_flow,
+      bsd.amount             AS bank_amount
+    ${BASE_JOINS}
+    JOIN journal_entries je ON je.record_id = r.id
+    LEFT JOIN invoice_line_items li
+           ON li.id = je.line_item_id AND li.deleted_at IS NULL
+    WHERE ${whereClause}
+    ORDER BY
+      (r.doc_date IS NULL) ASC,
+      r.doc_date ASC,
+      r.id,
+      CASE je.entry_type
+        WHEN 'line'       THEN 0
+        WHEN 'tax'        THEN 1
+        WHEN 'settlement' THEN 2
+        WHEN 'bank'       THEN 3
+        ELSE 4
+      END,
+      je.line_item_id
+  `).all(...params) as JEExportRow[];
 }

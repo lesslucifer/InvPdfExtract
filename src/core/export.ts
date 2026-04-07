@@ -1,6 +1,7 @@
 import { getDatabase } from './db/database';
-import { gatherFilteredExportData } from './db/records';
-import { DocType } from '../shared/types';
+import { gatherFilteredExportData, JEExportRow } from './db/records';
+import { DocType, JEEntryType } from '../shared/types';
+import { getJeSide } from '../shared/je-utils';
 import * as XLSX from 'xlsx';
 import { t } from '../lib/i18n';
 
@@ -150,6 +151,59 @@ export function exportToXlsx(data: ExportData): Buffer {
     const ws = XLSX.utils.aoa_to_sheet([['No data']]);
     XLSX.utils.book_append_sheet(wb, ws, 'Empty');
   }
+
+  return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+}
+
+/**
+ * Exports JE (journal entry) data to a single-sheet XLSX file.
+ * One row per journal entry, with debit/credit account columns.
+ */
+export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
+  const wb = XLSX.utils.book_new();
+
+  const headers = [
+    'Ngay', 'Loai', 'So HD / Dien giai', 'Dien giai chi tiet',
+    'TK No', 'TK Co', 'So tien', 'Dong tien', 'Doi tac', 'File',
+  ];
+
+  const data = rows.map(row => {
+    const entryType = row.entry_type as JEEntryType;
+    const docType = row.doc_type as DocType;
+    const side = getJeSide(docType, entryType);
+
+    const tkNo = side === 'debit'  ? row.account : null;
+    const tkCo = side === 'credit' ? row.account : null;
+
+    const soHdDienGiai = docType === DocType.BankStatement
+      ? row.bank_description
+      : row.invoice_number;
+
+    let dienGiaiChiTiet: string | null;
+    switch (entryType) {
+      case 'line':       dienGiaiChiTiet = row.li_description;   break;
+      case 'tax':        dienGiaiChiTiet = 'Thue GTGT';          break;
+      case 'settlement': dienGiaiChiTiet = 'Thanh toan';         break;
+      case 'bank':       dienGiaiChiTiet = row.bank_description; break;
+      default:           dienGiaiChiTiet = null;
+    }
+
+    let soTien: number | null;
+    switch (entryType) {
+      case 'line':       soTien = row.li_total_with_tax; break;
+      case 'tax':        soTien = row.li_tax_amount;     break;
+      case 'settlement': soTien = row.total_amount;      break;
+      case 'bank':       soTien = row.bank_amount;       break;
+      default:           soTien = null;
+    }
+
+    return [row.doc_date, row.doc_type, soHdDienGiai, dienGiaiChiTiet,
+            tkNo, tkCo, soTien, row.cash_flow, row.counterparty_name, row.relative_path];
+  });
+
+  const sheetData = data.length === 0 ? [['No data']] : [headers, ...data];
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  XLSX.utils.book_append_sheet(wb, ws, 'But toan');
 
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 }
