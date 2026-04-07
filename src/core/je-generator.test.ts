@@ -73,16 +73,18 @@ describe('JEGenerator', () => {
     expect(lineEntries[0].account).toBe('6422');
     expect(lineEntries[1].account).toBe('642');
 
-    // Single combined tax entry (invoice_in → 1331)
+    // Single combined tax entry (invoice_in → 1331, contra → 331)
     const taxEntries = entries.filter(e => e.entry_type === 'tax');
     expect(taxEntries).toHaveLength(1);
     expect(taxEntries[0].account).toBe('1331');
+    expect(taxEntries[0].contra_account).toBe('331');
     expect(taxEntries[0].line_item_id).toBeNull();
 
-    // Settlement entry (invoice_in → 331)
+    // Settlement entry (invoice_in → 331, contra null — mixed line accounts 6422+642)
     const settlementEntries = entries.filter(e => e.entry_type === 'settlement');
     expect(settlementEntries).toHaveLength(1);
     expect(settlementEntries[0].account).toBe('331');
+    expect(settlementEntries[0].contra_account).toBeNull();
     expect(settlementEntries[0].line_item_id).toBeNull();
   });
 
@@ -195,9 +197,11 @@ describe('JEGenerator', () => {
     const tax = entries.find(e => e.entry_type === 'tax');
     const settlement = entries.find(e => e.entry_type === 'settlement');
 
-    // invoice_out: tax → 3331, settlement → 131
+    // invoice_out: tax → 3331 (contra 131), settlement → 131 (contra derived from single line account 511)
     expect(tax!.account).toBe('3331');
+    expect(tax!.contra_account).toBe('131');
     expect(settlement!.account).toBe('131');
+    expect(settlement!.contra_account).toBe('511');
   });
 
   it('does not create tax entry when no taxable line items', async () => {

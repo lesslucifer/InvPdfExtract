@@ -468,7 +468,12 @@ export class JEGenerator {
         db.prepare('DELETE FROM journal_entries WHERE id = ?').run(existingSettlement.id);
       }
       const settlementAccount = getDefaultAccount(record.doc_type as DocType, 'settlement');
-      insertJournalEntry(recordId, null, 'settlement', settlementAccount, 'operating', 'auto', null, null, null);
+      // Derive contra from classified line/invoice entries — use common account if all agree, else null
+      const classifiedAccounts = (db.prepare(
+        "SELECT DISTINCT account FROM journal_entries WHERE record_id = ? AND entry_type IN ('line', 'invoice') AND account IS NOT NULL"
+      ).all(recordId) as Array<{ account: string }>).map(r => r.account);
+      const settlementContra = classifiedAccounts.length === 1 ? classifiedAccounts[0] : null;
+      insertJournalEntry(recordId, null, 'settlement', settlementAccount, 'operating', 'auto', null, null, settlementContra);
     }
   }
 }
