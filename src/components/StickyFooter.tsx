@@ -109,12 +109,12 @@ export const StickyFooter = forwardRef<StickyFooterHandle, Props>(({ onWindowliz
           )
         )}
         {onWindowlize && (
-          <button className={iconBtnClass} onClick={onWindowlize} aria-label={t('open_as_window_hint', 'Open as window')} title={t('open_as_window_hint', 'Open as window')}>
+          <button className={iconBtnClass} onClick={onWindowlize} aria-label={t('open_as_window_hint', 'Open as window (⌘N)')} title={t('open_as_window_hint', 'Open as window (⌘N)')}>
             <Icons.maximize size={ICON_SIZE.SM} />
           </button>
         )}
         {onCheatsheetClick && (
-          <button className={iconBtnClass} onClick={onCheatsheetClick} aria-label={t('cheatsheet', 'Cheatsheet')} title={t('cheatsheet_hint', 'Cheatsheet (?)')}>
+          <button className={iconBtnClass} onClick={onCheatsheetClick} aria-label={t('cheatsheet', 'Cheatsheet')} title={t('cheatsheet_hint', 'Cheatsheet (⌘/)')}>
             <Icons.circleHelp size={ICON_SIZE.SM} />
           </button>
         )}
