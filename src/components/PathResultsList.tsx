@@ -7,6 +7,7 @@ import { useFolderStatuses } from '../lib/queries';
 
 const CONFIRM_THRESHOLD = 10;
 const DEBOUNCE_MS = 150;
+const RELOAD_ALL_SENTINEL = '__reload_all__';
 
 interface PathItem {
   name: string;
@@ -128,9 +129,32 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     }
   }, [onReprocessFile, onReprocessFolder, setOptimisticStatus]);
 
+  const handleReloadAll = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const fileItems = displayItems.filter(i => !i.isDir);
+    if (fileItems.length > CONFIRM_THRESHOLD) {
+      setConfirmPath(RELOAD_ALL_SENTINEL);
+    } else {
+      const statusUpdates: Record<string, FileStatus> = {};
+      for (const item of fileItems) {
+        statusUpdates[item.relativePath] = FileStatus.Pending;
+        onReprocessFile?.(item.relativePath);
+      }
+      setFileStatuses(prev => ({ ...prev, ...statusUpdates }));
+    }
+  }, [displayItems, onReprocessFile]);
+
   const handleConfirm = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirmPath) {
+    if (confirmPath === RELOAD_ALL_SENTINEL) {
+      const fileItems = items.filter(i => !i.isDir);
+      const statusUpdates: Record<string, FileStatus> = {};
+      for (const item of fileItems) {
+        statusUpdates[item.relativePath] = FileStatus.Pending;
+        onReprocessFile?.(item.relativePath);
+      }
+      setFileStatuses(prev => ({ ...prev, ...statusUpdates }));
+    } else if (confirmPath) {
       const matchedItem = items.find(i => i.relativePath === confirmPath);
       if (matchedItem) {
         setFileStatuses(prev => ({ ...prev, [matchedItem.name]: FileStatus.Pending }));
@@ -138,7 +162,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
       onReprocessFolder?.(confirmPath);
     }
     setConfirmPath(null);
-  }, [confirmPath, onReprocessFolder, items]);
+  }, [confirmPath, onReprocessFolder, onReprocessFile, items]);
 
   const handleCancel = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -177,6 +201,22 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
 
   return (
     <>
+      {statusFilter && showReload && (
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border text-2.75 text-text-secondary">
+          <span className="flex items-center gap-1.5">
+            <span className="font-semibold text-text">:{statusFilter}</span>
+            <span>&mdash; {displayItems.length} {displayItems.length === 1 ? t('file', 'file') : t('files', 'files')}</span>
+          </span>
+          <button
+            className="ml-auto inline-flex items-center gap-1 px-2 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:bg-accent hover:text-white transition-colors"
+            title={t('reload_all_filtered', 'Reload all filtered files')}
+            onClick={handleReloadAll}
+          >
+            <Icons.refresh size={ICON_SIZE.SM} />
+            <span>{t('reload_all', 'Reload All')}</span>
+          </button>
+        </div>
+      )}
       <ul className="list-none m-0 py-1 overflow-y-auto max-h-[340px]" role="listbox">
         {displayItems.map((item, idx) => (
           <li
@@ -205,7 +245,10 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
       </ul>
       {confirmPath && (
         <div className="flex items-center gap-2 px-3 py-1 bg-bg-secondary border-t border-border text-3 text-text-secondary" onClick={(e) => e.stopPropagation()}>
-          <span>{`${t('reprocess_all_files_in', 'Reprocess all files in')} `}<strong className="text-text">{confirmPath}</strong>?</span>
+          <span>{confirmPath === RELOAD_ALL_SENTINEL
+            ? <>{t('reload_all_filtered_files', 'Reload all filtered files')} <strong className="text-text">({displayItems.filter(i => !i.isDir).length})</strong>?</>
+            : <>{`${t('reprocess_all_files_in', 'Reprocess all files in')} `}<strong className="text-text">{confirmPath}</strong>?</>
+          }</span>
           <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-accent text-white hover:brightness-110" onClick={handleConfirm}>{t('yes', 'Yes')}</button>
           <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:text-text" onClick={handleCancel}>{t('cancel', 'Cancel')}</button>
         </div>
