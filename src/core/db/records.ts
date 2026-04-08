@@ -752,6 +752,23 @@ const BASE_JOINS = `
   LEFT JOIN invoice_data id2 ON r.id = id2.record_id
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 
+const SEARCH_RESULT_SELECT = `
+  SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
+    COALESCE(id2.invoice_code, bsd.invoice_code, '') as invoice_code,
+    COALESCE(id2.invoice_number, bsd.invoice_number, '') as invoice_number,
+    COALESCE(id2.total_before_tax, 0) as total_before_tax,
+    COALESCE(id2.total_amount, 0) as total_amount,
+    COALESCE(id2.tax_id, '') as tax_id,
+    COALESCE(id2.counterparty_name, bsd.counterparty_name, '') as counterparty_name,
+    COALESCE(id2.counterparty_address, '') as counterparty_address,
+    COALESCE(bsd.bank_name, '') as bank_name,
+    COALESCE(bsd.account_number, '') as account_number,
+    COALESCE(bsd.amount, 0) as amount,
+    COALESCE(bsd.description, '') as description,
+    (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum,
+    (SELECT SUM(subtotal) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum_before_tax
+`;
+
 export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null): SearchResult[] {
   const db = getDatabase();
   const parsed = parseSearchQuery(query);
@@ -762,20 +779,7 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
   params.push(limit, offset);
 
   const sql = `
-    SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
-      COALESCE(id2.invoice_code, bsd.invoice_code, '') as invoice_code,
-      COALESCE(id2.invoice_number, bsd.invoice_number, '') as invoice_number,
-      COALESCE(id2.total_before_tax, 0) as total_before_tax,
-      COALESCE(id2.total_amount, 0) as total_amount,
-      COALESCE(id2.tax_id, '') as tax_id,
-      COALESCE(id2.counterparty_name, bsd.counterparty_name, '') as counterparty_name,
-      COALESCE(id2.counterparty_address, '') as counterparty_address,
-      COALESCE(bsd.bank_name, '') as bank_name,
-      COALESCE(bsd.account_number, '') as account_number,
-      COALESCE(bsd.amount, 0) as amount,
-      COALESCE(bsd.description, '') as description,
-      (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum,
-      (SELECT SUM(subtotal) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum_before_tax
+    ${SEARCH_RESULT_SELECT}
     ${BASE_JOINS}
     WHERE ${conditions.join(' AND ')}
     ${buildOrderByClause(parsed)}
@@ -783,6 +787,17 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
   `;
 
   return db.prepare(sql).all(...params) as SearchResult[];
+}
+
+export function getSearchResultById(recordId: string): SearchResult | null {
+  const db = getDatabase();
+  const row = db.prepare(`
+    ${SEARCH_RESULT_SELECT}
+    ${BASE_JOINS}
+    WHERE r.id = ? AND r.deleted_at IS NULL
+  `).get(recordId) as SearchResult | undefined;
+
+  return row ?? null;
 }
 
 /** Returns aggregate stats (count + total amount) for the given filters. */

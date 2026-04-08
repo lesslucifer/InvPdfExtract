@@ -6,7 +6,7 @@ import { EditableCell } from './EditableCell';
 import { JeCell } from './JeCell';
 import { formatCurrency } from '../shared/format';
 import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
-import { useProcessingStore } from '../stores';
+import { useProcessingStore, useSearchStore } from '../stores';
 import { useResultDetail, useLineItems } from '../lib/queries';
 import { useSaveFieldOverride, useSaveJournalEntry, useSaveLineItemField } from '../lib/mutations';
 import { Icons, ICON_SIZE } from '../shared/icons';
@@ -62,8 +62,16 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   const getOverride = (fieldName: string): FieldOverrideInfo | undefined =>
     overrides.find(o => o.field_name === fieldName);
 
+  const refreshResult = async () => {
+    const updatedResult = await window.api.getSearchResult(result.id);
+    if (updatedResult) {
+      useSearchStore.getState().replaceResult(updatedResult);
+    }
+  };
+
   const handleSave = async (tableName: string, fieldName: string, userValue: string) => {
     await saveFieldOverride.mutateAsync({ recordId: result.id, tableName, fieldName, userValue });
+    await refreshResult();
     if (fieldName === 'total_amount' || fieldName === 'total_before_tax') {
       const numVal = parseFloat(userValue) || 0;
       setLocalTotals(prev => ({ ...prev, [fieldName]: numVal }));
@@ -73,11 +81,13 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   const handleResolve = async (fieldName: string, action: 'keep' | 'accept') => {
     await window.api.resolveConflict(result.id, fieldName, action);
     useResultDetail.invalidate({ id: result.id });
+    await refreshResult();
   };
 
   const handleResolveAll = async (action: 'keep' | 'accept') => {
     await window.api.resolveAllConflicts(result.id, action);
     useResultDetail.invalidate({ id: result.id });
+    await refreshResult();
   };
 
   const handleLineItemSave = async (lineItemId: string, fieldName: string, userValue: string) => {

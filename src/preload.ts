@@ -3,6 +3,7 @@ import { InvoiceVaultAPI, FieldOverrideInput, LineItemFieldInput, JournalEntryIn
 
 const api: InvoiceVaultAPI = {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => ipcRenderer.invoke('search', query, offset ?? 0, folder ?? null, filePath ?? null),
+  getSearchResult: (recordId: string) => ipcRenderer.invoke('get-search-result', recordId),
   locateFile: (relativePath: string) => ipcRenderer.invoke('locate-file', relativePath),
   getLineItems: (recordId: string) => ipcRenderer.invoke('get-line-items', recordId),
   saveFieldOverride: (input: FieldOverrideInput) => ipcRenderer.invoke('save-field-override', input),

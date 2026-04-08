@@ -7,7 +7,7 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 import {
-  searchRecords, getLineItemsByRecord, getFieldOverrides, getFieldOverridesByLineItemId,
+  searchRecords, getSearchResultById, getLineItemsByRecord, getFieldOverrides, getFieldOverridesByLineItemId,
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
   resolveAllConflictsForRecord, updateFtsIndex, getFtsIndexData,
   listRecentFolders, listTopFolders,
@@ -473,6 +473,15 @@ export class OverlayWindow {
       } catch (err) {
         console.error('[Search] Query failed:', err);
         return [];
+      }
+    });
+
+    ipcMain.handle('get-search-result', async (_event, recordId: string) => {
+      try {
+        return getSearchResultById(recordId);
+      } catch (err) {
+        console.error('[Search] Get search result failed:', err);
+        return null;
       }
     });
 

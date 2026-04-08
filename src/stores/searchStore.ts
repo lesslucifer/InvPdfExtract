@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { SearchResult, AggregateStats, SearchFilters, FileStatus, OverlayState } from '../shared/types';
 import { buildQueryString, ParsedQuery, SORT_DEFAULT_DIRECTIONS } from '../shared/parse-query';
 import { useOverlayStore } from './overlayStore';
+import { replaceSearchResult } from './search-store-helpers';
 
 const PAGE_SIZE = 50;
 
@@ -60,6 +61,7 @@ interface SearchStore {
   // File status updates from IPC
   updateFileStatuses: (statuses: Record<string, FileStatus>) => void;
   removeResultsForFile: (relativePath: string) => void;
+  replaceResult: (result: SearchResult) => void;
 }
 
 function buildSearchFilters(text: string, filters: ParsedQuery, folder: string | null, file: string | null = null): SearchFilters {
@@ -308,6 +310,12 @@ export const useSearchStore = create<SearchStore>()(
     removeResultsForFile: (relativePath) => {
       set(s => {
         s.results = s.results.filter(r => r.relative_path !== relativePath);
+      });
+    },
+
+    replaceResult: (result) => {
+      set(s => {
+        s.results = replaceSearchResult(s.results, result);
       });
     },
   }))

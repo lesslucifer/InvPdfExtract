@@ -494,6 +494,7 @@ export interface JeErrorItem {
 
 export interface InvoiceVaultAPI {
   search: (query: string, offset?: number, folder?: string | null, filePath?: string | null) => Promise<SearchResult[]>;
+  getSearchResult: (recordId: string) => Promise<SearchResult | null>;
   locateFile: (relativePath: string) => Promise<void>;
   getLineItems: (recordId: string) => Promise<InvoiceLineItem[]>;
   saveFieldOverride: (input: FieldOverrideInput) => Promise<void>;
