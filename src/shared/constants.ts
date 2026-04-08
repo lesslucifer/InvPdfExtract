@@ -27,6 +27,7 @@ export const MIN_PDF_TEXT_CHARS = 50; // below this → treat PDF as scanned/ima
 export const TEXT_TO_CONTEXT_RATIO = 1.5; // text bytes → estimated context bytes
 export const IMAGE_TO_CONTEXT_RATIO = 6; // file bytes → estimated context bytes (base64 + overhead)
 export const WATCHER_DEBOUNCE_MS = 300;
+export const DEFAULT_MAX_RETRY_COUNT = 2;
 
 export const DEFAULT_CLAUDE_MODELS: ClaudeModelConfig = {
   pdfExtraction: 'medium',

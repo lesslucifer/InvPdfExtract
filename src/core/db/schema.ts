@@ -385,4 +385,11 @@ export const MIGRATIONS: Migration[] = [
   CREATE INDEX IF NOT EXISTS idx_rds_source_file_id ON record_duplicate_sources(source_file_id);
   `,
   },
+
+  {
+    key: '018_file_retry_count',
+    sql: `
+  ALTER TABLE files ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;
+  `,
+  },
 ];

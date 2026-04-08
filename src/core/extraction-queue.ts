@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { getFilesByStatuses, updateFileStatus } from './db/files';
+import { getFilesByStatuses, updateFileStatus, incrementRetryAndRequeue } from './db/files';
 import { addLog } from './db/records';
 import { ClaudeCodeRunner, CliError, getSessionLogPath } from './claude-cli';
 import { Reconciler } from './reconciler';
@@ -19,6 +19,7 @@ import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeM
 import {
   DEFAULT_BATCH_SIZE,
   DEFAULT_CLAUDE_MODELS,
+  DEFAULT_MAX_RETRY_COUNT,
   MAX_BATCH_CONTEXT_BYTES,
   MIN_PDF_TEXT_CHARS,
   TEXT_TO_CONTEXT_RATIO,
@@ -39,6 +40,7 @@ export class ExtractionQueue {
   private vault: VaultHandle;
   private relevanceFilter: RelevanceFilter;
   private batchSize: number;
+  private maxRetryCount: number;
   private processing = false;
   private pendingTrigger = false;
 
@@ -54,6 +56,7 @@ export class ExtractionQueue {
     this.scriptGenerator = new ScriptGenerator(this.scriptRunner);
     this.scriptVerifier = new ScriptVerifier(this.scriptRunner);
     this.batchSize = vault.config.extractionBatchSize ?? DEFAULT_BATCH_SIZE;
+    this.maxRetryCount = vault.config.maxRetryCount ?? DEFAULT_MAX_RETRY_COUNT;
   }
 
   trigger(): void {
@@ -239,12 +242,7 @@ export class ExtractionQueue {
       await this.processSpreadsheetWithMetadata(file, fullPath);
     } catch (err) {
       console.error(`[ExtractionQueue] Error processing structured file ${file.relative_path}:`, err);
-      updateFileStatus(file.id, FileStatus.Error);
-      addLog(null, LogLevel.Error, `Structured file error: ${file.relative_path}: ${(err as Error).message}`);
-      eventBus.emit('extraction:error', {
-        fileId: file.id,
-        error: (err as Error).message,
-      });
+      this.handleFileError(file, `Structured file error: ${file.relative_path}: ${(err as Error).message}`);
     }
   }
 
@@ -308,7 +306,7 @@ export class ExtractionQueue {
       if (SPREADSHEET_EXTENSIONS.has(ext)) {
         console.error(`[ExtractionQueue] Cannot send ${ext} to Claude CLI: ${file.relative_path}`);
         updateFileStatus(file.id, FileStatus.Error);
-        addLog(null, LogLevel.Error, `Spreadsheet files cannot be processed by Claude CLI: ${file.relative_path}`);
+        addLog(null, LogLevel.Error, `Spreadsheet files cannot be processed by Claude CLI: ${file.relative_path}`, undefined, file.id);
         eventBus.emit('extraction:error', {
           fileId: file.id,
           error: `Spreadsheet files (${ext}) require the metadata pipeline, not Claude CLI`,
@@ -332,12 +330,7 @@ export class ExtractionQueue {
       for (const file of processable) {
         const hasResult = result.results.some(r => r.relative_path === file.relative_path);
         if (!hasResult) {
-          updateFileStatus(file.id, FileStatus.Error);
-          addLog(null, LogLevel.Error, `No extraction result returned for ${file.relative_path}`);
-          eventBus.emit('extraction:error', {
-            fileId: file.id,
-            error: 'No result returned from Claude CLI',
-          });
+          this.handleFileError(file, `No extraction result returned for ${file.relative_path}`);
         }
       }
     } catch (err) {
@@ -353,13 +346,23 @@ export class ExtractionQueue {
         sessionLogPath,
       });
       for (const file of processable) {
-        updateFileStatus(file.id, FileStatus.Error);
-        addLog(null, LogLevel.Error, `Batch error for ${file.relative_path}: ${(err as Error).message}`, detail, file.id);
-        eventBus.emit('extraction:error', {
-          fileId: file.id,
-          error: (err as Error).message,
-        });
+        this.handleFileError(file, `Batch error for ${file.relative_path}: ${(err as Error).message}`, detail);
       }
+    }
+  }
+
+  private handleFileError(file: VaultFile, errorMessage: string, logDetail?: string): void {
+    if (file.retry_count < this.maxRetryCount) {
+      incrementRetryAndRequeue(file.id);
+      console.log(`[ExtractionQueue] Retrying file (attempt ${file.retry_count + 1}/${this.maxRetryCount}): ${file.relative_path}`);
+      addLog(null, LogLevel.Warn, `Retrying file (attempt ${file.retry_count + 1}/${this.maxRetryCount}): ${file.relative_path}`, logDetail, file.id);
+    } else {
+      updateFileStatus(file.id, FileStatus.Error);
+      addLog(null, LogLevel.Error, errorMessage, logDetail, file.id);
+      eventBus.emit('extraction:error', {
+        fileId: file.id,
+        error: errorMessage,
+      });
     }
   }
 

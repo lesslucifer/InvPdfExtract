@@ -97,6 +97,7 @@ export interface VaultFile {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  retry_count: number;
   filter_score: number | null;
   filter_reason: string | null;
   filter_layer: number | null;
@@ -211,6 +212,7 @@ export interface VaultConfig {
   created_at: string;
   confidence_threshold: number;
   extractionBatchSize?: number;
+  maxRetryCount?: number;
 }
 
 export interface VaultHandle {

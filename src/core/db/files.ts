@@ -13,7 +13,7 @@ export function insertFile(relativePath: string, fileHash: string, fileType: str
 
   if (deleted) {
     db.prepare(`
-      UPDATE files SET file_hash = ?, file_type = ?, file_size = ?, status = ?, deleted_at = NULL, updated_at = ?
+      UPDATE files SET file_hash = ?, file_type = ?, file_size = ?, status = ?, retry_count = 0, deleted_at = NULL, updated_at = ?
       WHERE id = ?
     `).run(fileHash, fileType, fileSize, FileStatus.Unfiltered, now, deleted.id);
     return getFileById(deleted.id)!;
@@ -51,14 +51,25 @@ export function getFilesByStatus(status: FileStatus): VaultFile[] {
 export function updateFileHash(id: string, newHash: string, fileSize: number): void {
   const db = getDatabase();
   db.prepare(`
-    UPDATE files SET file_hash = ?, file_size = ?, status = ?, updated_at = datetime('now')
+    UPDATE files SET file_hash = ?, file_size = ?, status = ?, retry_count = 0, updated_at = datetime('now')
     WHERE id = ?
   `).run(newHash, fileSize, FileStatus.Unfiltered, id);
 }
 
 export function updateFileStatus(id: string, status: FileStatus): void {
   const db = getDatabase();
-  db.prepare("UPDATE files SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, id);
+  if (status === FileStatus.Pending || status === FileStatus.Unfiltered) {
+    db.prepare("UPDATE files SET status = ?, retry_count = 0, updated_at = datetime('now') WHERE id = ?").run(status, id);
+  } else {
+    db.prepare("UPDATE files SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, id);
+  }
+}
+
+export function incrementRetryAndRequeue(id: string): void {
+  const db = getDatabase();
+  db.prepare(
+    "UPDATE files SET retry_count = retry_count + 1, status = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(FileStatus.Pending, id);
 }
 
 export function updateFileDocType(id: string, docType: string): void {
@@ -136,7 +147,7 @@ export function clearPendingQueue(): number {
 export function resetStaleProcessingFiles(): number {
   const db = getDatabase();
   const result = db.prepare(
-    "UPDATE files SET status = ?, updated_at = datetime('now') WHERE status = ? AND deleted_at IS NULL"
+    "UPDATE files SET status = ?, retry_count = 0, updated_at = datetime('now') WHERE status = ? AND deleted_at IS NULL"
   ).run(FileStatus.Pending, FileStatus.Processing);
   return result.changes;
 }
