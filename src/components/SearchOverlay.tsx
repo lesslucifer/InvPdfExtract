@@ -595,6 +595,34 @@ export const SearchOverlay: React.FC = () => {
         return;
       }
 
+      // Ctrl+K / Cmd+K: clear search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        handleQueryChange('');
+        return;
+      }
+
+      // Ctrl+P / Cmd+P: open processing status
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        useOverlayStore.getState().goTo(OverlayState.ProcessingStatus);
+        return;
+      }
+
+      // Ctrl+/ / Cmd+/: open cheatsheet
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        useOverlayStore.getState().goTo(OverlayState.Cheatsheet);
+        return;
+      }
+
+      // Ctrl+N / Cmd+N: fork to new window
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        handleWindowlize();
+        return;
+      }
+
       if (usePresetStore.getState().showSaveModal) return;
 
       // When suggestions are visible, they capture navigation keys
@@ -687,7 +715,7 @@ export const SearchOverlay: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [suggestions, suggestionIndex, handleSuggestionAccept, handleQueryChange]);
+  }, [suggestions, suggestionIndex, handleSuggestionAccept, handleQueryChange, handleWindowlize]);
 
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&

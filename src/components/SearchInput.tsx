@@ -63,7 +63,8 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
         <button
           className="bg-bg-secondary border-none rounded-full w-5 h-5 text-text-secondary cursor-pointer flex items-center justify-center shrink-0 hover:bg-bg-hover"
           onClick={() => onChange('')}
-          aria-label={t('clear_search', 'Clear')}
+          aria-label={t('clear_search_hint', 'Clear (⌘K)')}
+          title={t('clear_search_hint', 'Clear (⌘K)')}
         >
           <Icons.close size={ICON_SIZE.SM} />
         </button>
@@ -71,8 +72,8 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
       {onStatusDotClick ? (
         <button
           className={`inline-flex items-center shrink-0 border-none bg-transparent p-0 outline-none cursor-pointer hover:scale-[1.2] transition-transform ${statusConfig.className}`}
-          title={statusConfig.label}
-          aria-label={`${t('status_label', 'Status: ')}${statusConfig.label}`}
+          title={`${statusConfig.label} (⌘P)`}
+          aria-label={`${t('status_label', 'Status: ')}${statusConfig.label} (⌘P)`}
           onClick={onStatusDotClick}
         >
           <statusConfig.icon size={ICON_SIZE.SM} />
