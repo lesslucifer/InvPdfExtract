@@ -9,6 +9,7 @@ const isWindowlized = new URLSearchParams(window.location.search).get('windowliz
 
 const CONFIRM_THRESHOLD = 10;
 const DEBOUNCE_MS = 150;
+const RELOAD_ALL_SENTINEL = '__reload_all__';
 
 interface PathItem {
   name: string;
@@ -34,18 +35,36 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   const [fileStatuses, setFileStatuses] = useState<Record<string, FileStatus>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const statusFilter = query.startsWith(':') && !query.includes(' ') ? query.slice(1).toLowerCase() || null : null;
+  const searchQuery = statusFilter ? '' : query;
+
   const { data: folderStatuses = {} } = useFolderStatuses();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await window.api.listVaultPaths(query, scope ?? undefined);
-        setItems(results);
-        setSelectedIndex(0);
-        const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
-        const statuses = filePaths.length > 0 ? await window.api.getFileStatusesByPaths(filePaths) : {};
-        setFileStatuses(statuses);
+        if (statusFilter) {
+          const files = await window.api.getFilesByStatuses([statusFilter as FileStatus]);
+          const scopePrefix = scope ? scope + '/' : null;
+          const filtered = files.filter(f => !scopePrefix || f.relative_path.startsWith(scopePrefix));
+          const pathItems: PathItem[] = filtered.map(f => {
+            const parts = f.relative_path.split('/');
+            return { name: parts[parts.length - 1], relativePath: f.relative_path, isDir: false };
+          });
+          setItems(pathItems);
+          setSelectedIndex(0);
+          const statusMap: Record<string, FileStatus> = {};
+          for (const f of filtered) statusMap[f.relative_path] = f.status;
+          setFileStatuses(statusMap);
+        } else {
+          const results = await window.api.listVaultPaths(searchQuery, scope ?? undefined);
+          setItems(results);
+          setSelectedIndex(0);
+          const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
+          const statuses = filePaths.length > 0 ? await window.api.getFileStatusesByPaths(filePaths) : {};
+          setFileStatuses(statuses);
+        }
       } catch {
         setItems([]);
       }
@@ -54,9 +73,11 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, scope]);
+  }, [searchQuery, statusFilter, scope]);
 
   const itemStatuses: Record<string, FileStatus> = { ...folderStatuses, ...fileStatuses };
+
+  const displayItems = items;
 
   const handleSelect = useCallback((item: PathItem, e?: React.MouseEvent | KeyboardEvent) => {
     const metaOrCtrl = e && ('metaKey' in e) && (e.metaKey || e.ctrlKey);
@@ -110,9 +131,32 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     }
   }, [onReprocessFile, onReprocessFolder, setOptimisticStatus]);
 
+  const handleReloadAll = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const fileItems = displayItems.filter(i => !i.isDir);
+    if (fileItems.length > CONFIRM_THRESHOLD) {
+      setConfirmPath(RELOAD_ALL_SENTINEL);
+    } else {
+      const statusUpdates: Record<string, FileStatus> = {};
+      for (const item of fileItems) {
+        statusUpdates[item.relativePath] = FileStatus.Pending;
+        onReprocessFile?.(item.relativePath);
+      }
+      setFileStatuses(prev => ({ ...prev, ...statusUpdates }));
+    }
+  }, [displayItems, onReprocessFile]);
+
   const handleConfirm = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirmPath) {
+    if (confirmPath === RELOAD_ALL_SENTINEL) {
+      const fileItems = items.filter(i => !i.isDir);
+      const statusUpdates: Record<string, FileStatus> = {};
+      for (const item of fileItems) {
+        statusUpdates[item.relativePath] = FileStatus.Pending;
+        onReprocessFile?.(item.relativePath);
+      }
+      setFileStatuses(prev => ({ ...prev, ...statusUpdates }));
+    } else if (confirmPath) {
       const matchedItem = items.find(i => i.relativePath === confirmPath);
       if (matchedItem) {
         setFileStatuses(prev => ({ ...prev, [matchedItem.name]: FileStatus.Pending }));
@@ -120,7 +164,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
       onReprocessFolder?.(confirmPath);
     }
     setConfirmPath(null);
-  }, [confirmPath, onReprocessFolder, items]);
+  }, [confirmPath, onReprocessFolder, onReprocessFile, items]);
 
   const handleCancel = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -131,23 +175,23 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, items.length - 1));
+        setSelectedIndex(prev => Math.min(prev + 1, displayItems.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (items[selectedIndex]) {
-          handleSelect(items[selectedIndex], e);
+        if (displayItems[selectedIndex]) {
+          handleSelect(displayItems[selectedIndex], e);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [items, selectedIndex, handleSelect]);
+  }, [displayItems, selectedIndex, handleSelect]);
 
-  if (items.length === 0) {
+  if (displayItems.length === 0) {
     return (
       <div className="px-4 py-6 text-center text-3.25 text-text-muted">
         {query ? t('no_matches', 'No matches') : t('no_folders_found', 'No folders found')}
@@ -159,8 +203,24 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
 
   return (
     <>
+      {statusFilter && showReload && (
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border text-2.75 text-text-secondary">
+          <span className="flex items-center gap-1.5">
+            <span className="font-semibold text-text">:{statusFilter}</span>
+            <span>&mdash; {displayItems.length} {displayItems.length === 1 ? t('file', 'file') : t('files', 'files')}</span>
+          </span>
+          <button
+            className="ml-auto inline-flex items-center gap-1 px-2 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:bg-accent hover:text-white transition-colors"
+            title={t('reload_all_filtered', 'Reload all filtered files')}
+            onClick={handleReloadAll}
+          >
+            <Icons.refresh size={ICON_SIZE.SM} />
+            <span>{t('reload_all', 'Reload All')}</span>
+          </button>
+        </div>
+      )}
       <ul className={`list-none m-0 py-1 overflow-y-auto ${isWindowlized ? 'flex-1 min-h-0' : 'max-h-[340px]'}`} role="listbox">
-        {items.map((item, idx) => (
+        {displayItems.map((item, idx) => (
           <li
             key={item.relativePath}
             className={`group flex items-center gap-2 px-4 py-[7px] cursor-pointer transition-colors ${idx === selectedIndex ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
@@ -187,7 +247,10 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
       </ul>
       {confirmPath && (
         <div className="flex items-center gap-2 px-3 py-1 bg-bg-secondary border-t border-border text-3 text-text-secondary" onClick={(e) => e.stopPropagation()}>
-          <span>{`${t('reprocess_all_files_in', 'Reprocess all files in')} `}<strong className="text-text">{confirmPath}</strong>?</span>
+          <span>{confirmPath === RELOAD_ALL_SENTINEL
+            ? <>{t('reload_all_filtered_files', 'Reload all filtered files')} <strong className="text-text">({displayItems.filter(i => !i.isDir).length})</strong>?</>
+            : <>{`${t('reprocess_all_files_in', 'Reprocess all files in')} `}<strong className="text-text">{confirmPath}</strong>?</>
+          }</span>
           <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-accent text-white hover:brightness-110" onClick={handleConfirm}>{t('yes', 'Yes')}</button>
           <button className="px-2.5 py-[2px] border-none rounded-sm text-2.75 cursor-pointer bg-transparent text-text-secondary hover:text-text" onClick={handleCancel}>{t('cancel', 'Cancel')}</button>
         </div>
