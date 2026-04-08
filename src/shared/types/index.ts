@@ -571,7 +571,7 @@ export interface InvoiceVaultAPI {
   saveJEInstructions: (content: string) => Promise<void>;
   getExtractionPrompt: () => Promise<string>;
   exportInstructions: () => Promise<{ success: boolean; canceled?: boolean; error?: string }>;
-  openInstructionFile: (file: 'extraction-prompt' | 'je-instructions') => Promise<void>;
+  openInstructionFile: (file: 'extraction-prompt' | 'je-instructions' | 'config') => Promise<void>;
   // JE generation status
   getJeQueueItems: () => Promise<JeQueueItem[]>;
   getJeErrorItems: () => Promise<JeErrorItem[]>;

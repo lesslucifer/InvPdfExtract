@@ -26,7 +26,7 @@ import {
 } from '../core/db/journal-entries';
 import { readInstructions, writeInstructions, getInstructionsPath } from '../core/je-instructions';
 import { readInstruction } from '../core/instruction-manager';
-import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE } from '../shared/constants';
+import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, CONFIG_FILE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { clearVaultData, backupVault } from '../core/vault';
@@ -1186,13 +1186,18 @@ export class OverlayWindow {
       }
     });
 
-    ipcMain.handle('open-instruction-file', async (_event, file: 'extraction-prompt' | 'je-instructions') => {
+    ipcMain.handle('open-instruction-file', async (_event, file: 'extraction-prompt' | 'je-instructions' | 'config') => {
       try {
         const root = this.callbacks?.getVaultRoot();
         if (!root) return;
-        const filePath = file === 'extraction-prompt'
-          ? path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE)
-          : getInstructionsPath(root);
+        let filePath: string;
+        if (file === 'extraction-prompt') {
+          filePath = path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
+        } else if (file === 'config') {
+          filePath = path.join(root, INVOICEVAULT_DIR, CONFIG_FILE);
+        } else {
+          filePath = getInstructionsPath(root);
+        }
         await shell.openPath(filePath);
       } catch (err) {
         console.error('[Instructions] Open file failed:', err);
