@@ -41,8 +41,12 @@ export const EditableCell: React.FC<Props> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSave();
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      handleSave();
+    }
     if (e.key === 'Escape') {
+      e.stopPropagation();
       setEditValue(value);
       setEditing(false);
     }
