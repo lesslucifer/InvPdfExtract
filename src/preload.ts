@@ -81,7 +81,7 @@ const api: InvoiceVaultAPI = {
   saveJEInstructions: (content: string) => ipcRenderer.invoke('save-je-instructions', content),
   getExtractionPrompt: () => ipcRenderer.invoke('get-extraction-prompt'),
   exportInstructions: () => ipcRenderer.invoke('export-instructions'),
-  openInstructionFile: (file: 'extraction-prompt' | 'je-instructions') => ipcRenderer.invoke('open-instruction-file', file),
+  openInstructionFile: (file: 'extraction-prompt' | 'je-instructions' | 'config') => ipcRenderer.invoke('open-instruction-file', file),
   // JE generation status
   getJeQueueItems: () => ipcRenderer.invoke('get-je-queue-items'),
   getJeErrorItems: () => ipcRenderer.invoke('get-je-error-items'),

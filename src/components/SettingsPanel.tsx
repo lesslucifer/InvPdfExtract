@@ -11,6 +11,8 @@ interface Props {
 const settingsBtnClass = 'bg-bg-secondary border border-border rounded-md px-2.5 py-1 inline-flex items-center gap-1 text-3 font-medium text-text cursor-pointer transition-colors hover:bg-bg-hover';
 const dangerBtnClass = `${settingsBtnClass} text-confidence-low hover:bg-confidence-low/10`;
 const confirmBtnClass = 'bg-confidence-medium border border-confidence-medium rounded-md px-2.5 py-1 inline-flex items-center gap-1 text-3 font-medium text-white cursor-pointer hover:opacity-85';
+const localeBtnActiveClass = 'bg-accent border border-accent rounded-md px-2.5 py-1 inline-flex items-center gap-1 text-3 font-medium text-white cursor-pointer hover:opacity-85';
+const localeBtnClass = 'bg-bg-secondary border border-accent/30 rounded-md px-2.5 py-1 inline-flex items-center gap-1 text-3 font-medium text-accent cursor-pointer transition-colors hover:bg-accent/10';
 
 export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const goBack = useOverlayStore(s => s.goBack);
@@ -18,8 +20,6 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const { data: cliStatus = null } = useCliStatus();
   const locale = useLocaleStore(s => s.locale);
   const changeLocale = useLocaleStore(s => s.changeLocale);
-  const [confirmReprocess, setConfirmReprocess] = useState(false);
-  const [reprocessResult, setReprocessResult] = useState<string | null>(null);
   const [switchConfirm, setSwitchConfirm] = useState<string | null>(null);
   const [switchNotification, setSwitchNotification] = useState<string | null>(null);
   const [clearConfirmVault, setClearConfirmVault] = useState<string | null>(null);
@@ -75,16 +75,6 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const handleOpenVault = useCallback((_vaultPath: string) => {
     window.api.locateFolder('');
   }, []);
-
-  const handleReprocessAll = useCallback(async () => {
-    if (!confirmReprocess) {
-      setConfirmReprocess(true);
-      return;
-    }
-    const result = await window.api.reprocessAll();
-    setReprocessResult(`${result.count} ${t('files_reset_to_pending', 'files reset to pending')}.`);
-    setConfirmReprocess(false);
-  }, [confirmReprocess]);
 
   const handleQuit = useCallback(async () => {
     await window.api.quitApp();
@@ -219,27 +209,32 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
       <div className="h-[1px] bg-border mx-4 my-1" />
 
       <div className="px-4 py-2.5">
-        <button
-          className={confirmReprocess ? confirmBtnClass : settingsBtnClass}
-          onClick={handleReprocessAll}
-        >
-          {confirmReprocess ? `${t('confirm_reprocess', 'Confirm Reprocess')}?` : t('reprocess_all_files', 'Reprocess All Files')}
-        </button>
-        {reprocessResult && <div className="text-3 text-text-secondary mt-1.5">{reprocessResult}</div>}
-      </div>
-
-      <div className="px-4 py-2.5">
-        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('ai_instructions', 'AI Instructions')}</div>
-        <div className="flex flex-wrap gap-1.5">
-          <button className={settingsBtnClass} onClick={() => window.api.openInstructionFile('extraction-prompt')}>
-            {t('open_extraction_prompt', 'Open Extraction Prompt')}
+        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('preferences', 'Preferences')}</div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <button className="text-3 font-medium text-accent hover:underline cursor-pointer inline-flex items-center gap-0.5" onClick={() => window.api.openInstructionFile('extraction-prompt')}>
+            {t('open_extraction_prompt', 'Open Extraction Prompt')} <span className="text-2.5">↗</span>
           </button>
-          <button className={settingsBtnClass} onClick={() => window.api.openInstructionFile('je-instructions')}>
-            {t('open_je_instructions', 'Open JE Instructions')}
+          <button className="text-3 font-medium text-accent hover:underline cursor-pointer inline-flex items-center gap-0.5" onClick={() => window.api.openInstructionFile('je-instructions')}>
+            {t('open_je_instructions', 'Open JE Instructions')} <span className="text-2.5">↗</span>
           </button>
+          <button className="text-3 font-medium text-accent hover:underline cursor-pointer inline-flex items-center gap-0.5" onClick={() => window.api.openInstructionFile('config')}>
+            {t('open_config', 'Open Configuration')} <span className="text-2.5">↗</span>
+          </button>
+        </div>
+        <div className="mt-2">
           <button className={settingsBtnClass} onClick={handleExportInstructions}>
             {t('export_instructions', 'Export Instructions')}
           </button>
+        </div>
+        <div className="flex gap-1.5 mt-2">
+          <button
+            className={locale === 'en' ? localeBtnActiveClass : localeBtnClass}
+            onClick={() => changeLocale('en')}
+          >{t('locale_en', 'EN')}</button>
+          <button
+            className={locale === 'vi' ? localeBtnActiveClass : localeBtnClass}
+            onClick={() => changeLocale('vi')}
+          >{t('locale_vi', 'VI')}</button>
         </div>
         {exportStatus === 'success' && (
           <div className="text-3 text-confidence-high mt-1.5">{t('export_instructions_success', 'Instructions exported')}</div>
@@ -260,28 +255,9 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
               ? `${t('found', 'Found')} (${cliStatus.version || t('unknown_version', 'unknown version')})`
               : `${t('not_found_install_claude_code_cli_and_ensure_its_in_your_path', 'Not found — install Claude Code CLI and ensure it\'s in your PATH')}.`}
         </div>
-      </div>
-
-      <div className="h-[1px] bg-border mx-4 my-1" />
-
-      <div className="px-4 py-2.5">
-        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('language', 'Language')}</div>
-        <div className="flex gap-1.5">
-          <button
-            className={locale === 'en' ? confirmBtnClass : settingsBtnClass}
-            onClick={() => changeLocale('en')}
-          >{t('locale_en', 'EN')}</button>
-          <button
-            className={locale === 'vi' ? confirmBtnClass : settingsBtnClass}
-            onClick={() => changeLocale('vi')}
-          >{t('locale_vi', 'VI')}</button>
+        <div className="mt-2">
+          <button className={dangerBtnClass} onClick={handleQuit}>{t('quit_invoicevault', 'Quit InvoiceVault')}</button>
         </div>
-      </div>
-
-      <div className="h-[1px] bg-border mx-4 my-1" />
-
-      <div className="px-4 py-2.5">
-        <button className={dangerBtnClass} onClick={handleQuit}>{t('quit_invoicevault', 'Quit InvoiceVault')}</button>
       </div>
     </div>
   );
