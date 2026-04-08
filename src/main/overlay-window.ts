@@ -81,6 +81,7 @@ export class OverlayWindow {
   private spawnedGeometryDebounces: Map<number, ReturnType<typeof setTimeout>> = new Map();
   private isQuitting = false;
   private isClosingAllWindows = false;
+  private lastShortcutFocusTime = 0;
 
   setCallbacks(callbacks: OverlayCallbacks): void {
     this.callbacks = callbacks;
@@ -135,6 +136,9 @@ export class OverlayWindow {
   toggle(): void {
     if (this.window && this.window.isVisible()) {
       this.hide();
+    } else if (this.hasSpawnedWindows() && Date.now() - this.lastShortcutFocusTime > 10_000) {
+      this.focusLastSpawnedWindow();
+      this.lastShortcutFocusTime = Date.now();
     } else {
       this.show();
     }
