@@ -37,6 +37,7 @@ import {
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
+import { exportJEToXlsx } from '../core/export';
 
 export type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -978,7 +979,6 @@ export class OverlayWindow {
         });
         if (result.canceled || !result.filePath) return { filePath: null };
 
-        const { exportJEToXlsx } = await import('../core/export');
         const rows = gatherJEExportData(filters);
         const buffer = exportJEToXlsx(rows);
         await fs.promises.writeFile(result.filePath, buffer);

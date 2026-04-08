@@ -5,6 +5,8 @@
  * is shown and the user can initialize a vault via the UI.
  */
 import { test, expect, createTempDir, removeTempDir } from './fixtures';
+import fs from 'fs';
+import path from 'path';
 
 test.describe('Vault Init Flow', () => {
   test('shows No Vault screen on first launch with no config', async ({ overlayPage }) => {
@@ -60,9 +62,7 @@ test.describe('Vault Init Flow', () => {
       await expect(overlayPage.locator('.home-screen')).toBeVisible({ timeout: 8_000 });
 
       // Verify .invoicevault directory was created
-      const { existsSync } = await import('fs');
-      const { join } = await import('path');
-      expect(existsSync(join(vaultDir, '.invoicevault'))).toBe(true);
+      expect(fs.existsSync(path.join(vaultDir, '.invoicevault'))).toBe(true);
     } finally {
       removeTempDir(vaultDir);
     }

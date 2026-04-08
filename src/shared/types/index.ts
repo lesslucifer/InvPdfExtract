@@ -1,3 +1,4 @@
+import { Database } from 'better-sqlite3';
 import type { SortField, SortDirection, ParsedQuery } from '../parse-query';
 
 // === Enums ===
@@ -213,7 +214,7 @@ export interface VaultHandle {
   dotPath: string;
   dbPath: string;
   config: VaultConfig;
-  db: import('better-sqlite3').Database;
+  db: Database;
 }
 
 // === Model Configuration ===

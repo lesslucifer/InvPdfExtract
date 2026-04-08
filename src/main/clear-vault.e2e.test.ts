@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { INVOICEVAULT_DIR, CONFIG_FILE, VAULT_SUBDIRS } from '../shared/constants';
-import { clearVaultData, backupVault } from '../core/vault';
+import { clearVaultData, backupVault, isVault, initVault } from '../core/vault';
 import { AppConfig } from '../shared/types';
 import { DEFAULT_CLAUDE_MODELS } from '../shared/constants';
 
@@ -323,8 +323,6 @@ describe('clear vault e2e', () => {
     });
 
     it('vault is no longer recognized as a vault after the full clear flow', async () => {
-      const { isVault } = await import('../core/vault');
-
       const vaultPath = path.join(TEST_ROOT, 'post-clear-isvault');
       fs.mkdirSync(vaultPath, { recursive: true });
       buildVault(vaultPath);
@@ -340,8 +338,6 @@ describe('clear vault e2e', () => {
     });
 
     it('vault can be re-initialized after clearing', async () => {
-      const { initVault, isVault } = await import('../core/vault');
-
       const vaultPath = path.join(TEST_ROOT, 'reinit-after-clear');
       fs.mkdirSync(vaultPath, { recursive: true });
       buildVault(vaultPath);

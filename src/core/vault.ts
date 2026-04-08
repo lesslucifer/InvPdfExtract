@@ -8,6 +8,7 @@ import {
   INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE,
 } from '../shared/constants';
 import { writeInstruction } from './instruction-manager';
+import archiver from 'archiver';
 
 const pathExists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
 
@@ -93,13 +94,12 @@ export async function clearVaultData(folderPath: string): Promise<void> {
 }
 
 export async function backupVault(folderPath: string, destPath: string): Promise<void> {
-  const archiver = await import('archiver');
   const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
   if (!await pathExists(dotPath)) throw new Error(`No vault data at ${folderPath}`);
 
   await new Promise<void>((resolve, reject) => {
     const output = fs.createWriteStream(destPath);
-    const archive = archiver.default('zip', { zlib: { level: 6 } });
+    const archive = archiver('zip', { zlib: { level: 6 } });
     output.on('close', resolve);
     archive.on('error', reject);
     archive.pipe(output);

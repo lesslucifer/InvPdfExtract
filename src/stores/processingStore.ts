@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { FileStatus, JEGenerationStatus, OverlayState } from '../shared/types';
 import { useHomeData, useFolderStatuses, useQueueData, useProcessedData, useErrorData, useResultDetail } from '../lib/queries';
+import { useSearchStore } from './searchStore';
+import { useOverlayStore } from './overlayStore';
 
 type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
 
@@ -37,7 +39,6 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
       useProcessedData.invalidate();
       useErrorData.invalidate();
       // Cross-store: update search results' file_status
-      const { useSearchStore } = await import('./searchStore');
       const results = useSearchStore.getState().results;
       if (results.length > 0) {
         const paths = [...new Set(results.map(r => r.relative_path))];
@@ -61,7 +62,6 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
 
     const unsubDbError = window.api.onDbError(async (error: string) => {
       set({ dbError: error });
-      const { useOverlayStore } = await import('./overlayStore');
       useOverlayStore.getState().setOverlayState(OverlayState.DbError);
     });
 
@@ -71,7 +71,6 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
       useQueueData.invalidate();
       useProcessedData.invalidate();
       useErrorData.invalidate();
-      const { useSearchStore } = await import('./searchStore');
       useSearchStore.getState().removeResultsForFile(relativePath);
     });
 
