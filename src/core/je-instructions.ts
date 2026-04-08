@@ -132,4 +132,33 @@ GHI CHU
 - Tai khoan theo he thong Thong tu 200/2014
 - Neu khong chac chan: account=TK 156 (dau vao) hoac TK 511 (dau ra); contra_account=TK 331 hoac TK 131
 - Phan loai dong tien mac dinh la "operating" neu khong ro
+
+
+HUONG DAN DAU RA (Output Format Instructions)
+----------------------------------------------
+You are an accounting assistant classifying Vietnamese invoice line items into double-entry journal accounts.
+
+Each item needs TWO account codes forming a complete double-entry pair:
+- "account": the primary account (expense/asset/revenue/counterparty side)
+- "contra_account": the offsetting account (the other side of the entry)
+
+Rules by document type:
+- invoice_in (purchase): account = DEBIT side (e.g. "156" goods, "152" materials, "642" admin, "211" fixed assets); contra_account = CREDIT side (typically "331" payable, or "111x"/"112x" if cash payment)
+- invoice_out (sale): account = CREDIT side (e.g. "511" revenue, "515" financial income); contra_account = DEBIT side (typically "131" receivable)
+- bank transactions: account = counterparty account (e.g. "331" supplier payable, "131" customer receivable, "334" salary, "3331" tax); contra_account = the bank/cash account (e.g. "1121" bank, "1111" cash)
+- Adjustment/closing vouchers (NVK): infer both accounts freely from the description (e.g. "kết chuyển lãi" → account="4212", contra_account="4211"; "đánh giá lại tỷ giá" → "3311"/"5152"; "hạch toán thuế môn bài" → "6425"/"33382")
+
+For each item, determine:
+- account: primary account code (string)
+- contra_account: offsetting account code (string)
+- cash_flow: one of "operating", "investing", or "financing"
+
+Return ONLY a valid JSON array. Each element must have:
+- "id": the item ID (provided in the input)
+- "account": string
+- "contra_account": string
+- "cash_flow": string
+
+Example output:
+[{"id":"abc-123","account":"156","contra_account":"331","cash_flow":"operating"}]
 `;

@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { parseTriageResponse, aiTriageBatch, TRIAGE_SYSTEM_PROMPT } from './ai-triage';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { parseTriageResponse, aiTriageBatch } from './ai-triage';
+import { writeDefaultTriageInstructions } from './ai-triage-instructions';
 import { DEFAULT_FILTER_CONFIG } from '../../shared/constants';
+import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 
 describe('parseTriageResponse', () => {
   it('parses valid JSON array', () => {
@@ -58,8 +62,19 @@ describe('parseTriageResponse', () => {
 });
 
 describe('aiTriageBatch — error handling', () => {
+  let tmpVault: string;
+
+  beforeEach(async () => {
+    tmpVault = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ivtest-'));
+    await writeDefaultTriageInstructions(tmpVault);
+  });
+
+  afterEach(async () => {
+    await fs.promises.rm(tmpVault, { recursive: true, force: true });
+  });
+
   it('returns empty array for empty inputs', async () => {
-    const results = await aiTriageBatch([], DEFAULT_FILTER_CONFIG);
+    const results = await aiTriageBatch([], DEFAULT_FILTER_CONFIG, tmpVault);
     expect(results).toHaveLength(0);
   });
 
@@ -70,7 +85,7 @@ describe('aiTriageBatch — error handling', () => {
     ];
 
     // Use a non-existent CLI path to force failure
-    const results = await aiTriageBatch(inputs, DEFAULT_FILTER_CONFIG, '/nonexistent/claude');
+    const results = await aiTriageBatch(inputs, DEFAULT_FILTER_CONFIG, tmpVault, '/nonexistent/claude');
     expect(results).toHaveLength(2);
     for (const r of results) {
       expect(r.decision).toBe('process');
@@ -79,10 +94,18 @@ describe('aiTriageBatch — error handling', () => {
   });
 });
 
-describe('TRIAGE_SYSTEM_PROMPT', () => {
-  it('includes the three classification categories', () => {
-    expect(TRIAGE_SYSTEM_PROMPT).toContain('invoice');
-    expect(TRIAGE_SYSTEM_PROMPT).toContain('bank_statement');
-    expect(TRIAGE_SYSTEM_PROMPT).toContain('irrelevant');
+describe('ai-triage-instructions default', () => {
+  it('includes the three classification categories', async () => {
+    const tmpVault = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ivtest-'));
+    try {
+      await writeDefaultTriageInstructions(tmpVault);
+      const { readTriageInstructions } = await import('./ai-triage-instructions');
+      const content = await readTriageInstructions(tmpVault);
+      expect(content).toContain('invoice');
+      expect(content).toContain('bank_statement');
+      expect(content).toContain('irrelevant');
+    } finally {
+      await fs.promises.rm(tmpVault, { recursive: true, force: true });
+    }
   });
 });

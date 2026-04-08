@@ -47,6 +47,7 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
 export const INSTRUCTIONS_SUBDIR = 'instructions';
 export const EXTRACTION_PROMPT_FILE = 'extraction-prompt.md';
 export const JE_INSTRUCTIONS_FILE = 'je-instructions.md';
+export const AI_TRIAGE_FILE = 'ai-triage-instructions.md';
 export const INSTRUCTIONS_WATCHER_DEBOUNCE_MS = 5000;
 export const JE_SIMILARITY_THRESHOLD = 0.9;
 export const JE_SIMILARITY_CACHE_SIZE = 10_000;

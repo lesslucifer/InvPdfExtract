@@ -8,6 +8,7 @@ import {
   INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE,
 } from '../shared/constants';
 import { writeInstruction } from './instruction-manager';
+import { writeDefaultTriageInstructions } from './filters/ai-triage-instructions';
 import archiver from 'archiver';
 
 const pathExists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
@@ -49,6 +50,7 @@ export async function initVault(folderPath: string): Promise<VaultHandle> {
   // Write default extraction prompt
   await writeDefaultExtractionPrompt(dotPath);
   await migrateOldExtractionPrompt(dotPath);
+  await writeDefaultTriageInstructions(folderPath);
 
   console.log(`[Vault] Initialized at ${folderPath}`);
 
@@ -71,6 +73,7 @@ export async function openVault(folderPath: string): Promise<VaultHandle> {
   // Ensure extraction prompt exists (may be missing in older vaults)
   await migrateOldExtractionPrompt(dotPath);
   await writeDefaultExtractionPrompt(dotPath);
+  await writeDefaultTriageInstructions(folderPath);
 
   console.log(`[Vault] Opened ${folderPath}`);
 
@@ -249,4 +252,21 @@ Return ONLY raw JSON, no markdown fences, no extra text:
   - \`total_amount\` = after-tax final payment ("Tổng cộng thanh toán")
   - \`total_before_tax\` = before-tax subtotal ("Cộng tiền hàng")
   - Cross-check: if \`total_amount\` ≈ SUM(line amounts), those amounts are after-tax; if ≈ SUM × (1 + rate/100), they are before-tax
+
+## Task Instructions
+
+When given files to process:
+
+1. CLASSIFY: Determine document type (bank_statement, invoice_out, invoice_in)
+2. EXTRACT: All fields per the schema above
+3. SCORE: Confidence 0.0-1.0 per field and overall
+
+IMPORTANT invoice reference rule:
+- Extract invoice_code separately from invoice_number
+- invoice_code = Ký hiệu hóa đơn / Ký hiệu HĐ / KHHDon
+- invoice_number = Số hóa đơn / Số HĐ / SHDon
+- Never merge them into one combined string
+- Do not use Ký hiệu mẫu số / KHMSHDon as invoice_code
+
+IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.
 `;

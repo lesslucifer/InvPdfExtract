@@ -254,20 +254,7 @@ export class ClaudeCodeRunner {
 
 ${[textSection, imageSection].filter(Boolean).join('\n\n')}
 
-For each file, return a result with relative_path matching exactly as shown above.
-1. CLASSIFY: Determine document type (bank_statement, invoice_out, invoice_in)
-2. EXTRACT: All fields per the schema in the system prompt
-3. SCORE: Confidence 0.0-1.0 per field and overall
-
-IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
-
-    const invoiceReferenceReminder = `
-IMPORTANT invoice reference rule:
-- Extract invoice_code separately from invoice_number
-- invoice_code = Ký hiệu hóa đơn / Ký hiệu HĐ / KHHDon
-- invoice_number = Số hóa đơn / Số HĐ / SHDon
-- Never merge them into one combined string
-- Do not use Ký hiệu mẫu số / KHMSHDon as invoice_code`;
+For each file, return a result with relative_path matching exactly as shown above.`;
 
     // Only allow Read tool if there are image-based files that need vision processing.
     // Disable all tools when all files have extracted text — no tool loop needed.
@@ -275,9 +262,9 @@ IMPORTANT invoice reference rule:
       ? ['--allowedTools', 'Read']
       : ['--tools', ''];
 
-    const stdout = await this.invokeClaudeCLI(`${userPrompt}\n${invoiceReferenceReminder}`, systemPrompt, vaultRoot, toolArgs);
+    const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt, vaultRoot, toolArgs);
     const allRelative = filePaths.map(fp => path.relative(vaultRoot, fp));
-    let sessionLog = `PROMPT:\n${userPrompt}\n${invoiceReferenceReminder}\n\nRESPONSE:\n${stdout}`;
+    let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
 
     try {
       const result = this.parseResponse(stdout);

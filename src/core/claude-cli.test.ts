@@ -149,18 +149,6 @@ describe('ClaudeCodeRunner', () => {
       expect(retryPrompt).toContain('ONLY a valid JSON object');
     });
 
-    it('includes invoice_code reminder in the Claude prompt', async () => {
-      const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')
-        .mockResolvedValueOnce(VALID_JSON);
-
-      await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
-
-      const prompt = invokeSpy.mock.calls[0][0] as string;
-      expect(prompt).toContain('invoice_code');
-      expect(prompt).toContain('Ký hiệu HĐ');
-      expect(prompt).toContain('KHMSHDon');
-      expect(prompt).toContain('Never merge them into one combined string');
-    });
 
     it('does not retry when first response parses successfully', async () => {
       const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')

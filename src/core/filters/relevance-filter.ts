@@ -66,7 +66,7 @@ export class RelevanceFilter {
       } catch { /* empty text */ }
 
       const triageInputs: TriageInput[] = [{ relativePath: file.relative_path, textSample, layer2Score: layer2Result.score }];
-      const triageResults = await aiTriageBatch(triageInputs, this.config, this.cliPath);
+      const triageResults = await aiTriageBatch(triageInputs, this.config, this.vault.rootPath, this.cliPath);
       const result = triageResults[0];
 
       if (result.decision === 'skip') {

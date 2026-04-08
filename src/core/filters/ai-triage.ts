@@ -1,5 +1,6 @@
 import { ClaudeCodeRunner } from '../claude-cli';
 import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
+import { readTriageInstructions } from './ai-triage-instructions';
 
 interface TriageInput {
   relativePath: string;
@@ -14,28 +15,15 @@ interface TriageOutput {
   reason: string;
 }
 
-const TRIAGE_SYSTEM_PROMPT = `You are a document classifier for Vietnamese accounting files.
-Your job is to classify each document snippet as one of:
-- "invoice" (hoa don GTGT, VAT invoice, sales/purchase invoice)
-- "bank_statement" (sao ke ngan hang, bank statement, payment records)
-- "irrelevant" (marketing material, personal document, HR document, etc.)
-
-Respond with ONLY a JSON array. Each element must have:
-- "index": the 0-based index of the file
-- "classification": "invoice" | "bank_statement" | "irrelevant"
-- "confidence": 0.0 to 1.0
-- "reason": brief explanation (max 20 words)
-
-Example response:
-[{"index": 0, "classification": "invoice", "confidence": 0.9, "reason": "Contains TaxID, invoice number, and VAT fields"}]`;
-
 export async function aiTriageBatch(
   inputs: TriageInput[],
   config: RelevanceFilterConfig,
+  vaultRoot: string,
   cliPath?: string,
 ): Promise<FilterResult[]> {
   if (inputs.length === 0) return [];
 
+  const systemPrompt = await readTriageInstructions(vaultRoot);
   const runner = new ClaudeCodeRunner(cliPath, 30_000, 'fast'); // Haiku, 30s timeout
 
   const fileSections = inputs.map((input, idx) => {
@@ -46,7 +34,7 @@ export async function aiTriageBatch(
   const userPrompt = `Classify these ${inputs.length} document snippet(s):\n\n${fileSections}\n\nReturn ONLY the JSON array.`;
 
   try {
-    const raw = await runner.invokeRaw(userPrompt, TRIAGE_SYSTEM_PROMPT);
+    const raw = await runner.invokeRaw(userPrompt, systemPrompt);
     const parsed = parseTriageResponse(raw, inputs.length);
 
     return inputs.map((input, idx) => {
@@ -121,5 +109,5 @@ function parseTriageResponse(raw: string, expectedCount: number): (TriageOutput 
   }
 }
 
-export { parseTriageResponse, TRIAGE_SYSTEM_PROMPT };
+export { parseTriageResponse };
 export type { TriageInput, TriageOutput };
