@@ -132,6 +132,8 @@ export interface BankStatementData {
   record_id: string;
   bank_name: string | null;
   account_number: string | null;
+  invoice_code: string | null;
+  invoice_number: string | null;
   description: string | null;
   amount: number | null;
   counterparty_name: string | null;
@@ -139,6 +141,7 @@ export interface BankStatementData {
 
 export interface InvoiceData {
   record_id: string;
+  invoice_code: string | null;
   invoice_number: string | null;
   total_before_tax: number | null;
   total_amount: number | null;
@@ -268,12 +271,15 @@ export type ExtractionRecordData = ExtractionBankStatementData | ExtractionInvoi
 export interface ExtractionBankStatementData {
   bank_name?: string;
   account_number?: string;
+  invoice_code?: string;
+  invoice_number?: string;
   description?: string;
   amount?: number;
   counterparty_name?: string;
 }
 
 export interface ExtractionInvoiceData {
+  invoice_code?: string;
   invoice_number?: string;
   total_before_tax?: number;
   total_amount?: number;
@@ -349,6 +355,7 @@ export interface SearchResult {
   account_number: string;
   amount: number;
   // Invoice fields
+  invoice_code: string;
   invoice_number: string;
   total_before_tax: number;
   total_amount: number;
@@ -470,7 +477,7 @@ export interface JeQueueItem {
   record_id: string;
   je_status: JEGenerationStatus;
   doc_type: DocType;
-  description: string; // invoice_number or description
+  description: string; // invoice_code + invoice_number or description
   relative_path: string;
   created_at: string;
 }

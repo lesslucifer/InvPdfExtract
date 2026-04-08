@@ -25,6 +25,7 @@ describe('XML Invoice Parser', () => {
       expect(record.doc_date).toBe('2026-01-31');
 
       const data = record.data as ExtractionInvoiceData;
+      expect(data.invoice_code).toBe('C26TAA');
       expect(data.invoice_number).toBe('911');
       expect(data.total_amount).toBe(351000);
       expect(data.tax_id).toBe('0310989626');
@@ -57,6 +58,7 @@ describe('XML Invoice Parser', () => {
       expect(record.doc_date).toBe('2026-01-31');
 
       const data = record.data as ExtractionInvoiceData;
+      expect(data.invoice_code).toBe('C26TAA');
       expect(data.invoice_number).toBe('933');
       expect(data.total_amount).toBe(135000);
       expect(data.tax_id).toBe('0310989626');
@@ -82,6 +84,7 @@ describe('XML Invoice Parser', () => {
 
       const record = result.records[0];
       const data = record.data as ExtractionInvoiceData;
+      expect(data.invoice_code).toBe('C26TDP');
       expect(data.invoice_number).toBe('1');
       expect(data.total_amount).toBe(8100000);
       expect(data.tax_id).toBe('0314499083');
@@ -135,6 +138,7 @@ describe('XML Invoice Parser', () => {
 
       const record = result.records[0];
       const data = record.data as ExtractionInvoiceData;
+      expect(data.invoice_code).toBe('C26MTT');
       expect(data.invoice_number).toBe('1233');
       expect(data.total_amount).toBe(4557248);
       expect(data.tax_id).toBe('0318566277');
@@ -209,6 +213,7 @@ describe('XML Invoice Parser', () => {
       expect(record.doc_date).toBe('2026-01-31');
 
       const data = record.data as ExtractionInvoiceData;
+      expect(data.invoice_code).toBe('C26TTP');
       expect(data.invoice_number).toBe('00000056');
       expect(data.total_amount).toBe(529200);
       expect(data.tax_id).toBe('0317572493');
@@ -257,6 +262,7 @@ describe('XML Invoice Parser', () => {
       expect(record.confidence).toBe(1.0);
 
       // All field confidence should be 1.0
+      expect(record.field_confidence.invoice_code).toBe(1.0);
       expect(record.field_confidence.invoice_number).toBe(1.0);
       expect(record.field_confidence.total_amount).toBe(1.0);
       expect(record.field_confidence.tax_id).toBe(1.0);

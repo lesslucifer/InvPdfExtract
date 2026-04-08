@@ -39,9 +39,9 @@ function makeValidResult(): ExtractionFileResult {
     doc_type: DocType.InvoiceOut,
     records: [{
       confidence: 1.0,
-      field_confidence: { invoice_number: 1.0 },
+      field_confidence: { invoice_code: 1.0, invoice_number: 1.0 },
       doc_date: '2026-01-01',
-      data: { invoice_number: 'HD001', total_amount: 1000 },
+      data: { invoice_code: 'C26AAE', invoice_number: 'HD001', total_amount: 1000 },
       line_items: [],
     }],
   };
@@ -94,6 +94,7 @@ describe('ScriptVerifier', () => {
       expect(prompt).toContain('Sheet1'); // metadata
       expect(prompt).toContain('placeholder parser'); // script
       expect(prompt).toContain('HD001'); // output
+      expect(prompt).toContain('invoice_code');
     });
 
     it('only calls executeScript and invokeRaw once each', async () => {

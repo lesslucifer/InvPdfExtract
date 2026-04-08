@@ -49,6 +49,7 @@ describe('Integration: XML to Reconciler', () => {
     // Verify invoice_data
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(records[0].id) as any;
     expect(invoiceData).toBeTruthy();
+    expect(invoiceData.invoice_code).toBe('C26TAA');
     expect(invoiceData.invoice_number).toBe('911');
     expect(invoiceData.total_amount).toBe(351000);
     expect(invoiceData.tax_id).toBe('0310989626');
@@ -82,6 +83,7 @@ describe('Integration: XML to Reconciler', () => {
     expect(records).toHaveLength(1);
 
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(records[0].id) as any;
+    expect(invoiceData.invoice_code).toBe('C26TDP');
     expect(invoiceData.invoice_number).toBe('1');
     expect(invoiceData.total_amount).toBe(8100000);
 

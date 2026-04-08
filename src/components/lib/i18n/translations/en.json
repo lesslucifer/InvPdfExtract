@@ -104,6 +104,7 @@
   "invalid_preset": "Invalid preset",
   "invoice": "Invoice",
   "invoice_#": "Invoice #",
+  "invoice_code": "Invoice Code",
   "invoice_number": "Invoice #",
   "invoice_in": "Input Invoice",
   "invoice_out": "Output Invoice",

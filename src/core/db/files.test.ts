@@ -25,7 +25,7 @@ import {
   getSkippedFiles,
   getFolderStatuses,
 } from './files';
-import { createBatch, insertRecord, getRecordsByFileId } from './records';
+import { createBatch, insertRecord, getRecordsByFileId, updateFtsIndex, upsertInvoiceData, getFtsIndexData } from './records';
 
 describe('resetStaleProcessingFiles', () => {
   beforeEach(() => {
@@ -256,6 +256,46 @@ describe('getSkippedFiles', () => {
   it('returns empty array when no skipped files', () => {
     insertFile('a.pdf', 'hash1', 'pdf', 1024);
     expect(getSkippedFiles()).toHaveLength(0);
+  });
+});
+
+describe('updateFtsIndex', () => {
+  beforeEach(() => {
+    _testDb = createInMemoryDb();
+  });
+
+  afterEach(() => {
+    _testDb.close();
+  });
+
+  it('replaces an existing FTS row without using unsupported DELETE', () => {
+    const file = insertFile('reload.pdf', 'hash1', 'pdf', 1024);
+    const batch = createBatch(file.id, BatchStatus.Success, 1, 1, null, null);
+    const record = insertRecord(batch.id, file.id, DocType.InvoiceIn, 'fp-reload', 1, '2026-01-01', {}, {});
+
+    const previousFirst = getFtsIndexData(record.id);
+    upsertInvoiceData(record.id, {
+      invoice_code: 'C26TTP',
+      invoice_number: '00000056',
+      tax_id: '0317572493',
+      counterparty_name: 'CÔNG TY TNHH VẠN THỊNH PHÚC',
+    });
+    updateFtsIndex(record.id, getFtsIndexData(record.id), previousFirst);
+
+    const previousSecond = getFtsIndexData(record.id);
+    upsertInvoiceData(record.id, {
+      invoice_code: 'C26TAA',
+      invoice_number: '933',
+      tax_id: '0310989626',
+      counterparty_name: 'CÔNG TY TNHH IN KỸ THUẬT SỐ',
+    });
+    updateFtsIndex(record.id, getFtsIndexData(record.id), previousSecond);
+
+    const currentHits = _testDb.prepare(`SELECT rowid FROM records_fts WHERE records_fts MATCH 'C26TAA'`).all() as Array<{ rowid: number }>;
+    const staleHits = _testDb.prepare(`SELECT rowid FROM records_fts WHERE records_fts MATCH 'C26TTP'`).all() as Array<{ rowid: number }>;
+
+    expect(currentHits).toHaveLength(1);
+    expect(staleHits).toHaveLength(0);
   });
 });
 

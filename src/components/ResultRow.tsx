@@ -50,6 +50,10 @@ function splitPath(relativePath: string): { folder: string; folderFull: string; 
   return { folder, folderFull, filename };
 }
 
+function formatInvoiceReference(invoiceCode: string, invoiceNumber: string): string {
+  return [invoiceCode, invoiceNumber].filter(Boolean).join('-');
+}
+
 const FOLDER_MAX_LEN = 30;
 const FILENAME_MAX_LEN = 35;
 
@@ -59,7 +63,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
 
   const primaryLabel = isBank
     ? result.bank_name || t('bank_statement', 'Bank Statement')
-    : result.invoice_number || t('invoice', 'Invoice');
+    : formatInvoiceReference(result.invoice_code, result.invoice_number) || result.invoice_number || t('invoice', 'Invoice');
 
   const amount = isBank ? result.amount : result.total_amount;
   const counterparty = result.counterparty_name;

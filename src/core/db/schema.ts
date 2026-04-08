@@ -256,6 +256,7 @@ export const MIGRATIONS: string[] = [
   DROP TABLE IF EXISTS records_fts;
 
   CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
+    invoice_code,
     invoice_number,
     tax_id,
     counterparty_name,
@@ -297,6 +298,33 @@ export const MIGRATIONS: string[] = [
   DROP TABLE IF EXISTS records_fts;
 
   CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
+    invoice_code,
+    invoice_number,
+    tax_id,
+    counterparty_name,
+    counterparty_address,
+    description,
+    bank_name,
+    account_number,
+    content='',
+    tokenize='unicode61 remove_diacritics 1'
+  );
+  `,
+
+  // Migration 015: Split invoice code from invoice number
+  `
+  ALTER TABLE bank_statement_data ADD COLUMN invoice_code TEXT;
+  ALTER TABLE bank_statement_data ADD COLUMN invoice_number TEXT;
+  ALTER TABLE invoice_data ADD COLUMN invoice_code TEXT;
+
+  CREATE INDEX IF NOT EXISTS idx_bank_statement_data_invoice_code ON bank_statement_data(invoice_code);
+  CREATE INDEX IF NOT EXISTS idx_bank_statement_data_invoice_number ON bank_statement_data(invoice_number);
+  CREATE INDEX IF NOT EXISTS idx_invoice_data_invoice_code ON invoice_data(invoice_code);
+
+  DROP TABLE IF EXISTS records_fts;
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
+    invoice_code,
     invoice_number,
     tax_id,
     counterparty_name,

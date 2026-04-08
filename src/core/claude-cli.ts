@@ -261,15 +261,23 @@ For each file, return a result with relative_path matching exactly as shown abov
 
 IMPORTANT: Return ONLY the JSON object, no markdown code fences, no extra text.`;
 
+    const invoiceReferenceReminder = `
+IMPORTANT invoice reference rule:
+- Extract invoice_code separately from invoice_number
+- invoice_code = Ký hiệu hóa đơn / Ký hiệu HĐ / KHHDon
+- invoice_number = Số hóa đơn / Số HĐ / SHDon
+- Never merge them into one combined string
+- Do not use Ký hiệu mẫu số / KHMSHDon as invoice_code`;
+
     // Only allow Read tool if there are image-based files that need vision processing.
     // Disable all tools when all files have extracted text — no tool loop needed.
     const toolArgs = imageBased.length > 0
       ? ['--allowedTools', 'Read']
       : ['--tools', ''];
 
-    const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt, vaultRoot, toolArgs);
+    const stdout = await this.invokeClaudeCLI(`${userPrompt}\n${invoiceReferenceReminder}`, systemPrompt, vaultRoot, toolArgs);
     const allRelative = filePaths.map(fp => path.relative(vaultRoot, fp));
-    let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
+    let sessionLog = `PROMPT:\n${userPrompt}\n${invoiceReferenceReminder}\n\nRESPONSE:\n${stdout}`;
 
     try {
       const result = this.parseResponse(stdout);

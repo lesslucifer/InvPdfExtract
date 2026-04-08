@@ -9,7 +9,7 @@ import {
   softDeleteRecord, upsertBankStatementData,
   upsertInvoiceData, insertLineItem,
   getLineItemsByRecord, updateLineItem,
-  updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict,
+  updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict, getFtsIndexData,
 } from './db/records';
 import { getFileByPath, updateFileStatus, updateFileDocType, updateFileFilterResult } from './db/files';
 import { getDatabase } from './db/database';
@@ -155,12 +155,15 @@ export class Reconciler {
   private upsertExtensionData(recordId: string, docType: string, extractedRecord: ExtractionRecord): void {
     const data = extractedRecord.data;
     const lockedFields = getLockedFieldsForRecord(recordId);
+    const previousFtsData = getFtsIndexData(recordId);
 
     if (docType === DocType.BankStatement) {
       const bsd = data as ExtractionBankStatementData;
       const fields: ReconciledFields = {
         bank_name: bsd.bank_name ?? null,
         account_number: bsd.account_number ?? null,
+        invoice_code: bsd.invoice_code ?? null,
+        invoice_number: bsd.invoice_number ?? null,
         description: bsd.description ?? null,
         amount: bsd.amount ?? null,
         counterparty_name: bsd.counterparty_name ?? null,
@@ -174,12 +177,15 @@ export class Reconciler {
       updateFtsIndex(recordId, {
         bank_name: fields.bank_name != null ? String(fields.bank_name) : undefined,
         account_number: fields.account_number != null ? String(fields.account_number) : undefined,
+        invoice_code: fields.invoice_code != null ? String(fields.invoice_code) : undefined,
+        invoice_number: fields.invoice_number != null ? String(fields.invoice_number) : undefined,
         description: fields.description != null ? String(fields.description) : undefined,
         counterparty_name: fields.counterparty_name != null ? String(fields.counterparty_name) : undefined,
-      });
+      }, previousFtsData);
     } else {
       const inv = data as ExtractionInvoiceData;
       const fields: ReconciledFields = {
+        invoice_code: inv.invoice_code ?? null,
         invoice_number: inv.invoice_number ?? null,
         total_before_tax: inv.total_before_tax ?? null,
         total_amount: inv.total_amount ?? null,
@@ -197,11 +203,12 @@ export class Reconciler {
       this.reconcileLineItems(recordId, extractedRecord.line_items || []);
 
       updateFtsIndex(recordId, {
+        invoice_code: fields.invoice_code != null ? String(fields.invoice_code) : undefined,
         invoice_number: fields.invoice_number != null ? String(fields.invoice_number) : undefined,
         tax_id: fields.tax_id != null ? String(fields.tax_id) : undefined,
         counterparty_name: fields.counterparty_name != null ? String(fields.counterparty_name) : undefined,
         counterparty_address: fields.counterparty_address != null ? String(fields.counterparty_address) : undefined,
-      });
+      }, previousFtsData);
     }
   }
 

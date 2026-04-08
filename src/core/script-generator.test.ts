@@ -14,18 +14,19 @@ function makeSampleMetadata(): SpreadsheetMetadata {
     sheets: [
       {
         name: 'Invoices',
-        headers: ['STT', 'Số HĐ', 'Ngày lập', 'TaxID', 'Tổng tiền'],
+        headers: ['STT', 'Ký hiệu HĐ', 'Số HĐ', 'Ngày lập', 'TaxID', 'Tổng tiền'],
         rowCount: 10,
-        colCount: 5,
+        colCount: 6,
         columnTypes: [
           { header: 'STT', inferredType: 'number', sampleValues: [1, 2], emptyRate: 0 },
+          { header: 'Ký hiệu HĐ', inferredType: 'string', sampleValues: ['C26AAE'], emptyRate: 0 },
           { header: 'Số HĐ', inferredType: 'string', sampleValues: ['HD001'], emptyRate: 0 },
           { header: 'Ngày lập', inferredType: 'date', sampleValues: ['01/01/2026'], emptyRate: 0 },
           { header: 'TaxID', inferredType: 'string', sampleValues: ['0305008980'], emptyRate: 0 },
           { header: 'Tổng tiền', inferredType: 'number', sampleValues: [1000000], emptyRate: 0 },
         ],
         sampleRows: [
-          { STT: 1, 'Số HĐ': 'HD001', 'Ngày lập': '01/01/2026', TaxID: '0305008980', 'Tổng tiền': 1000000 },
+          { STT: 1, 'Ký hiệu HĐ': 'C26AAE', 'Số HĐ': 'HD001', 'Ngày lập': '01/01/2026', TaxID: '0305008980', 'Tổng tiền': 1000000 },
         ],
       },
     ],
@@ -59,7 +60,7 @@ const result = {
     confidence: 1.0,
     field_confidence: {},
     doc_date: r['Ngày lập'] || null,
-    data: { invoice_number: r['Số HĐ'], total_amount: r['Tổng tiền'], tax_id: r['TaxID'] },
+    data: { invoice_code: r['Ký hiệu HĐ'], invoice_number: r['Số HĐ'], total_amount: r['Tổng tiền'], tax_id: r['TaxID'] },
     line_items: []
   }))
 };
@@ -100,6 +101,7 @@ describe('ScriptGenerator', () => {
       const userPrompt = spy.mock.calls[0][0];
       expect(userPrompt).toContain('Invoices');
       expect(userPrompt).toContain('Số HĐ');
+      expect(userPrompt).toContain('Ký hiệu HĐ');
       expect(userPrompt).toContain('Tổng tiền');
     });
 
@@ -112,6 +114,7 @@ describe('ScriptGenerator', () => {
 
       const userPrompt = spy.mock.calls[0][0];
       expect(userPrompt).toContain('HD001');
+      expect(userPrompt).toContain('C26AAE');
       expect(userPrompt).toContain('0305008980');
     });
 
@@ -140,6 +143,7 @@ describe('ScriptGenerator', () => {
       expect(systemPrompt).toContain('bank_statement');
       expect(systemPrompt).toContain('invoice_out');
       expect(systemPrompt).toContain('invoice_in');
+      expect(systemPrompt).toContain('invoice_code');
     });
 
     it('extracts parser.js code from response', async () => {
@@ -236,6 +240,7 @@ describe('ScriptGenerator', () => {
       const userPrompt = spy.mock.calls[0][0];
       expect(userPrompt).toContain('Invoices');
       expect(userPrompt).toContain('Số HĐ');
+      expect(userPrompt).toContain('Ký hiệu HĐ');
     });
 
     it('throws when response has no matcher code block', async () => {

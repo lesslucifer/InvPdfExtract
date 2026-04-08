@@ -9,7 +9,7 @@ const execAsync = promisify(exec);
 import {
   searchRecords, getLineItemsByRecord, getFieldOverrides, getFieldOverridesByLineItemId,
   upsertFieldOverride, resolveConflictKeep, resolveConflictAccept,
-  resolveAllConflictsForRecord, updateFtsIndex,
+  resolveAllConflictsForRecord, updateFtsIndex, getFtsIndexData,
   listRecentFolders, listTopFolders,
   getAggregates, gatherJEExportData,
   getErrorLogsWithPath, getProcessedFilesWithStats,
@@ -494,6 +494,7 @@ export class OverlayWindow {
     ipcMain.handle('save-field-override', async (_event, input: FieldOverrideInput) => {
       try {
         const db = getDatabase();
+        const previousFtsData = getFtsIndexData(input.recordId);
         // Get the current AI value for this field
         const row = db.prepare(`SELECT * FROM ${input.tableName} WHERE record_id = ?`).get(input.recordId) as Record<string, unknown> | undefined;
         const currentAiValue = row ? String(row[input.fieldName] ?? '') : '';
@@ -506,19 +507,20 @@ export class OverlayWindow {
         upsertFieldOverride(input.recordId, input.tableName, input.fieldName, input.userValue, currentAiValue);
 
         // Update FTS index if applicable
-        const ftsFields = ['invoice_number', 'tax_id', 'counterparty_name', 'counterparty_address', 'description', 'bank_name', 'account_number'];
+        const ftsFields = ['invoice_code', 'invoice_number', 'tax_id', 'counterparty_name', 'counterparty_address', 'description', 'bank_name', 'account_number'];
         if (ftsFields.includes(input.fieldName)) {
           const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(input.recordId) as InvoiceData | undefined;
           const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(input.recordId) as BankStatementData | undefined;
           updateFtsIndex(input.recordId, {
-            invoice_number: invoiceData?.invoice_number ?? undefined,
+            invoice_code: invoiceData?.invoice_code ?? bankData?.invoice_code ?? undefined,
+            invoice_number: invoiceData?.invoice_number ?? bankData?.invoice_number ?? undefined,
             tax_id: invoiceData?.tax_id ?? undefined,
             counterparty_name: invoiceData?.counterparty_name ?? bankData?.counterparty_name ?? undefined,
             counterparty_address: invoiceData?.counterparty_address ?? undefined,
             description: bankData?.description ?? undefined,
             bank_name: bankData?.bank_name ?? undefined,
             account_number: bankData?.account_number ?? undefined,
-          });
+          }, previousFtsData);
         }
       } catch (err) {
         console.error('[Override] Save field override failed:', err);

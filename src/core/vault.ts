@@ -175,6 +175,8 @@ For each file provided:
 ### Bank Statement (sao kê ngân hàng)
 - \`bank_name\`: Bank name / Tên ngân hàng (TEXT)
 - \`account_number\`: Account number / Số tài khoản (TEXT)
+- \`invoice_code\`: Invoice code / Ký hiệu hóa đơn (TEXT, when visible)
+- \`invoice_number\`: Invoice number / Số hóa đơn (TEXT, when visible)
 - \`doc_date\`: Transaction date / Ngày giao dịch (DATE, YYYY-MM-DD)
 - \`description\`: Transaction description / Nội dung giao dịch (TEXT)
 - \`amount\`: Amount, positive = credit, negative = debit / Số tiền (REAL)
@@ -184,6 +186,7 @@ For each file provided:
 
 ### Invoice (hóa đơn) — invoice_out and invoice_in
 Invoice-level fields:
+- \`invoice_code\`: Ký hiệu hóa đơn / invoice code (TEXT)
 - \`invoice_number\`: Số hóa đơn (TEXT)
 - \`doc_date\`: Ngày lập (DATE, YYYY-MM-DD)
 - \`total_before_tax\`: Cộng tiền hàng — total BEFORE tax (REAL)
@@ -201,6 +204,17 @@ Line item fields (chi tiết):
 - \`total_with_tax\`: Thành tiền sau thuế — line total AFTER tax (REAL)
 
 **Fingerprint:** SHA-256 of: normalize(invoice_number) + "|" + normalize(tax_id) + "|" + normalize(doc_date)
+
+**Invoice reference split rule:** \`invoice_code\` and \`invoice_number\` are separate fields. Never merge them into one string. If only one is visible, return that field and set the other to null.
+
+**Invoice reference detection rules for PDFs:**
+- \`invoice_code\` usually comes from labels like: "Ký hiệu", "Ký hiệu hóa đơn", "Ký hiệu HĐ", "Serial", "KHHDon"
+- \`invoice_number\` usually comes from labels like: "Số", "Số hóa đơn", "Số HĐ", "No.", "SHDon"
+- Common valid \`invoice_code\` values look like alphanumeric series such as \`C24TAA\`, \`C26TTP\`, \`AA/23E\`
+- Common valid \`invoice_number\` values are numeric strings, sometimes zero-padded such as \`00000056\`
+- On many Vietnamese invoices, the code and number appear adjacent, for example: "Ký hiệu: C26TTP" and "Số: 00000056"
+- DO NOT confuse \`invoice_code\` with "Ký hiệu mẫu số", "Mẫu số", or \`KHMSHDon\`; those are form/template identifiers, not the invoice code we store
+- If OCR/text extraction is noisy, prefer the field nearest to "Ký hiệu hóa đơn"/"Ký hiệu HĐ"/"KHHDon" for \`invoice_code\`
 
 ## Irrelevant Documents
 

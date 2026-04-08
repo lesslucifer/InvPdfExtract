@@ -39,11 +39,29 @@ interface AggregateRow {
 
 type SqlParam = string | number | null;
 
+export interface FtsIndexData {
+  invoice_code?: string;
+  invoice_number?: string;
+  tax_id?: string;
+  counterparty_name?: string;
+  counterparty_address?: string;
+  description?: string;
+  bank_name?: string;
+  account_number?: string;
+}
+
+function hasFtsIndexData(data: FtsIndexData | undefined): boolean {
+  if (!data) return false;
+  return Object.values(data).some(value => (value ?? '') !== '');
+}
+
 interface ExportBankStatementRow {
   doc_date: string | null;
   relative_path: string;
   bank_name: string | null;
   account_number: string | null;
+  invoice_code: string | null;
+  invoice_number: string | null;
   description: string | null;
   amount: number | null;
   counterparty_name: string | null;
@@ -55,6 +73,7 @@ interface ExportInvoiceHeaderRow {
   doc_type: DocType;
   doc_date: string | null;
   relative_path: string;
+  invoice_code: string | null;
   invoice_number: string | null;
   total_before_tax: number | null;
   total_amount: number | null;
@@ -65,6 +84,7 @@ interface ExportInvoiceHeaderRow {
 }
 
 interface ExportInvoiceLineItemRow extends InvoiceLineItem {
+  invoice_code: string | null;
   invoice_number: string | null;
   doc_type: DocType;
   doc_date: string | null;
@@ -75,6 +95,7 @@ export interface JEExportRow {
   doc_date: string | null;
   doc_type: string;
   relative_path: string;
+  invoice_code: string | null;
   invoice_number: string | null;
   bank_description: string | null;
   counterparty_name: string | null;
@@ -151,7 +172,10 @@ export function getJeQueueItems(): JeQueueItem[] {
   const db = getDatabase();
   return db.prepare(`
     SELECT r.id AS record_id, r.je_status, r.doc_type, r.created_at,
-      COALESCE(id2.invoice_number, bsd.description, '') AS description,
+      CASE
+        WHEN id2.record_id IS NOT NULL THEN COALESCE(NULLIF(TRIM(id2.invoice_code || '-' || id2.invoice_number), '-'), id2.invoice_code, id2.invoice_number, '')
+        ELSE COALESCE(NULLIF(TRIM(bsd.invoice_code || '-' || bsd.invoice_number), '-'), bsd.invoice_code, bsd.invoice_number, bsd.description, '')
+      END AS description,
       f.relative_path
     FROM records r
     LEFT JOIN invoice_data id2 ON r.id = id2.record_id
@@ -167,7 +191,10 @@ export function getJeErrorItems(): JeErrorItem[] {
   const db = getDatabase();
   return db.prepare(`
     SELECT r.id AS record_id, r.doc_type, r.updated_at,
-      COALESCE(id2.invoice_number, bsd.description, '') AS description,
+      CASE
+        WHEN id2.record_id IS NOT NULL THEN COALESCE(NULLIF(TRIM(id2.invoice_code || '-' || id2.invoice_number), '-'), id2.invoice_code, id2.invoice_number, '')
+        ELSE COALESCE(NULLIF(TRIM(bsd.invoice_code || '-' || bsd.invoice_number), '-'), bsd.invoice_code, bsd.invoice_number, bsd.description, '')
+      END AS description,
       f.relative_path
     FROM records r
     LEFT JOIN invoice_data id2 ON r.id = id2.record_id
@@ -196,15 +223,17 @@ export function softDeleteRecord(recordId: string): void {
 export function upsertBankStatementData(recordId: string, data: Partial<BankStatementData>): void {
   const db = getDatabase();
   db.prepare(`
-    INSERT INTO bank_statement_data (record_id, bank_name, account_number, description, amount, counterparty_name)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO bank_statement_data (record_id, bank_name, account_number, invoice_code, invoice_number, description, amount, counterparty_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(record_id) DO UPDATE SET
       bank_name = excluded.bank_name,
       account_number = excluded.account_number,
+      invoice_code = excluded.invoice_code,
+      invoice_number = excluded.invoice_number,
       description = excluded.description,
       amount = excluded.amount,
       counterparty_name = excluded.counterparty_name
-  `).run(recordId, data.bank_name ?? null, data.account_number ?? null, data.description ?? null, data.amount ?? null, data.counterparty_name ?? null);
+  `).run(recordId, data.bank_name ?? null, data.account_number ?? null, data.invoice_code ?? null, data.invoice_number ?? null, data.description ?? null, data.amount ?? null, data.counterparty_name ?? null);
 }
 
 // === Invoice Data ===
@@ -212,16 +241,17 @@ export function upsertBankStatementData(recordId: string, data: Partial<BankStat
 export function upsertInvoiceData(recordId: string, data: Partial<InvoiceData>): void {
   const db = getDatabase();
   db.prepare(`
-    INSERT INTO invoice_data (record_id, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO invoice_data (record_id, invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(record_id) DO UPDATE SET
+      invoice_code = excluded.invoice_code,
       invoice_number = excluded.invoice_number,
       total_before_tax = excluded.total_before_tax,
       total_amount = excluded.total_amount,
       tax_id = excluded.tax_id,
       counterparty_name = excluded.counterparty_name,
       counterparty_address = excluded.counterparty_address
-  `).run(recordId, data.invoice_number ?? null, data.total_before_tax ?? null, data.total_amount ?? null, data.tax_id ?? null, data.counterparty_name ?? null, data.counterparty_address ?? null);
+  `).run(recordId, data.invoice_code ?? null, data.invoice_number ?? null, data.total_before_tax ?? null, data.total_amount ?? null, data.tax_id ?? null, data.counterparty_name ?? null, data.counterparty_address ?? null);
 }
 
 // === Invoice Line Items ===
@@ -281,18 +311,69 @@ export function getLineItemsByRecord(recordId: string): InvoiceLineItem[] {
 
 // === FTS Index ===
 
-export function updateFtsIndex(recordId: string, data: {
-  invoice_number?: string; tax_id?: string; counterparty_name?: string; counterparty_address?: string;
-  description?: string; bank_name?: string; account_number?: string;
-}): void {
+export function getFtsIndexData(recordId: string): FtsIndexData {
   const db = getDatabase();
-  // Delete old entry if exists
-  db.prepare('DELETE FROM records_fts WHERE rowid = (SELECT rowid FROM records_fts WHERE invoice_number = ? OR tax_id = ? LIMIT 1)').run(data.invoice_number ?? '', data.tax_id ?? '');
-  // Insert new
+  const row = db.prepare(`
+    SELECT
+      id2.invoice_code,
+      COALESCE(id2.invoice_number, bsd.invoice_number) AS invoice_number,
+      id2.tax_id,
+      COALESCE(id2.counterparty_name, bsd.counterparty_name) AS counterparty_name,
+      id2.counterparty_address,
+      bsd.description,
+      bsd.bank_name,
+      bsd.account_number
+    FROM records r
+    LEFT JOIN invoice_data id2 ON r.id = id2.record_id
+    LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id
+    WHERE r.id = ?
+  `).get(recordId) as FtsIndexData | undefined;
+
+  return row ?? {};
+}
+
+export function updateFtsIndex(recordId: string, data: FtsIndexData, previousData?: FtsIndexData): void {
+  const db = getDatabase();
+  const row = db.prepare('SELECT 1 FROM records WHERE id = ?').get(recordId) as { 1: number } | undefined;
+  if (!row) return;
+
+  const rowid = db.prepare('SELECT rowid FROM records WHERE id = ?').get(recordId) as { rowid: number } | undefined;
+  if (!rowid) return;
+
+  if (hasFtsIndexData(previousData)) {
+    const previous = previousData as FtsIndexData;
+    db.prepare(`
+      INSERT INTO records_fts(
+        records_fts, rowid, invoice_code, invoice_number, tax_id, counterparty_name, counterparty_address, description, bank_name, account_number
+      )
+      VALUES ('delete', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      rowid.rowid,
+      previous.invoice_code ?? '',
+      previous.invoice_number ?? '',
+      previous.tax_id ?? '',
+      previous.counterparty_name ?? '',
+      previous.counterparty_address ?? '',
+      previous.description ?? '',
+      previous.bank_name ?? '',
+      previous.account_number ?? '',
+    );
+  }
+
   db.prepare(`
-    INSERT INTO records_fts (rowid, invoice_number, tax_id, counterparty_name, counterparty_address, description, bank_name, account_number)
-    VALUES ((SELECT rowid FROM records WHERE id = ?), ?, ?, ?, ?, ?, ?, ?)
-  `).run(recordId, data.invoice_number ?? '', data.tax_id ?? '', data.counterparty_name ?? '', data.counterparty_address ?? '', data.description ?? '', data.bank_name ?? '', data.account_number ?? '');
+    INSERT INTO records_fts (rowid, invoice_code, invoice_number, tax_id, counterparty_name, counterparty_address, description, bank_name, account_number)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    rowid.rowid,
+    data.invoice_code ?? '',
+    data.invoice_number ?? '',
+    data.tax_id ?? '',
+    data.counterparty_name ?? '',
+    data.counterparty_address ?? '',
+    data.description ?? '',
+    data.bank_name ?? '',
+    data.account_number ?? '',
+  );
 }
 
 // === Processing Logs ===
@@ -552,13 +633,16 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     const nq = `%${normalizeQuery(q)}%`;
     conditions.push(`(
       r.id IN (SELECT rowid FROM records_fts WHERE records_fts MATCH ?)
+      OR normalize_text(id2.invoice_code) LIKE ?
       OR normalize_text(id2.invoice_number) LIKE ?
+      OR normalize_text(bsd.invoice_code) LIKE ?
+      OR normalize_text(bsd.invoice_number) LIKE ?
       OR normalize_text(id2.tax_id) LIKE ?
       OR normalize_text(id2.counterparty_name) LIKE ?
       OR normalize_text(bsd.counterparty_name) LIKE ?
       OR normalize_text(bsd.account_number) LIKE ?
     )`);
-    params.push(ftsQuery, nq, nq, nq, nq, nq);
+    params.push(ftsQuery, nq, nq, nq, nq, nq, nq, nq, nq);
   }
 
   if (parsed.docType) {
@@ -647,7 +731,7 @@ const SORT_FIELD_SQL: Record<SortField, string> = {
   path: 'f.relative_path',
   amount: 'COALESCE(id2.total_amount, bsd.amount, 0)',
   confidence: 'r.confidence',
-  shd: 'COALESCE(id2.invoice_number, \'\')',
+  shd: 'COALESCE(id2.invoice_number, bsd.invoice_number, \'\')',
 };
 
 function buildOrderByClause(parsed: ParsedQuery): string {
@@ -679,7 +763,8 @@ export function searchRecords(query: string, limit: number = 50, offset: number 
 
   const sql = `
     SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
-      COALESCE(id2.invoice_number, '') as invoice_number,
+      COALESCE(id2.invoice_code, bsd.invoice_code, '') as invoice_code,
+      COALESCE(id2.invoice_number, bsd.invoice_number, '') as invoice_number,
       COALESCE(id2.total_before_tax, 0) as total_before_tax,
       COALESCE(id2.total_amount, 0) as total_amount,
       COALESCE(id2.tax_id, '') as tax_id,
@@ -735,7 +820,7 @@ export function gatherFilteredExportData(filters: SearchFilters): {
 
   const bankStatements = db.prepare(`
     SELECT r.doc_date, f.relative_path,
-      bsd.bank_name, bsd.account_number, bsd.description, bsd.amount, bsd.counterparty_name,
+      bsd.bank_name, bsd.account_number, bsd.invoice_code, bsd.invoice_number, bsd.description, bsd.amount, bsd.counterparty_name,
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type = 'bank_statement'
@@ -743,7 +828,7 @@ export function gatherFilteredExportData(filters: SearchFilters): {
 
   const invoiceHeaders = db.prepare(`
     SELECT r.id as record_id, r.doc_type, r.doc_date, f.relative_path,
-      id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
+      id2.invoice_code, id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type IN ('invoice_in', 'invoice_out')
@@ -754,13 +839,13 @@ export function gatherFilteredExportData(filters: SearchFilters): {
   if (recordIds.length > 0) {
     const placeholders = recordIds.map(() => '?').join(',');
     invoiceLineItems = db.prepare(`
-      SELECT li.*, id2.invoice_number, r.doc_type, r.doc_date
+      SELECT li.*, id2.invoice_code, id2.invoice_number, r.doc_type, r.doc_date
       FROM invoice_line_items li
       JOIN records r ON li.record_id = r.id
       JOIN invoice_data id2 ON r.id = id2.record_id
       WHERE li.record_id IN (${placeholders})
         AND li.deleted_at IS NULL
-      ORDER BY r.doc_type, id2.invoice_number, li.line_number
+      ORDER BY r.doc_type, id2.invoice_code, id2.invoice_number, li.line_number
     `).all(...recordIds) as ExportInvoiceLineItemRow[];
   }
 
@@ -780,7 +865,8 @@ export function gatherJEExportData(filters: SearchFilters): JEExportRow[] {
       r.doc_date,
       r.doc_type,
       f.relative_path,
-      id2.invoice_number,
+      COALESCE(id2.invoice_code, bsd.invoice_code) AS invoice_code,
+      COALESCE(id2.invoice_number, bsd.invoice_number) AS invoice_number,
       bsd.description        AS bank_description,
       COALESCE(id2.counterparty_name, bsd.counterparty_name) AS counterparty_name,
       id2.total_amount,

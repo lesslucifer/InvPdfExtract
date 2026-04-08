@@ -50,6 +50,7 @@ const records = invoiceRows.map(row => {
   return {
     confidence: 1.0,
     field_confidence: {
+      invoice_code: 1.0,
       invoice_number: 1.0,
       doc_date: 1.0,
       total_amount: 1.0,
@@ -59,6 +60,7 @@ const records = invoiceRows.map(row => {
     },
     doc_date: ngay,
     data: {
+      invoice_code: kyHieu,
       invoice_number: soHD,
       total_amount: typeof row['Tổng tiền thanh toán'] === 'number' ? row['Tổng tiền thanh toán'] : 0,
       tax_id: String(row['MST người bán'] || ''),
@@ -145,6 +147,7 @@ describe('Integration: XLSX to Reconciler', () => {
     // Verify invoice_data
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(records[0].id) as any;
     expect(invoiceData).toBeTruthy();
+    expect(invoiceData.invoice_code).toBe('C26NGG');
     expect(invoiceData.invoice_number).toBe('8');
     expect(invoiceData.tax_id).toBe('0305008980');
     expect(invoiceData.counterparty_name).toBe('CÔNG TY TNHH GINKGO');

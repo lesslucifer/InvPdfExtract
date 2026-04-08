@@ -104,6 +104,7 @@
   "invalid_preset": "Bộ lọc không hợp lệ",
   "invoice": "Hóa đơn",
   "invoice_#": "Số HĐ",
+  "invoice_code": "Ký hiệu hóa đơn",
   "invoice_number": "Số hóa đơn",
   "invoice_in": "Hóa đơn đầu vào",
   "invoice_out": "Hóa đơn đầu ra",

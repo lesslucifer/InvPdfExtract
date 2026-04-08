@@ -200,8 +200,8 @@ export const SUGGESTION_ITEMS: SuggestionItem[] = [
     directionIcon: 'arrowUp',
     label: 'Invoice #',
     insertText: 'sort:shd ',
-    hint: 'Số hoá đơn',
-    keywords: ['sort', 'shd', 'so hoa don', 'invoice number'],
+    hint: 'Ký hiệu + số hoá đơn',
+    keywords: ['sort', 'shd', 'so hoa don', 'ky hieu hoa don', 'invoice number', 'invoice code'],
     filterKey: 'sortField',
   }
 ];

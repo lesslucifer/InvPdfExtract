@@ -12,6 +12,13 @@ export interface ExportOptions {
 
 type ExportData = ReturnType<typeof gatherFilteredExportData>;
 
+function formatInvoiceReference(invoiceCode: string | null | undefined, invoiceNumber: string | null | undefined): string | null {
+  const code = invoiceCode?.trim() ?? '';
+  const number = invoiceNumber?.trim() ?? '';
+  if (code && number) return `${code}-${number}`;
+  return code || number || null;
+}
+
 /**
  * Gathers export data from the database, optionally filtered.
  * Returns structured data grouped by doc_type for Excel/CSV export.
@@ -23,7 +30,7 @@ export function gatherExportData(options: ExportOptions = {}): ExportData {
   // Bank statements
   const bankStatements = db.prepare(`
     SELECT r.doc_date, f.relative_path,
-      bsd.bank_name, bsd.account_number, bsd.description, bsd.amount, bsd.counterparty_name,
+      bsd.bank_name, bsd.account_number, bsd.invoice_code, bsd.invoice_number, bsd.description, bsd.amount, bsd.counterparty_name,
       r.confidence
     FROM records r
     JOIN files f ON r.file_id = f.id
@@ -35,24 +42,24 @@ export function gatherExportData(options: ExportOptions = {}): ExportData {
   // Invoice headers (both in and out)
   const invoiceHeaders = db.prepare(`
     SELECT r.id as record_id, r.doc_type, r.doc_date, f.relative_path,
-      id2.invoice_number, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
+      id2.invoice_code, id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
       r.confidence
     FROM records r
     JOIN files f ON r.file_id = f.id
     JOIN invoice_data id2 ON r.id = id2.record_id
     WHERE r.doc_type IN (?, ?) ${deletedClause}
-    ORDER BY r.doc_type, r.doc_date, id2.invoice_number
+    ORDER BY r.doc_type, r.doc_date, id2.invoice_code, id2.invoice_number
   `).all(DocType.InvoiceIn, DocType.InvoiceOut);
 
   // Invoice line items
   const invoiceLineItems = db.prepare(`
-    SELECT li.*, id2.invoice_number, r.doc_type, r.doc_date
+    SELECT li.*, id2.invoice_code, id2.invoice_number, r.doc_type, r.doc_date
     FROM invoice_line_items li
     JOIN records r ON li.record_id = r.id
     JOIN invoice_data id2 ON r.id = id2.record_id
     WHERE r.doc_type IN (?, ?) ${deletedClause}
       AND li.deleted_at IS NULL
-    ORDER BY r.doc_type, id2.invoice_number, li.line_number
+    ORDER BY r.doc_type, id2.invoice_code, id2.invoice_number, li.line_number
   `).all(DocType.InvoiceIn, DocType.InvoiceOut);
 
   return { bankStatements: bankStatements, invoiceHeaders: invoiceHeaders as ExportData['invoiceHeaders'], invoiceLineItems: invoiceLineItems as ExportData['invoiceLineItems'] };
@@ -67,27 +74,27 @@ export function exportToCsv(data: ExportData): Map<string, string> {
 
   // Bank statements CSV
   if (data.bankStatements.length > 0) {
-    const headers = [t('ngay', 'Ngày'), t('ngan_hang', 'Ngân hàng'), t('stk', 'STK'), t('mo_ta', 'Mô tả'), t('so_tien', 'Số tiền'), t('doi_tac', 'Đối tác'), t('confidence', 'Confidence'), t('file', 'File')];
+    const headers = [t('ngay', 'Ngày'), t('ngan_hang', 'Ngân hàng'), t('stk', 'STK'), t('invoice_code', 'Ký hiệu HĐ'), t('so_hd', 'Số HĐ'), t('mo_ta', 'Mô tả'), t('so_tien', 'Số tiền'), t('doi_tac', 'Đối tác'), t('confidence', 'Confidence'), t('file', 'File')];
     const rows = data.bankStatements.map(r => [
-      r.doc_date, r.bank_name, r.account_number, r.description, r.amount, r.counterparty_name, r.confidence, r.relative_path,
+      r.doc_date, r.bank_name, r.account_number, r.invoice_code, r.invoice_number, r.description, r.amount, r.counterparty_name, r.confidence, r.relative_path,
     ]);
     files.set('bank_statements.csv', toCsv(headers, rows));
   }
 
   // Invoice headers CSV
   if (data.invoiceHeaders.length > 0) {
-    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('so_hd', 'Số HĐ'), t('tong_tien_truoc_thue', 'Tổng tiền trước thuế'), t('tong_tien', 'Tổng tiền'), t('taxId', 'TaxID'), t('doi_tac', 'Đối tác'), t('dia_chi', 'Địa chỉ'), t('confidence', 'Confidence'), t('file', 'File')];
+    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('invoice_code', 'Ký hiệu HĐ'), t('so_hd', 'Số HĐ'), t('tong_tien_truoc_thue', 'Tổng tiền trước thuế'), t('tong_tien', 'Tổng tiền'), t('taxId', 'TaxID'), t('doi_tac', 'Đối tác'), t('dia_chi', 'Địa chỉ'), t('confidence', 'Confidence'), t('file', 'File')];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.doc_date, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
+      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);
     files.set('invoices.csv', toCsv(headers, rows));
   }
 
   // Line items CSV
   if (data.invoiceLineItems.length > 0) {
-    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('so_hd', 'Số HĐ'), t('#', '#'), t('mo_ta', 'Mô tả'), t('don_gia', 'Đơn giá'), t('so_luong', 'Số lượng'), t('thue_suat', 'Thuế suất'), t('thanh_tien_truoc_thue', 'Thành tiền trước thuế'), t('thanh_tien', 'Thành tiền')];
+    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('invoice_code', 'Ký hiệu HĐ'), t('so_hd', 'Số HĐ'), t('#', '#'), t('mo_ta', 'Mô tả'), t('don_gia', 'Đơn giá'), t('so_luong', 'Số lượng'), t('thue_suat', 'Thuế suất'), t('thanh_tien_truoc_thue', 'Thành tiền trước thuế'), t('thanh_tien', 'Thành tiền')];
     const rows = data.invoiceLineItems.map(r => [
-      r.doc_type, r.doc_date, r.invoice_number, r.line_number, r.description, r.unit_price, r.quantity, r.tax_rate, r.subtotal, r.total_with_tax,
+      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.line_number, r.description, r.unit_price, r.quantity, r.tax_rate, r.subtotal, r.total_with_tax,
     ]);
     files.set('line_items.csv', toCsv(headers, rows));
   }
@@ -120,27 +127,27 @@ export function exportToXlsx(data: ExportData): Buffer {
   const wb = XLSX.utils.book_new();
 
   if (data.bankStatements.length > 0) {
-    const headers = ['Ngay', 'Ngan hang', 'STK', 'Mo ta', 'So tien', 'Doi tac', 'Confidence', 'File'];
+    const headers = ['Ngay', 'Ngan hang', 'STK', 'Ky hieu HD', 'So HD', 'Mo ta', 'So tien', 'Doi tac', 'Confidence', 'File'];
     const rows = data.bankStatements.map(r => [
-      r.doc_date, r.bank_name, r.account_number, r.description, r.amount, r.counterparty_name, r.confidence, r.relative_path,
+      r.doc_date, r.bank_name, r.account_number, r.invoice_code, r.invoice_number, r.description, r.amount, r.counterparty_name, r.confidence, r.relative_path,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Sao ke');
   }
 
   if (data.invoiceHeaders.length > 0) {
-    const headers = ['Loai', 'Ngay', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'TaxID', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
+    const headers = ['Loai', 'Ngay', 'Ky hieu HD', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'TaxID', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.doc_date, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
+      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Hoa don');
   }
 
   if (data.invoiceLineItems.length > 0) {
-    const headers = ['Loai', 'Ngay', 'So HD', '#', 'Mo ta', 'Don gia', 'So luong', 'Thue suat', 'Thanh tien truoc thue', 'Thanh tien'];
+    const headers = ['Loai', 'Ngay', 'Ky hieu HD', 'So HD', '#', 'Mo ta', 'Don gia', 'So luong', 'Thue suat', 'Thanh tien truoc thue', 'Thanh tien'];
     const rows = data.invoiceLineItems.map(r => [
-      r.doc_type, r.doc_date, r.invoice_number, r.line_number, r.description, r.unit_price, r.quantity, r.tax_rate, r.subtotal, r.total_with_tax,
+      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.line_number, r.description, r.unit_price, r.quantity, r.tax_rate, r.subtotal, r.total_with_tax,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Chi tiet');
@@ -245,16 +252,18 @@ export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
     if (docType === DocType.BankStatement) {
       dienGiaiChung = row.bank_description;
     } else if (docType === DocType.InvoiceIn) {
-      dienGiaiChung = row.counterparty_name && row.invoice_number
-        ? `Mua hàng của ${row.counterparty_name} theo hóa đơn số ${row.invoice_number}`
-        : row.counterparty_name ?? row.invoice_number ?? null;
+      const invoiceRef = formatInvoiceReference(row.invoice_code, row.invoice_number);
+      dienGiaiChung = row.counterparty_name && invoiceRef
+        ? `Mua hàng của ${row.counterparty_name} theo hóa đơn ${invoiceRef}`
+        : row.counterparty_name ?? invoiceRef ?? null;
     } else {
-      dienGiaiChung = row.counterparty_name && row.invoice_number
-        ? `Bán hàng cho ${row.counterparty_name} theo hóa đơn số ${row.invoice_number}`
-        : row.counterparty_name ?? row.invoice_number ?? null;
+      const invoiceRef = formatInvoiceReference(row.invoice_code, row.invoice_number);
+      dienGiaiChung = row.counterparty_name && invoiceRef
+        ? `Bán hàng cho ${row.counterparty_name} theo hóa đơn ${invoiceRef}`
+        : row.counterparty_name ?? invoiceRef ?? null;
     }
 
-    const soChungTu = docType !== DocType.BankStatement ? row.invoice_number : null;
+    const soChungTu = docType !== DocType.BankStatement ? formatInvoiceReference(row.invoice_code, row.invoice_number) : null;
 
     return {
       record_id: row.record_id,

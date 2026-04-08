@@ -122,6 +122,12 @@ describe('vault core', () => {
 
       const promptPath = path.join(vaultPath, INVOICEVAULT_DIR, 'instructions', 'extraction-prompt.md');
       expect(fs.existsSync(promptPath)).toBe(true);
+      const content = fs.readFileSync(promptPath, 'utf-8');
+      expect(content).toContain('invoice_code');
+      expect(content).toContain('invoice_number');
+      expect(content).toContain('Never merge them into one string');
+      expect(content).toContain('DO NOT confuse');
+      expect(content).toContain('Ký hiệu mẫu số');
     });
 
     it('throws when folder is already a vault', async () => {

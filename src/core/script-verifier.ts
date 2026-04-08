@@ -32,6 +32,7 @@ Your job is to judge whether the parser script correctly extracts the data.
 - Are amounts numeric (not strings)?
 - Are records being extracted (not empty)?
 - Does the output structure match ExtractionFileResult schema?
+- Are \`invoice_code\` and \`invoice_number\` kept separate when both are present?
 - Are tax_rate values percentage INTEGERS (8, 10, 5)? If you see decimals like 0.08 or 0.1, the script must multiply by 100.
 - Are line item amounts correctly mapped? If only one amount column exists and it's ambiguous, it should go to subtotal (before-tax), NOT total_with_tax. If all total_with_tax values are populated but subtotal is all null, this is likely WRONG — the amounts are probably before-tax.
 - Cross-check: does total_amount ≈ SUM(total_with_tax) or SUM(subtotal × (1+rate/100))? Use this to verify correct before/after-tax mapping.
@@ -52,8 +53,8 @@ Your job is to judge whether the parser script correctly extracts the data.
   ]
 }
 
-### Bank Statement data fields: bank_name, account_number, description, amount, counterparty_name
-### Invoice data fields: invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
+### Bank Statement data fields: bank_name, account_number, invoice_code, invoice_number, description, amount, counterparty_name
+### Invoice data fields: invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
 ### Invoice line_items fields: description, unit_price, quantity, tax_rate, subtotal, total_with_tax
 
 ## Response Format

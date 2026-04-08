@@ -35,9 +35,16 @@ The parser script MUST output a JSON object to stdout with this exact structure:
 
 ## Document Types (doc_type)
 
-- "bank_statement" — sao kê ngân hàng (bank statement). Data fields: bank_name, account_number, description, amount, counterparty_name
-- "invoice_out" — hóa đơn đầu ra (sales/output invoice). Data fields: invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
-- "invoice_in" — hóa đơn đầu vào (purchase/input invoice). Data fields: invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
+- "bank_statement" — sao kê ngân hàng (bank statement). Data fields: bank_name, account_number, invoice_code, invoice_number, description, amount, counterparty_name
+- "invoice_out" — hóa đơn đầu ra (sales/output invoice). Data fields: invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
+- "invoice_in" — hóa đơn đầu vào (purchase/input invoice). Data fields: invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
+
+## Invoice Reference Split
+
+- \`invoice_code\` = Ký hiệu hóa đơn (examples: \`KHHDon\`, \`Ký hiệu HĐ\`)
+- \`invoice_number\` = Số hóa đơn (examples: \`SHDon\`, \`Số HĐ\`)
+- NEVER concatenate invoice code and invoice number into a single field
+- If only one is visible, populate that field and leave the other null
 
 ## Invoice Line Items
 
