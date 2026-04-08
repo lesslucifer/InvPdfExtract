@@ -771,7 +771,8 @@ const BASE_JOINS = `
 
 const SEARCH_RESULT_SELECT = `
     SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
-      COALESCE(id2.invoice_number, '') as invoice_number,
+      COALESCE(id2.invoice_code, bsd.invoice_code, '') as invoice_code,
+      COALESCE(id2.invoice_number, bsd.invoice_number, '') as invoice_number,
       COALESCE(id2.total_before_tax, 0) as total_before_tax,
       COALESCE(id2.total_amount, 0) as total_amount,
       COALESCE(id2.tax_id, '') as tax_id,
