@@ -60,10 +60,12 @@ const FILENAME_MAX_LEN = 35;
 export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder }) => {
   const meta = DOC_TYPE_ICONS[result.doc_type] || DOC_TYPE_ICONS['unknown'];
   const isBank = result.doc_type === DocType.BankStatement;
+  const invoiceCode = result.invoice_code?.trim() || '';
+  const invoiceNumber = result.invoice_number?.trim() || '';
 
   const primaryLabel = isBank
     ? result.bank_name || t('bank_statement', 'Bank Statement')
-    : formatInvoiceReference(result.invoice_code, result.invoice_number) || result.invoice_number || t('invoice', 'Invoice');
+    : formatInvoiceReference(invoiceCode, invoiceNumber) || invoiceNumber || t('invoice', 'Invoice');
 
   const amount = isBank ? result.amount : result.total_amount;
   const counterparty = result.counterparty_name;
@@ -87,7 +89,42 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="font-semibold whitespace-nowrap overflow-hidden text-ellipsis">{primaryLabel}</span>
+            {isBank ? (
+              <span className="font-semibold whitespace-nowrap overflow-hidden text-ellipsis">{primaryLabel}</span>
+            ) : (
+              <span className="flex items-baseline gap-[2px] min-w-0 font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
+                {invoiceCode && (
+                  <span
+                    className="rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
+                    title={t('ctrl_click_filter_invoice_code', 'Ctrl+Click to filter by this invoice code')}
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey) {
+                        e.stopPropagation();
+                        useSearchStore.getState().applyInvoiceCodeFilter(invoiceCode);
+                      }
+                    }}
+                  >
+                    {invoiceCode}
+                  </span>
+                )}
+                {invoiceCode && invoiceNumber && <span className="text-text-secondary">-</span>}
+                {invoiceNumber && (
+                  <span
+                    className="rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"
+                    title={t('ctrl_click_sort_invoice_number', 'Ctrl+Click to sort by invoice #')}
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey) {
+                        e.stopPropagation();
+                        useSearchStore.getState().applyInvoiceNumberSort();
+                      }
+                    }}
+                  >
+                    {invoiceNumber}
+                  </span>
+                )}
+                {!invoiceCode && !invoiceNumber && <span>{t('invoice', 'Invoice')}</span>}
+              </span>
+            )}
             {result.tax_id && (
               <span
                 className="text-2.75 text-text-secondary whitespace-nowrap cursor-pointer rounded-sm px-[3px] hover:bg-[rgba(255,255,255,0.08)] hover:text-accent hover:underline"

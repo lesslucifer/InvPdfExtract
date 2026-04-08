@@ -54,6 +54,10 @@ export const CheatsheetPanel: React.FC = () => {
             <code>{`${t('taxId', 'taxId')}:0123456789`}</code>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
+            <span className={groupLabelClass}>{t('invoice_code', 'Invoice Code')}</span>
+            <code>{t('invoice_code_filter_example', 'code:C26TAA')}</code>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75">
             <span className={groupLabelClass}>{t('status', 'Status')}</span>
             <code>{t('statusconflict', 'status:conflict')}</code> <code>{t('statusreview', 'status:review')}</code> <code>{t('statusmismatch', 'status:mismatch')}</code>
           </div>
@@ -98,7 +102,7 @@ export const CheatsheetPanel: React.FC = () => {
           </div>
           <div className="flex gap-2 text-2.75 items-baseline">
             <span className={clickModifierClass}><kbd className={clickKbdClass}>⌘</kbd>{`+${t('click', 'Click')}`}</span>
-            <span className="text-text">{`${t('date', 'date')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_date', 'filter by date')})`}</em>{`, ${t('taxId', 'TaxID')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_tax_code', 'filter by tax code')})`}</em>{`, ${t('folder', 'folder')} `}<em className="text-text-secondary not-italic">{`(${t('open_in_finder', 'open in Finder')})`}</em>{`, ${t('filename', 'filename')} `}<em className="text-text-secondary not-italic">{`(${t('open_file', 'open file')})`}</em>{`, ${t('preset', 'preset')} `}<em className="text-text-secondary not-italic">{`(${t('open_as_window', 'open as window')})`}</em></span>
+            <span className="text-text">{`${t('date', 'date')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_date', 'filter by date')})`}</em>{`, ${t('taxId', 'TaxID')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_tax_code', 'filter by tax code')})`}</em>{`, ${t('invoice_code', 'Invoice Code')} `}<em className="text-text-secondary not-italic">{`(${t('filter', 'filter')})`}</em>{`, ${t('invoice_number', 'Invoice #')} `}<em className="text-text-secondary not-italic">{`(${t('sort', 'sort')})`}</em>{`, ${t('folder', 'folder')} `}<em className="text-text-secondary not-italic">{`(${t('open_in_finder', 'open in Finder')})`}</em>{`, ${t('filename', 'filename')} `}<em className="text-text-secondary not-italic">{`(${t('open_file', 'open file')})`}</em>{`, ${t('preset', 'preset')} `}<em className="text-text-secondary not-italic">{`(${t('open_as_window', 'open as window')})`}</em></span>
           </div>
           <div className="flex gap-2 text-2.75 items-baseline">
             <span className={clickModifierClass}><kbd className={clickKbdClass}>⌥</kbd>{`+${t('click', 'Click')}`}</span>

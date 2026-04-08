@@ -14,12 +14,14 @@ interface Props {
   inputType?: 'text' | 'number' | 'date';
   derivedValue?: number | null;
   showMismatchIcon?: boolean;
+  ctrlClickTitle?: string;
+  onCtrlClick?: () => void;
   onSave: (value: string) => void;
   onResolve?: (action: 'keep' | 'accept') => void;
 }
 
 export const EditableField: React.FC<Props> = ({
-  label, value, fieldName: _fieldName, tableName: _tableName, recordId: _recordId, override, inputType = 'text', derivedValue, showMismatchIcon = false, onSave, onResolve,
+  label, value, fieldName: _fieldName, tableName: _tableName, recordId: _recordId, override, inputType = 'text', derivedValue, showMismatchIcon = false, ctrlClickTitle, onCtrlClick, onSave, onResolve,
 }) => {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -55,6 +57,7 @@ export const EditableField: React.FC<Props> = ({
   const displayValue = value
     ? (inputType === 'number' ? formatCurrency(Number(value)) : value)
     : '-';
+  const clickTitle = ctrlClickTitle || (derivedValue != null ? `⌘+click → ${formatCurrency(derivedValue)}` : undefined);
 
   return (
     <tr className={`editable-field ${isConflict ? 'field-conflict' : ''}`}>
@@ -77,13 +80,18 @@ export const EditableField: React.FC<Props> = ({
           </span>
         ) : (
           <span className={`field-display cursor-pointer px-1 py-[1px] rounded-sm transition-colors ${showMismatchIcon ? 'field-mismatch cursor-pointer' : ''}`} onClick={(e) => {
+            if ((e.metaKey || e.ctrlKey) && onCtrlClick) {
+              e.preventDefault();
+              onCtrlClick();
+              return;
+            }
             if ((e.metaKey || e.ctrlKey) && derivedValue != null) {
               e.preventDefault();
               onSave(String(derivedValue));
               return;
             }
             setEditValue(value); setEditing(true);
-          }} title={derivedValue != null ? `⌘+click → ${formatCurrency(derivedValue)}` : undefined}>
+          }} title={clickTitle}>
             {displayValue}
             {showMismatchIcon && derivedValue != null && <span className="text-confidence-low text-2.75 font-semibold"> ({formatCurrency(derivedValue)}!)</span>}
           </span>

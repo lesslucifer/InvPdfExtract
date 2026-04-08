@@ -45,7 +45,9 @@ interface SearchStore {
   toggleSortDirection: () => void;
   applyDocTypeFilter: (docType: string) => void;
   applyMstFilter: (taxId: string) => void;
+  applyInvoiceCodeFilter: (invoiceCode: string) => void;
   applyDateFilter: (date: string) => void;
+  applyInvoiceNumberSort: () => void;
 
   // Scope manipulation
   browseFolder: (folder: string) => void;
@@ -72,9 +74,12 @@ function buildSearchFilters(text: string, filters: ParsedQuery, folder: string |
     docType: filters.docType,
     status: filters.status,
     taxId: filters.taxId,
+    invoiceCode: filters.invoiceCode,
     amountMin: filters.amountMin,
     amountMax: filters.amountMax,
     dateFilter: filters.dateFilter,
+    sortField: filters.sortField,
+    sortDirection: filters.sortDirection,
   };
 }
 
@@ -177,7 +182,7 @@ export const useSearchStore = create<SearchStore>()(
       set({ filters: newFilters });
 
       const hasRemaining = state.query.trim() || state.folderScope || state.fileScope ||
-        newFilters.docType || newFilters.status || newFilters.taxId ||
+        newFilters.docType || newFilters.status || newFilters.taxId || newFilters.invoiceCode ||
         newFilters.amountMin != null || newFilters.amountMax != null ||
         newFilters.dateFilter || newFilters.sortField;
 
@@ -226,9 +231,44 @@ export const useSearchStore = create<SearchStore>()(
       get().doSearch(state.query, newFilters, state.folderScope, false, state.fileScope);
     },
 
+    applyInvoiceCodeFilter: (invoiceCode) => {
+      const state = get();
+      const newFilters = { ...state.filters, text: '' };
+      if (state.filters.invoiceCode === invoiceCode) {
+        delete newFilters.invoiceCode;
+      } else {
+        newFilters.invoiceCode = invoiceCode;
+      }
+      set({ filters: newFilters });
+      const overlayState = useOverlayStore.getState().overlayState;
+      if (overlayState === OverlayState.Home) {
+        useOverlayStore.getState().setOverlayState(OverlayState.Search);
+      }
+      get().doSearch(state.query, newFilters, state.folderScope, false, state.fileScope);
+    },
+
     applyDateFilter: (date) => {
       const state = get();
       const newFilters = { ...state.filters, text: '', dateFilter: date };
+      set({ filters: newFilters });
+      const overlayState = useOverlayStore.getState().overlayState;
+      if (overlayState === OverlayState.Home) {
+        useOverlayStore.getState().setOverlayState(OverlayState.Search);
+      }
+      get().doSearch(state.query, newFilters, state.folderScope, false, state.fileScope);
+    },
+
+    applyInvoiceNumberSort: () => {
+      const state = get();
+      const currentDir = state.filters.sortDirection || SORT_DEFAULT_DIRECTIONS.shd;
+      const sortDirection = state.filters.sortField === 'shd'
+        ? (currentDir === 'asc' ? 'desc' : 'asc')
+        : SORT_DEFAULT_DIRECTIONS.shd;
+      const newFilters = {
+        ...state.filters,
+        sortField: 'shd' as const,
+        sortDirection,
+      };
       set({ filters: newFilters });
       const overlayState = useOverlayStore.getState().overlayState;
       if (overlayState === OverlayState.Home) {
@@ -258,7 +298,8 @@ export const useSearchStore = create<SearchStore>()(
       const state = get();
       set({ folderScope: null, fileScope: null });
       const hasActiveFilters = state.filters.docType || state.filters.status || state.filters.taxId ||
-        state.filters.amountMin != null || state.filters.amountMax != null || state.filters.dateFilter;
+        state.filters.invoiceCode || state.filters.amountMin != null || state.filters.amountMax != null ||
+        state.filters.dateFilter || state.filters.sortField;
       if (!state.query.trim() && !hasActiveFilters) {
         useOverlayStore.getState().setOverlayState(OverlayState.Home);
         get().doSearch('', { text: '' } as ParsedQuery, null);

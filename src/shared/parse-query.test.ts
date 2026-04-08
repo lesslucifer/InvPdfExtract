@@ -141,6 +141,16 @@ describe('parseSearchQuery', () => {
     });
   });
 
+  describe('invoice code filters', () => {
+    it('parses code:<value>', () => {
+      expect(parseSearchQuery('code:C26TAA').invoiceCode).toBe('C26TAA');
+    });
+
+    it('parses invoiceCode:<value>', () => {
+      expect(parseSearchQuery('invoiceCode:AA/26E').invoiceCode).toBe('AA/26E');
+    });
+  });
+
   describe('sort filters', () => {
     it('parses sort:date', () => {
       const result = parseSearchQuery('sort:date');
@@ -242,6 +252,10 @@ describe('buildQueryString', () => {
 
   it('builds from taxId', () => {
     expect(buildQueryString({ text: '', taxId: '0123456789' })).toBe('taxId:0123456789');
+  });
+
+  it('builds from invoiceCode', () => {
+    expect(buildQueryString({ text: '', invoiceCode: 'C26TAA' })).toBe('code:C26TAA');
   });
 
   it('builds from amount range (triệu shorthand)', () => {

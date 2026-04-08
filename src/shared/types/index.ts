@@ -71,6 +71,7 @@ export interface SearchFilters {
   docType?: string;
   status?: string;
   taxId?: string;
+  invoiceCode?: string;
   amountMin?: number;
   amountMax?: number;
   dateFilter?: string;

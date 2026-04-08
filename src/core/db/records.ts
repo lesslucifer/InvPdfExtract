@@ -618,6 +618,7 @@ export function listTopFolders(): FolderInfo[] {
 // === Search ===
 
 import { parseSearchQuery, ParsedQuery, SortField, SORT_DEFAULT_DIRECTIONS } from '../../shared/parse-query';
+import { buildInvoiceNumberOrderBy } from './search-sort';
 
 /** Shared filter-building logic used by search and aggregation queries. */
 function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params: SqlParam[] } {
@@ -696,6 +697,11 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
     params.push(parsed.taxId);
   }
 
+  if (parsed.invoiceCode) {
+    conditions.push(`normalize_text(COALESCE(id2.invoice_code, bsd.invoice_code, '')) = ?`);
+    params.push(normalizeQuery(parsed.invoiceCode));
+  }
+
   return { conditions, params };
 }
 
@@ -715,6 +721,7 @@ function filtersToParsed(filters: SearchFilters): ParsedQuery {
     docType: filters.docType,
     status: filters.status,
     taxId: filters.taxId,
+    invoiceCode: filters.invoiceCode,
     folder: filters.folder,
     filePath: filters.filePath,
     amountMin: filters.amountMin,
@@ -736,9 +743,12 @@ const SORT_FIELD_SQL: Record<SortField, string> = {
 
 function buildOrderByClause(parsed: ParsedQuery): string {
   if (!parsed.sortField) return 'ORDER BY r.updated_at DESC';
+  const dir = (parsed.sortDirection || SORT_DEFAULT_DIRECTIONS[parsed.sortField]).toUpperCase();
+  if (parsed.sortField === 'shd') {
+    return buildInvoiceNumberOrderBy(parsed.sortDirection || SORT_DEFAULT_DIRECTIONS.shd);
+  }
   const col = SORT_FIELD_SQL[parsed.sortField];
   if (!col) return 'ORDER BY r.updated_at DESC';
-  const dir = (parsed.sortDirection || SORT_DEFAULT_DIRECTIONS[parsed.sortField]).toUpperCase();
   // Push NULLs to end for date sort
   if (parsed.sortField === 'date') {
     return `ORDER BY (r.doc_date IS NULL) ASC, r.doc_date ${dir}`;

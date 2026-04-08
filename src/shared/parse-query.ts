@@ -39,6 +39,7 @@ export interface ParsedQuery {
   sortField?: SortField;
   sortDirection?: SortDirection;
   taxId?: string;
+  invoiceCode?: string;
 }
 
 export function parseSearchQuery(raw: string): ParsedQuery {
@@ -68,6 +69,16 @@ export function parseSearchQuery(raw: string): ParsedQuery {
     // taxId: filter (tax ID — preserve original case)
     if (lower.startsWith('taxid:')) {
       result.taxId = part.slice(6);
+      continue;
+    }
+
+    if (lower.startsWith('code:')) {
+      result.invoiceCode = part.slice(5);
+      continue;
+    }
+
+    if (lower.startsWith('invoicecode:')) {
+      result.invoiceCode = part.slice(12);
       continue;
     }
 
@@ -133,6 +144,8 @@ export function buildQueryString(parsed: ParsedQuery): string {
   if (parsed.status) parts.push(`status:${parsed.status}`);
 
   if (parsed.taxId) parts.push(`taxId:${parsed.taxId}`);
+
+  if (parsed.invoiceCode) parts.push(`code:${parsed.invoiceCode}`);
 
   if (parsed.amountMin != null && parsed.amountMax != null) {
     // Check if both are clean multiples of 1M for Ntr-Mtr shorthand

@@ -56,6 +56,10 @@ function getPills(filters: ParsedQuery): PillDef[] {
     pills.push({ key: 'dateFilter', icon: 'calendar', label: filters.dateFilter });
   }
 
+  if (filters.invoiceCode) {
+    pills.push({ key: 'invoiceCode', icon: 'file', label: `Code: ${filters.invoiceCode}` });
+  }
+
   return pills;
 }
 
@@ -119,6 +123,12 @@ describe('FilterPills logic', () => {
       const pills = getPills({ text: '', dateFilter: '2024-03' });
       expect(pills).toHaveLength(1);
       expect(pills[0]).toEqual({ key: 'dateFilter', icon: 'calendar', label: '2024-03' });
+    });
+
+    it('returns invoice code pill', () => {
+      const pills = getPills({ text: '', invoiceCode: 'C26TAA' });
+      expect(pills).toHaveLength(1);
+      expect(pills[0]).toEqual({ key: 'invoiceCode', icon: 'file', label: 'Code: C26TAA' });
     });
 
     it('returns multiple pills for combined filters', () => {

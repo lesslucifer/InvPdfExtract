@@ -44,6 +44,10 @@ function getPills(filters: ParsedQuery): PillDef[] {
     pills.push({ key: 'taxId', icon: 'fingerprint', label: `${t('taxid_filter_label', 'TaxID: ')}${filters.taxId}` });
   }
 
+  if (filters.invoiceCode) {
+    pills.push({ key: 'invoiceCode', icon: 'file', label: `${t('invoice_code_filter_label', 'Code: ')}${filters.invoiceCode}` });
+  }
+
   if (filters.amountMin != null && filters.amountMax != null) {
     pills.push({
       key: 'amountMin',
