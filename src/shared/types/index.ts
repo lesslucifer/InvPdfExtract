@@ -342,6 +342,17 @@ export interface VerificationResult {
   error?: string;
 }
 
+// === Deduplication Types ===
+
+export interface DuplicateSourceRow {
+  id: string;
+  canonical_record_id: string;
+  source_file_id: string;
+  source_record_id: string;
+  relative_path: string;
+  created_at: string;
+}
+
 // === Search Result Types ===
 
 export interface SearchResult {
@@ -370,6 +381,7 @@ export interface SearchResult {
   description: string;
   counterparty_address: string;
   je_status: JEGenerationStatus | null;
+  has_duplicates: boolean;
   // Line items (populated on detail expand)
   line_items?: InvoiceLineItem[];
 }
@@ -562,6 +574,7 @@ export interface InvoiceVaultAPI {
   getJeQueueItems: () => Promise<JeQueueItem[]>;
   getJeErrorItems: () => Promise<JeErrorItem[]>;
   onJeStatusChanged: (callback: (data: { recordIds: string[]; status: JEGenerationStatus }) => void) => () => void;
+  getDuplicateSources: (recordId: string) => Promise<DuplicateSourceRow[]>;
   onDbError: (callback: (error: string) => void) => () => void;
   onFileDeleted: (callback: (data: { relativePath: string }) => void) => () => void;
   getDbError: () => Promise<string | null>;

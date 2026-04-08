@@ -8,6 +8,7 @@ const api: InvoiceVaultAPI = {
   getLineItems: (recordId: string) => ipcRenderer.invoke('get-line-items', recordId),
   saveFieldOverride: (input: FieldOverrideInput) => ipcRenderer.invoke('save-field-override', input),
   getFieldOverrides: (recordId: string) => ipcRenderer.invoke('get-field-overrides', recordId),
+  getDuplicateSources: (recordId: string) => ipcRenderer.invoke('get-duplicate-sources', recordId),
   resolveConflict: (recordId: string, fieldName: string, action: 'keep' | 'accept') =>
     ipcRenderer.invoke('resolve-conflict', recordId, fieldName, action),
   resolveAllConflicts: (recordId: string, action: 'keep' | 'accept') =>

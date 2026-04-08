@@ -348,6 +348,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
           )}
         </>
       )}
+
     </div>
   );
 };

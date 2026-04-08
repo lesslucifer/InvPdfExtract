@@ -1,6 +1,12 @@
-export const MIGRATIONS: string[] = [
-  // Migration 001: Core tables
-  `
+export interface Migration {
+  key: string;
+  sql: string;
+}
+
+export const MIGRATIONS: Migration[] = [
+  {
+    key: '001_core_tables',
+    sql: `
   CREATE TABLE IF NOT EXISTS files (
     id TEXT PRIMARY KEY,
     relative_path TEXT UNIQUE NOT NULL,
@@ -110,15 +116,12 @@ export const MIGRATIONS: string[] = [
     message TEXT NOT NULL,
     timestamp DATETIME NOT NULL DEFAULT (datetime('now'))
   );
-
-  CREATE TABLE IF NOT EXISTS _migrations (
-    id INTEGER PRIMARY KEY,
-    applied_at DATETIME NOT NULL DEFAULT (datetime('now'))
-  );
   `,
+  },
 
-  // Migration 002: Indexes
-  `
+  {
+    key: '002_indexes',
+    sql: `
   CREATE INDEX IF NOT EXISTS idx_files_relative_path ON files(relative_path);
   CREATE INDEX IF NOT EXISTS idx_files_file_hash ON files(file_hash);
   CREATE INDEX IF NOT EXISTS idx_files_doc_type ON files(doc_type);
@@ -136,9 +139,11 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_file_script_assignments_file_id ON file_script_assignments(file_id);
   CREATE INDEX IF NOT EXISTS idx_file_script_assignments_script_id ON file_script_assignments(script_id);
   `,
+  },
 
-  // Migration 003: FTS5 virtual table
-  `
+  {
+    key: '003_fts5',
+    sql: `
   CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
     so_hoa_don,
     taxId,
@@ -151,21 +156,27 @@ export const MIGRATIONS: string[] = [
     tokenize='unicode61'
   );
   `,
+  },
 
-  // Migration 004: Add line_item_id to field_overrides for line-item-level overrides
-  `
+  {
+    key: '004_field_overrides_line_item',
+    sql: `
   ALTER TABLE field_overrides ADD COLUMN line_item_id TEXT REFERENCES invoice_line_items(id);
   CREATE INDEX IF NOT EXISTS idx_field_overrides_line_item_id ON field_overrides(line_item_id);
   `,
+  },
 
-  // Migration 005: Add before-tax amount columns for tax rework
-  `
+  {
+    key: '005_before_tax_columns',
+    sql: `
   ALTER TABLE invoice_data ADD COLUMN tong_tien_truoc_thue REAL;
   ALTER TABLE invoice_line_items ADD COLUMN thanh_tien_truoc_thue REAL;
   `,
+  },
 
-  // Migration 006: Filter presets
-  `
+  {
+    key: '006_filter_presets',
+    sql: `
   CREATE TABLE IF NOT EXISTS filter_presets (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -173,9 +184,11 @@ export const MIGRATIONS: string[] = [
     created_at DATETIME NOT NULL DEFAULT (datetime('now'))
   );
   `,
+  },
 
-  // Migration 007: Journal entries — single-sided double entry
-  `
+  {
+    key: '007_journal_entries',
+    sql: `
   CREATE TABLE IF NOT EXISTS journal_entries (
     id TEXT PRIMARY KEY,
     record_id TEXT NOT NULL REFERENCES records(id),
@@ -194,15 +207,19 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_je_record_id ON journal_entries(record_id);
   CREATE INDEX IF NOT EXISTS idx_je_line_item_id ON journal_entries(line_item_id);
   `,
+  },
 
-  // Migration 008: JE classification status on records
-  `
+  {
+    key: '008_je_status',
+    sql: `
   ALTER TABLE records ADD COLUMN je_status TEXT;
   CREATE INDEX IF NOT EXISTS idx_records_je_status ON records(je_status);
   `,
+  },
 
-  // Migration 009: Rename columns to English; fix thanh_tien semantic inversion
-  `
+  {
+    key: '009_rename_columns_english',
+    sql: `
   ALTER TABLE records RENAME COLUMN ngay TO doc_date;
 
   ALTER TABLE bank_statement_data RENAME COLUMN ten_ngan_hang TO bank_name;
@@ -250,9 +267,11 @@ export const MIGRATIONS: string[] = [
   UPDATE field_overrides SET field_name = 'subtotal' WHERE field_name = 'thanh_tien_truoc_thue';
   UPDATE field_overrides SET field_name = 'total_with_tax' WHERE field_name = 'thanh_tien';
   `,
+  },
 
-  // Migration 010: Recreate FTS5 virtual table with English column names
-  `
+  {
+    key: '010_fts5_english_columns',
+    sql: `
   DROP TABLE IF EXISTS records_fts;
 
   CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
@@ -268,33 +287,43 @@ export const MIGRATIONS: string[] = [
     tokenize='unicode61'
   );
   `,
-  
-  // Migration 010: Relevance filter metadata on files
-  `
+  },
+
+  {
+    key: '011_file_filter_metadata',
+    sql: `
   ALTER TABLE files ADD COLUMN filter_score REAL;
   ALTER TABLE files ADD COLUMN filter_reason TEXT;
   ALTER TABLE files ADD COLUMN filter_layer INTEGER;
   CREATE INDEX IF NOT EXISTS idx_files_status ON files(status);
   `,
+  },
 
-  // Migration 011: Structured error detail and file_id for processing_logs
-  `
+  {
+    key: '012_processing_logs_detail',
+    sql: `
   ALTER TABLE processing_logs ADD COLUMN detail TEXT;
   ALTER TABLE processing_logs ADD COLUMN file_id TEXT;
   `,
+  },
 
-  // Migration 012: Partial index for fast unfiltered file queries
-  `
+  {
+    key: '013_files_unfiltered_index',
+    sql: `
   CREATE INDEX IF NOT EXISTS idx_files_status_unfiltered ON files(status) WHERE status = 'unfiltered';
   `,
+  },
 
-  // Migration 013: Contra account for journal entries (TK Đối ứng)
-  `
+  {
+    key: '014_je_contra_account',
+    sql: `
   ALTER TABLE journal_entries ADD COLUMN contra_account TEXT;
   `,
+  },
 
-  // Migration 014: Rebuild FTS5 with diacritic-insensitive tokenizer
-  `
+  {
+    key: '015_fts5_diacritic_insensitive',
+    sql: `
   DROP TABLE IF EXISTS records_fts;
 
   CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
@@ -310,9 +339,11 @@ export const MIGRATIONS: string[] = [
     tokenize='unicode61 remove_diacritics 1'
   );
   `,
+  },
 
-  // Migration 015: Split invoice code from invoice number
-  `
+  { 
+    key: '016_invoice_code_and_number',
+    sql: `
   ALTER TABLE bank_statement_data ADD COLUMN invoice_code TEXT;
   ALTER TABLE bank_statement_data ADD COLUMN invoice_number TEXT;
   ALTER TABLE invoice_data ADD COLUMN invoice_code TEXT;
@@ -336,4 +367,22 @@ export const MIGRATIONS: string[] = [
     tokenize='unicode61 remove_diacritics 1'
   );
   `,
+  },
+
+  {
+    key: '017_dedup_sources',
+    sql: `
+  CREATE TABLE IF NOT EXISTS record_duplicate_sources (
+    id TEXT PRIMARY KEY,
+    canonical_record_id TEXT NOT NULL REFERENCES records(id),
+    source_file_id TEXT NOT NULL REFERENCES files(id),
+    source_record_id TEXT NOT NULL REFERENCES records(id),
+    created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(canonical_record_id, source_file_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_rds_canonical_record_id ON record_duplicate_sources(canonical_record_id);
+  CREATE INDEX IF NOT EXISTS idx_rds_source_record_id ON record_duplicate_sources(source_record_id);
+  CREATE INDEX IF NOT EXISTS idx_rds_source_file_id ON record_duplicate_sources(source_file_id);
+  `,
+  },
 ];

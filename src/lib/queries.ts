@@ -1,4 +1,4 @@
-import { AppConfig, FilterPreset, SearchFilters, FileStatus, VaultFile, FieldOverrideInfo, InvoiceLineItem, ProcessedFileInfo } from '../shared/types';
+import { AppConfig, FilterPreset, SearchFilters, FileStatus, VaultFile, FieldOverrideInfo, InvoiceLineItem, ProcessedFileInfo, DuplicateSourceRow } from '../shared/types';
 import { queryHook } from './queryHook';
 
 const ALL_FILTERS: SearchFilters = {};
@@ -85,5 +85,12 @@ export const useLineItems = queryHook
       const lineItemOverrides = await window.api.getLineItemOverrides(ids);
       return { lineItems, lineItemOverrides };
     })
+  }))
+  .create();
+
+export const useDuplicateSources = queryHook
+  .ofKey<{ id: string }, ['duplicateSources', string]>(({ id }) => ['duplicateSources', id] as const)
+  .useQuery(({ params }) => ({
+    queryFn: () => window.api.getDuplicateSources(params.id) as Promise<DuplicateSourceRow[]>,
   }))
   .create();

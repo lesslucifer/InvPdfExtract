@@ -2,6 +2,7 @@ import { t } from '../lib/i18n';
 import React from 'react';
 import { SearchResult, DocType } from '../shared/types';
 import { StatusIcon } from './StatusIcon';
+import { DupBadge } from './DupBadge';
 import { formatCurrency } from '../shared/format';
 import { DOC_TYPE_ICONS, ICON_SIZE } from '../shared/icons';
 import { useSearchStore } from '../stores';
@@ -166,9 +167,12 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
               )}
             </span>
           )}
-          <span className={`text-2.75 font-medium px-1.5 py-[1px] rounded ${confidenceClasses(result.confidence)}`}>
-            {Math.round(result.confidence * 100)}%
-          </span>
+          <div className="flex items-center gap-1">
+            {!isBank && result.has_duplicates && <DupBadge recordId={result.id} />}
+            <span className={`text-2.75 font-medium px-1.5 py-[1px] rounded ${confidenceClasses(result.confidence)}`}>
+              {Math.round(result.confidence * 100)}%
+            </span>
+          </div>
         </div>
       </div>
       <div className="mt-1 text-2.75 text-text-muted whitespace-nowrap overflow-hidden text-ellipsis" title={result.relative_path}>

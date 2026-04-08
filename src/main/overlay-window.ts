@@ -18,6 +18,7 @@ import {
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
 import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
+import { getDuplicateSourcesForRecord } from '../core/db/dedup';
 import { listPresets, savePreset, deletePreset } from '../core/db/presets';
 import {
   getJournalEntriesByRecord, insertJournalEntry, updateJournalEntry,
@@ -549,6 +550,15 @@ export class OverlayWindow {
         }));
       } catch (err) {
         console.error('[Override] Get field overrides failed:', err);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-duplicate-sources', async (_event, recordId: string) => {
+      try {
+        return getDuplicateSourcesForRecord(recordId);
+      } catch (err) {
+        console.error('[Dedup] Get duplicate sources failed:', err);
         return [];
       }
     });

@@ -13,6 +13,7 @@ import {
 } from './db/records';
 import { getFileByPath, updateFileStatus, updateFileDocType, updateFileFilterResult } from './db/files';
 import { getDatabase } from './db/database';
+import { rebuildDuplicatesForFingerprints } from './db/dedup';
 import { eventBus } from './event-bus';
 import { FileStatus } from '../shared/types';
 
@@ -125,6 +126,12 @@ export class Reconciler {
     });
 
     txn();
+
+    // Rebuild cross-file duplicate status for invoice records in this file
+    const isInvoice = fileResult.doc_type === DocType.InvoiceIn || fileResult.doc_type === DocType.InvoiceOut;
+    if (isInvoice && newFingerprints.size > 0) {
+      rebuildDuplicatesForFingerprints(Array.from(newFingerprints));
+    }
 
     // Determine file status based on confidence
     const needsReview = records.some(r => r.confidence < this.confidenceThreshold);

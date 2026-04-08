@@ -11,18 +11,16 @@ export function createInMemoryDb(): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
-  // Create _migrations table first
   db.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
-      id INTEGER PRIMARY KEY,
+      id TEXT PRIMARY KEY,
       applied_at DATETIME NOT NULL DEFAULT (datetime('now'))
     );
   `);
 
-  // Run all migrations
-  for (let i = 0; i < MIGRATIONS.length; i++) {
-    db.exec(MIGRATIONS[i]);
-    db.prepare('INSERT INTO _migrations (id) VALUES (?)').run(i);
+  for (const migration of MIGRATIONS) {
+    db.exec(migration.sql);
+    db.prepare('INSERT INTO _migrations (id) VALUES (?)').run(migration.key);
   }
 
   return db;

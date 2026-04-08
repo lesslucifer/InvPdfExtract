@@ -51,27 +51,36 @@ export function closeDatabase(db?: Database.Database): void {
 }
 
 function runMigrations(database: Database.Database): void {
-  interface MigrationRow {
-    id: number;
-  }
-
-  // Ensure _migrations table exists (it's part of migration 0 but we need it first)
   database.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
-      id INTEGER PRIMARY KEY,
+      id TEXT PRIMARY KEY,
       applied_at DATETIME NOT NULL DEFAULT (datetime('now'))
     );
   `);
 
+  // Migrate from legacy integer-keyed _migrations to named keys
+  const columns = database.pragma('table_info(_migrations)') as { name: string; type: string }[];
+  const idCol = columns.find(c => c.name === 'id');
+  if (idCol && idCol.type === 'INTEGER') {
+    database.exec(`
+      DROP TABLE _migrations;
+      CREATE TABLE _migrations (
+        id TEXT PRIMARY KEY,
+        applied_at DATETIME NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    console.log('[DB] Rebuilt _migrations table with TEXT keys');
+  }
+
   const applied = new Set(
-    (database.prepare('SELECT id FROM _migrations').all() as MigrationRow[]).map(r => r.id)
+    (database.prepare('SELECT id FROM _migrations').all() as { id: string }[]).map(r => r.id)
   );
 
-  for (let i = 0; i < MIGRATIONS.length; i++) {
-    if (applied.has(i)) continue;
+  for (const migration of MIGRATIONS) {
+    if (applied.has(migration.key)) continue;
 
-    database.exec(MIGRATIONS[i]);
-    database.prepare('INSERT INTO _migrations (id) VALUES (?)').run(i);
-    console.log(`[DB] Applied migration ${i}`);
+    database.exec(migration.sql);
+    database.prepare('INSERT INTO _migrations (id) VALUES (?)').run(migration.key);
+    console.log(`[DB] Applied migration ${migration.key}`);
   }
 }

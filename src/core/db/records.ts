@@ -216,6 +216,7 @@ export function softDeleteRecord(recordId: string): void {
   const now = new Date().toISOString();
   db.prepare('UPDATE records SET deleted_at = ? WHERE id = ?').run(now, recordId);
   db.prepare('UPDATE invoice_line_items SET deleted_at = ? WHERE record_id = ?').run(now, recordId);
+  db.prepare('DELETE FROM record_duplicate_sources WHERE canonical_record_id = ? OR source_record_id = ?').run(recordId, recordId);
 }
 
 // === Bank Statement Data ===
@@ -622,7 +623,10 @@ import { buildInvoiceNumberOrderBy } from './search-sort';
 
 /** Shared filter-building logic used by search and aggregation queries. */
 function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params: SqlParam[] } {
-  const conditions: string[] = ['r.deleted_at IS NULL'];
+  const conditions: string[] = [
+    'r.deleted_at IS NULL',
+    'NOT EXISTS (SELECT 1 FROM record_duplicate_sources WHERE source_record_id = r.id)',
+  ];
   const params: SqlParam[] = [];
 
   if (parsed.text.trim()) {
@@ -763,20 +767,20 @@ const BASE_JOINS = `
   LEFT JOIN bank_statement_data bsd ON r.id = bsd.record_id`;
 
 const SEARCH_RESULT_SELECT = `
-  SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
-    COALESCE(id2.invoice_code, bsd.invoice_code, '') as invoice_code,
-    COALESCE(id2.invoice_number, bsd.invoice_number, '') as invoice_number,
-    COALESCE(id2.total_before_tax, 0) as total_before_tax,
-    COALESCE(id2.total_amount, 0) as total_amount,
-    COALESCE(id2.tax_id, '') as tax_id,
-    COALESCE(id2.counterparty_name, bsd.counterparty_name, '') as counterparty_name,
-    COALESCE(id2.counterparty_address, '') as counterparty_address,
-    COALESCE(bsd.bank_name, '') as bank_name,
-    COALESCE(bsd.account_number, '') as account_number,
-    COALESCE(bsd.amount, 0) as amount,
-    COALESCE(bsd.description, '') as description,
-    (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum,
-    (SELECT SUM(subtotal) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum_before_tax
+    SELECT r.*, f.relative_path, f.status as file_status, r.je_status,
+      COALESCE(id2.invoice_number, '') as invoice_number,
+      COALESCE(id2.total_before_tax, 0) as total_before_tax,
+      COALESCE(id2.total_amount, 0) as total_amount,
+      COALESCE(id2.tax_id, '') as tax_id,
+      COALESCE(id2.counterparty_name, bsd.counterparty_name, '') as counterparty_name,
+      COALESCE(id2.counterparty_address, '') as counterparty_address,
+      COALESCE(bsd.bank_name, '') as bank_name,
+      COALESCE(bsd.account_number, '') as account_number,
+      COALESCE(bsd.amount, 0) as amount,
+      COALESCE(bsd.description, '') as description,
+      (SELECT SUM(total_with_tax) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum,
+      (SELECT SUM(subtotal) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) as line_item_sum_before_tax,
+      (EXISTS (SELECT 1 FROM record_duplicate_sources WHERE canonical_record_id = r.id)) as has_duplicates
 `;
 
 export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null): SearchResult[] {

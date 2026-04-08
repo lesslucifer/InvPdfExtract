@@ -24,6 +24,7 @@ function makeResult(id: string, overrides: Partial<SearchResult> = {}): SearchRe
     description: '',
     counterparty_address: '',
     je_status: null,
+    has_duplicates: false,
     ...overrides,
   };
 }

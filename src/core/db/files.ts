@@ -82,6 +82,7 @@ export function softDeleteFile(id: string): void {
     for (const record of records) {
       db.prepare('UPDATE records SET deleted_at = ? WHERE id = ?').run(now, record.id);
       db.prepare('UPDATE invoice_line_items SET deleted_at = ? WHERE record_id = ?').run(now, record.id);
+      db.prepare('DELETE FROM record_duplicate_sources WHERE canonical_record_id = ? OR source_record_id = ?').run(record.id, record.id);
     }
   });
 
