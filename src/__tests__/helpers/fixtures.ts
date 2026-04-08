@@ -1,6 +1,6 @@
 import path from 'path';
 
-const DATA_ROOT = path.resolve(__dirname, '../../../data');
+const DATA_ROOT = path.resolve(__dirname, '../../../test_data');
 
 export const XML_DIR = path.join(DATA_ROOT, 'xml');
 export const XLSX_DIR = path.join(DATA_ROOT, 'xlsx');
