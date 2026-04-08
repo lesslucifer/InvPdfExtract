@@ -47,6 +47,16 @@ function formatTime(iso: string): string {
 const settingsHeaderClass = 'flex items-center gap-2 px-4 py-3 border-b border-border sticky top-0 bg-bg z-[1]';
 const backBtnClass = 'bg-transparent border-none text-text-secondary cursor-pointer px-1.5 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-hover';
 
+const FileLink: React.FC<{ relativePath: string; className?: string }> = ({ relativePath, className = '' }) => (
+  <button
+    className={`bg-transparent border-none p-0 text-left cursor-pointer text-accent hover:underline overflow-hidden text-ellipsis whitespace-nowrap min-w-0 ${className}`}
+    title={`${relativePath}\n${t('locate_in_file_manager', 'Locate in file manager')}`}
+    onClick={e => { e.stopPropagation(); window.api.locateFile(relativePath); }}
+  >
+    {relativePath}
+  </button>
+);
+
 export const ProcessingStatusPanel: React.FC = () => {
   const goBack = useOverlayStore(s => s.goBack);
   const [activeTab, setActiveTab] = useState<TabId>('queue');
@@ -154,9 +164,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
         {files.map(file => (
           <li key={file.id} className="group flex items-center gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
             <StatusIcon status={file.status} />
-            <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
-              {file.relative_path}
-            </span>
+            <FileLink relativePath={file.relative_path} className="flex-1 text-3 text-text" />
             <span className="text-2.75 text-text-muted shrink-0">
               {file.status === FileStatus.Processing ? t('processing', 'Processing') : t('pending', 'Pending')}
             </span>
@@ -182,9 +190,7 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
         {jeItems.map(item => (
           <li key={`je-${item.record_id}`} className="group flex items-center gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
             {(() => { const c = JE_STATUS_ICON_CONFIG[item.je_status]; return c ? <span className={`inline-flex items-center shrink-0 ${c.className}`}><c.icon size={ICON_SIZE.XS} /></span> : null; })()}
-            <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={item.relative_path}>
-              {item.description || item.relative_path}
-            </span>
+            <FileLink relativePath={item.relative_path} className="flex-1 text-3 text-text" />
             <span className="text-2.75 text-accent shrink-0">
               {item.je_status === 'processing' ? t('generating_je', 'Generating JE') : t('je_generation_pending', 'JE generation pending')}
             </span>
@@ -240,9 +246,7 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
             <li key={file.id} className="border-b border-border">
               <div className="group flex items-center gap-2 px-4 py-1.5 text-3 transition-colors hover:bg-bg-hover">
                 <StatusIcon status={file.status as FileStatus} />
-                <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
-                  {file.relative_path}
-                </span>
+                <FileLink relativePath={file.relative_path} className="flex-1 text-3 text-text" />
                 <span className="text-2.75 text-text-secondary shrink-0">{file.record_count} {t('rec', 'rec')}</span>
                 <span className={`text-2.75 font-medium shrink-0 px-[5px] py-[1px] rounded ${CONFIDENCE_ROW_CLASSES[confKey]}`}>
                   {Math.round(file.overall_confidence * 100)}%
@@ -305,9 +309,7 @@ const SkippedTab: React.FC<{ files: VaultFile[] }> = ({ files }) => {
         <li key={file.id} className="group flex items-start gap-2 px-4 py-2 text-3 border-b border-border transition-colors hover:bg-bg-hover">
           <StatusIcon status={FileStatus.Skipped} />
           <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={file.relative_path}>
-              {file.relative_path}
-            </span>
+            <FileLink relativePath={file.relative_path} className="text-3 text-text" />
             {file.filter_reason && (
               <span className="text-2.75 text-text-muted overflow-hidden text-ellipsis whitespace-nowrap" title={file.filter_reason}>
                 {file.filter_reason}
@@ -403,9 +405,13 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
               >
                 <StatusIcon status={FileStatus.Error} />
                 <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={log.relative_path || t('unknown_file', 'Unknown file')}>
-                    {log.relative_path || t('unknown_file', 'Unknown file')}
-                  </span>
+                  {log.relative_path ? (
+                    <FileLink relativePath={log.relative_path} className="text-3 text-text" />
+                  ) : (
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text-muted">
+                      {t('unknown_file', 'Unknown file')}
+                    </span>
+                  )}
                   <span className="text-2.75 text-confidence-low overflow-hidden text-ellipsis whitespace-nowrap" title={log.message}>
                     {log.message}
                   </span>
@@ -494,9 +500,10 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
           <li key={`je-err-${item.record_id}`} className="group flex items-start gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
             <span className={`inline-flex items-center shrink-0 ${JE_STATUS_ICON_CONFIG['error'].className}`}><Icons.error size={ICON_SIZE.XS} /></span>
             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-text" title={item.relative_path}>
-                {item.description || item.relative_path}
-              </span>
+              <FileLink relativePath={item.relative_path} className="text-3 text-text" />
+              {item.description && item.description !== item.relative_path && (
+                <span className="text-2.75 text-text-secondary overflow-hidden text-ellipsis whitespace-nowrap">{item.description}</span>
+              )}
               <span className="text-2.75 text-confidence-low">{t('je_generation_failed', 'JE generation failed')}</span>
             </div>
             <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.updated_at)}</span>
