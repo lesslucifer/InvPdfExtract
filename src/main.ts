@@ -128,18 +128,22 @@ app.on('ready', async () => {
       const errorFiles = getFilesByStatus(FileStatus.Error);
       const reviewFiles = getFilesByStatus(FileStatus.Review);
       const skippedFiles = getFilesByStatus(FileStatus.Skipped);
-      for (const file of [...doneFiles, ...errorFiles, ...reviewFiles, ...skippedFiles]) {
+      const allFiles = [...doneFiles, ...errorFiles, ...reviewFiles, ...skippedFiles];
+      for (const file of allFiles) {
         updateFileStatus(file.id, FileStatus.Pending);
       }
-      const count = doneFiles.length + errorFiles.length + reviewFiles.length + skippedFiles.length;
+      if (allFiles.length > 0) {
+        overlayWindow?.notifyFileStatusChanged(allFiles.map(f => f.id), FileStatus.Pending);
+      }
       extractionQueue?.trigger();
-      return count;
+      return allFiles.length;
     },
     onReprocessFile: (relativePath: string) => {
       if (!currentVault) return 0;
       const file = getFileByPath(relativePath);
       if (file) {
         updateFileStatus(file.id, FileStatus.Pending);
+        overlayWindow?.notifyFileStatusChanged([file.id], FileStatus.Pending);
         extractionQueue?.trigger();
         return 1;
       }
@@ -157,6 +161,9 @@ app.on('ready', async () => {
       const files = getFilesByFolder(folderPrefix);
       for (const file of files) {
         updateFileStatus(file.id, FileStatus.Pending);
+      }
+      if (files.length > 0) {
+        overlayWindow?.notifyFileStatusChanged(files.map(f => f.id), FileStatus.Pending);
       }
       // Also scan filesystem for untracked files in this folder
       const trackedPaths = new Set(files.map((f: VaultFile) => f.relative_path));

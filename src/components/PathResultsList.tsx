@@ -5,6 +5,8 @@ import { StatusIcon } from './StatusIcon';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useFolderStatuses } from '../lib/queries';
 
+const isWindowlized = new URLSearchParams(window.location.search).get('windowlized') === 'true';
+
 const CONFIRM_THRESHOLD = 10;
 const DEBOUNCE_MS = 150;
 
@@ -157,7 +159,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
 
   return (
     <>
-      <ul className="list-none m-0 py-1 overflow-y-auto max-h-[340px]" role="listbox">
+      <ul className={`list-none m-0 py-1 overflow-y-auto ${isWindowlized ? 'flex-1 min-h-0' : 'max-h-[340px]'}`} role="listbox">
         {items.map((item, idx) => (
           <li
             key={item.relativePath}

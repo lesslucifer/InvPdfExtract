@@ -60,6 +60,8 @@ export function updateFileStatus(id: string, status: FileStatus): void {
   const db = getDatabase();
   if (status === FileStatus.Pending || status === FileStatus.Unfiltered) {
     db.prepare("UPDATE files SET status = ?, retry_count = 0, updated_at = datetime('now') WHERE id = ?").run(status, id);
+  } else if (status === FileStatus.Processing) {
+    db.prepare("UPDATE files SET status = ?, processing_started_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(status, id);
   } else {
     db.prepare("UPDATE files SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, id);
   }

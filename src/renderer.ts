@@ -5,6 +5,7 @@ import './index.css';
 
 // Windowlized windows fill the entire viewport — remove body padding
 if (window.location.search.includes('windowlized=true')) {
+  document.documentElement.style.padding = '0';
   document.body.style.padding = '0';
 }
 

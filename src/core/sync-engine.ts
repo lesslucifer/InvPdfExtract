@@ -59,7 +59,6 @@ export class SyncEngine {
       await this.handleFileAdded(relativePath, fullPath);
       return;
     }
-
     const newHash = await hashFile(fullPath);
     if (newHash === existing.file_hash) {
       // No actual content change

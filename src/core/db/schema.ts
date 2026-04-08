@@ -392,4 +392,12 @@ export const MIGRATIONS: Migration[] = [
   ALTER TABLE files ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;
   `,
   },
+
+  {
+    key: '019_processing_timestamps',
+    sql: `
+  ALTER TABLE files ADD COLUMN processing_started_at DATETIME;
+  ALTER TABLE records ADD COLUMN je_processing_started_at DATETIME;
+  `,
+  },
 ];

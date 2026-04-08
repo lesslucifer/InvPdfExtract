@@ -712,7 +712,7 @@ export const SearchOverlay: React.FC = () => {
   ) : null;
 
   // Render based on state
-  const overlayClass = `relative bg-bg rounded-2xl shadow-overlay overflow-hidden flex flex-col ${isWindowlized ? 'h-full rounded-none shadow-none [animation:none]' : 'max-h-[480px] animate-overlay-in'}`;
+  const overlayClass = `relative bg-bg rounded-2xl shadow-overlay overflow-hidden flex flex-col ${isWindowlized ? 'h-screen rounded-none shadow-none [animation:none]' : 'max-h-[480px] animate-overlay-in'}`;
 
 
   if (overlayState === OverlayState.NoVault) {

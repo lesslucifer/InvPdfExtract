@@ -17,7 +17,7 @@ import {
   getSessionLogForFile, getRecordIdsByFilters,
 } from '../core/db/records';
 import { getDatabase } from '../core/db/database';
-import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses } from '../core/db/files';
+import { getFilesByStatuses, getFileStatusesByPaths, getFolderStatuses, getFileByPath } from '../core/db/files';
 import { getDuplicateSourcesForRecord } from '../core/db/dedup';
 import { listPresets, savePreset, deletePreset } from '../core/db/presets';
 import {
@@ -88,6 +88,10 @@ export class OverlayWindow {
 
   setPathCache(cache: VaultPathCache): void {
     this.pathCache = cache;
+  }
+
+  notifyFileStatusChanged(fileIds: string[], status: FileStatus): void {
+    this.broadcastToAll('file-status-changed', { fileIds, status });
   }
 
   private get currentStatePath(): string | null {
@@ -458,6 +462,14 @@ export class OverlayWindow {
     eventBus.on('review:needed', (data) => {
       send('review');
       sendFileStatus([data.fileId], FileStatus.Review);
+    });
+    eventBus.on('file:added', (data) => {
+      const file = getFileByPath(data.relativePath);
+      if (file) sendFileStatus([file.id], file.status);
+    });
+    eventBus.on('file:changed', (data) => {
+      const file = getFileByPath(data.relativePath);
+      if (file) sendFileStatus([file.id], file.status);
     });
     eventBus.on('je:status-changed', (data) => {
       this.broadcastToAll('je-status-changed', data);

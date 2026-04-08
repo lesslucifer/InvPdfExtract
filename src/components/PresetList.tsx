@@ -6,6 +6,8 @@ import { DOC_TYPE_ICONS, Icons, ICON_SIZE } from '../shared/icons';
 import { usePresets } from '../lib/queries';
 import { normalizeQuery } from '../shared/normalize-query';
 
+const isWindowlized = new URLSearchParams(window.location.search).get('windowlized') === 'true';
+
 function formatAmount(n: number): string {
   return formatCurrency(n, { abbreviated: true });
 }
@@ -122,7 +124,7 @@ export const PresetList: React.FC<Props> = ({ query, onLoadPreset, onDeletePrese
   }
 
   return (
-    <ul className="list-none m-0 py-1 overflow-y-auto max-h-[340px]" role="listbox">
+    <ul className={`list-none m-0 py-1 overflow-y-auto ${isWindowlized ? 'flex-1 min-h-0' : 'max-h-[340px]'}`} role="listbox">
       {filtered.map((preset, idx) => (
         <li
           key={preset.id}

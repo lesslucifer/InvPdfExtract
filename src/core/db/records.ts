@@ -18,6 +18,7 @@ interface ProcessedFileWithStats {
   status: string;
   doc_type: string | null;
   updated_at: string;
+  processing_started_at: string | null;
   record_count: number;
   overall_confidence: number;
 }
@@ -161,7 +162,9 @@ export function getRecordsByFileId(fileId: string): DbRecord[] {
 
 export function updateJeStatus(recordIds: string[], status: JEGenerationStatus): void {
   const db = getDatabase();
-  const stmt = db.prepare('UPDATE records SET je_status = ?, updated_at = datetime(\'now\') WHERE id = ?');
+  const stmt = status === 'processing'
+    ? db.prepare("UPDATE records SET je_status = ?, je_processing_started_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
+    : db.prepare("UPDATE records SET je_status = ?, updated_at = datetime('now') WHERE id = ?");
   const tx = db.transaction(() => {
     for (const id of recordIds) stmt.run(status, id);
   });
@@ -171,7 +174,7 @@ export function updateJeStatus(recordIds: string[], status: JEGenerationStatus):
 export function getJeQueueItems(): JeQueueItem[] {
   const db = getDatabase();
   return db.prepare(`
-    SELECT r.id AS record_id, r.je_status, r.doc_type, r.created_at,
+    SELECT r.id AS record_id, r.je_status, r.doc_type, r.created_at, r.je_processing_started_at,
       CASE
         WHEN id2.record_id IS NOT NULL THEN COALESCE(NULLIF(TRIM(id2.invoice_code || '-' || id2.invoice_number), '-'), id2.invoice_code, id2.invoice_number, '')
         ELSE COALESCE(NULLIF(TRIM(bsd.invoice_code || '-' || bsd.invoice_number), '-'), bsd.invoice_code, bsd.invoice_number, bsd.description, '')
@@ -190,7 +193,7 @@ export function getJeQueueItems(): JeQueueItem[] {
 export function getJeErrorItems(): JeErrorItem[] {
   const db = getDatabase();
   return db.prepare(`
-    SELECT r.id AS record_id, r.doc_type, r.updated_at,
+    SELECT r.id AS record_id, r.doc_type, r.updated_at, r.je_processing_started_at,
       CASE
         WHEN id2.record_id IS NOT NULL THEN COALESCE(NULLIF(TRIM(id2.invoice_code || '-' || id2.invoice_number), '-'), id2.invoice_code, id2.invoice_number, '')
         ELSE COALESCE(NULLIF(TRIM(bsd.invoice_code || '-' || bsd.invoice_number), '-'), bsd.invoice_code, bsd.invoice_number, bsd.description, '')
@@ -418,11 +421,11 @@ export function getSessionLogForFile(fileId: string): string | null {
 
 export function getProcessedFilesWithStats(): Array<{
   id: string; relative_path: string; status: string; doc_type: string | null;
-  updated_at: string; record_count: number; overall_confidence: number;
+  updated_at: string; processing_started_at: string | null; record_count: number; overall_confidence: number;
 }> {
   const db = getDatabase();
   return db.prepare(`
-    SELECT f.id, f.relative_path, f.status, f.doc_type, f.updated_at,
+    SELECT f.id, f.relative_path, f.status, f.doc_type, f.updated_at, f.processing_started_at,
       COALESCE(eb.record_count, 0) as record_count,
       COALESCE(eb.overall_confidence, 0) as overall_confidence
     FROM files f

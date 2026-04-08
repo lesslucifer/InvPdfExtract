@@ -101,6 +101,7 @@ export interface VaultFile {
   filter_score: number | null;
   filter_reason: string | null;
   filter_layer: number | null;
+  processing_started_at: string | null;
 }
 
 export interface ExtractionBatch {
@@ -403,6 +404,7 @@ export interface ProcessedFileInfo {
   status: string;
   doc_type: string | null;
   updated_at: string;
+  processing_started_at: string | null;
   record_count: number;
   overall_confidence: number;
 }
@@ -495,6 +497,7 @@ export interface JeQueueItem {
   description: string; // invoice_code + invoice_number or description
   relative_path: string;
   created_at: string;
+  je_processing_started_at: string | null;
 }
 
 export interface JeErrorItem {
@@ -503,6 +506,7 @@ export interface JeErrorItem {
   description: string;
   relative_path: string;
   updated_at: string;
+  je_processing_started_at: string | null;
 }
 
 // === Preload API ===

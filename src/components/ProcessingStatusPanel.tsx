@@ -6,6 +6,8 @@ import { Icons, ICON_SIZE } from '../shared/icons';
 import { useOverlayStore } from '../stores';
 import { useQueueData, useProcessedData, useErrorData, useSkippedData } from '../lib/queries';
 import { useCancelQueueItem, useClearPendingQueue } from '../lib/mutations';
+import { formatTime, formatDuration, formatStaticDuration } from '../shared/timeUtils';
+import { useLiveDuration } from '../hooks/useLiveDuration';
 import type { LucideIcon } from 'lucide-react';
 
 type TabId = 'queue' | 'processed' | 'errors' | 'skipped';
@@ -35,15 +37,6 @@ function useCopyFeedback(timeout = 1500) {
   return { copiedId, copy };
 }
 
-function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
-}
-
 const settingsHeaderClass = 'flex items-center gap-2 px-4 py-3 border-b border-border sticky top-0 bg-bg z-[1]';
 const backBtnClass = 'bg-transparent border-none text-text-secondary cursor-pointer px-1.5 py-[2px] rounded inline-flex items-center hover:text-text hover:bg-bg-hover';
 
@@ -61,10 +54,10 @@ export const ProcessingStatusPanel: React.FC = () => {
   const goBack = useOverlayStore(s => s.goBack);
   const [activeTab, setActiveTab] = useState<TabId>('queue');
 
-  const { data: queueData, isLoading: queueLoading } = useQueueData(undefined, { enabled: activeTab === 'queue' });
-  const { data: processedFiles = [], isLoading: processedLoading } = useProcessedData(undefined, { enabled: activeTab === 'processed' });
-  const { data: errorData, isLoading: errorsLoading } = useErrorData(undefined, { enabled: activeTab === 'errors' });
-  const { data: skippedFiles = [], isLoading: skippedLoading } = useSkippedData(undefined, { enabled: activeTab === 'skipped' });
+  const { data: queueData, isLoading: queueLoading } = useQueueData();
+  const { data: processedFiles = [], isLoading: processedLoading } = useProcessedData();
+  const { data: errorData, isLoading: errorsLoading } = useErrorData();
+  const { data: skippedFiles = [], isLoading: skippedLoading } = useSkippedData();
 
   const queueFiles = queueData?.files ?? [];
   const jeQueueItems = queueData?.jeItems ?? [];
@@ -131,6 +124,8 @@ const copyAllBtnClass = (copied: boolean) =>
 
 const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ files, jeItems }) => {
   const pendingFiles = files.filter(f => f.status === FileStatus.Pending);
+  const hasActive = files.some(f => f.status === FileStatus.Processing) || jeItems.some(j => j.je_status === 'processing');
+  useLiveDuration(hasActive);
   const { copiedId, copy } = useCopyFeedback();
   const cancelItem = useCancelQueueItem();
   const clearPending = useClearPendingQueue();
@@ -168,7 +163,13 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
             <span className="text-2.75 text-text-muted shrink-0">
               {file.status === FileStatus.Processing ? t('processing', 'Processing') : t('pending', 'Pending')}
             </span>
-            <span className="text-2.5 text-text-muted shrink-0">{formatTime(file.created_at)}</span>
+            {file.status === FileStatus.Processing && file.processing_started_at ? (
+              <span className="text-2.5 text-accent shrink-0 font-mono" title={t('elapsed', 'Elapsed')}>
+                {formatDuration(file.processing_started_at)}
+              </span>
+            ) : (
+              <span className="text-2.5 text-text-muted shrink-0">{formatTime(file.created_at)}</span>
+            )}
             <button
               className={`bg-transparent border-none text-text-muted cursor-pointer inline-flex items-center px-1 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-[opacity,color,background] hover:text-text hover:bg-bg-hover ${copiedId === file.id ? '!opacity-100 text-confidence-high' : ''}`}
               onClick={() => copy(file.id, formatEntry(file))}
@@ -194,7 +195,13 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
             <span className="text-2.75 text-accent shrink-0">
               {item.je_status === 'processing' ? t('generating_je', 'Generating JE') : t('je_generation_pending', 'JE generation pending')}
             </span>
-            <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.created_at)}</span>
+            {item.je_status === 'processing' && item.je_processing_started_at ? (
+              <span className="text-2.5 text-accent shrink-0 font-mono" title={t('elapsed', 'Elapsed')}>
+                {formatDuration(item.je_processing_started_at)}
+              </span>
+            ) : (
+              <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.created_at)}</span>
+            )}
           </li>
         ))}
       </ul>
@@ -251,6 +258,11 @@ const ProcessedTab: React.FC<{ files: ProcessedFileInfo[] }> = ({ files }) => {
                 <span className={`text-2.75 font-medium shrink-0 px-[5px] py-[1px] rounded ${CONFIDENCE_ROW_CLASSES[confKey]}`}>
                   {Math.round(file.overall_confidence * 100)}%
                 </span>
+                {file.processing_started_at && (
+                  <span className="text-2.5 text-text-muted shrink-0 font-mono" title={t('duration', 'Duration')}>
+                    {formatStaticDuration(file.processing_started_at, file.updated_at)}
+                  </span>
+                )}
                 <span className="text-2.5 text-text-muted shrink-0">{formatTime(file.updated_at)}</span>
                 <button
                   className={`bg-transparent border-none text-text-muted cursor-pointer inline-flex items-center px-1 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-[opacity,color,background] hover:text-text hover:bg-bg-hover ${copiedId === file.id ? '!opacity-100 text-confidence-high' : ''}`}
@@ -506,6 +518,11 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
               )}
               <span className="text-2.75 text-confidence-low">{t('je_generation_failed', 'JE generation failed')}</span>
             </div>
+            {item.je_processing_started_at && (
+              <span className="text-2.5 text-text-muted shrink-0 font-mono" title={t('duration', 'Duration')}>
+                {formatStaticDuration(item.je_processing_started_at, item.updated_at)}
+              </span>
+            )}
             <span className="text-2.5 text-text-muted shrink-0">{formatTime(item.updated_at)}</span>
           </li>
         ))}
