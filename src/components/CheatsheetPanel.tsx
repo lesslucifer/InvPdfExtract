@@ -109,7 +109,12 @@ export const CheatsheetPanel: React.FC = () => {
             <span className="text-text">{`${t('date', 'date')} `}<em className="text-text-secondary not-italic">{`(${t('filter_by_month', 'filter by month')})`}</em>{`, ${t('folder', 'folder')} `}<em className="text-text-secondary not-italic">{`(${t('reprocess_folder', 'reprocess folder')})`}</em>{`, ${t('filename', 'filename')} `}<em className="text-text-secondary not-italic">{`(${t('reprocess_file', 'reprocess file')})`}</em></span>
           </div>
         </div>
-        <div className="mt-2 text-2.75 text-text-secondary italic">{t('same_modifiers_apply_in_path_browser_click_set_scope_open_in_finder_reprocess', 'Same modifiers apply in path browser: click = set scope, ⌘ = open in Finder, ⌥ = reprocess')}</div>
+        <div className="mt-2 text-2.75 text-text-secondary italic">{t('same_modifiers_apply_in_path_browser_click_set_scope_open_in_finder_reprocess', 'Same modifiers apply in path browser: click = set scope, ⌘ = locate in Finder, ⌥ = reprocess')}</div>
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-2.75 cheatsheet-compact">
+          <span className={groupLabelClass}>{t('path_status_filter_label', '/:status')}</span>
+          <code>{t('path_filter_error', '/:error')}</code> <code>{t('path_filter_done', '/:done')}</code> <code>{t('path_filter_review', '/:review')}</code> <code>{t('path_filter_pending', '/:pending')}</code> <code>{t('path_filter_skipped', '/:skipped')}</code>
+          <span className="cheatsheet-note text-2.5 text-text-secondary">{t('path_status_filter_hint', 'filter files by processing status in path browser')}</span>
+        </div>
       </div>
 
     </div>

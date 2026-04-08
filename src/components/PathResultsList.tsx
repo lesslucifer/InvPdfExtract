@@ -32,18 +32,36 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   const [fileStatuses, setFileStatuses] = useState<Record<string, FileStatus>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const statusFilter = query.startsWith(':') && !query.includes(' ') ? query.slice(1).toLowerCase() || null : null;
+  const searchQuery = statusFilter ? '' : query;
+
   const { data: folderStatuses = {} } = useFolderStatuses();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await window.api.listVaultPaths(query, scope ?? undefined);
-        setItems(results);
-        setSelectedIndex(0);
-        const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
-        const statuses = filePaths.length > 0 ? await window.api.getFileStatusesByPaths(filePaths) : {};
-        setFileStatuses(statuses);
+        if (statusFilter) {
+          const files = await window.api.getFilesByStatuses([statusFilter as FileStatus]);
+          const scopePrefix = scope ? scope + '/' : null;
+          const filtered = files.filter(f => !scopePrefix || f.relative_path.startsWith(scopePrefix));
+          const pathItems: PathItem[] = filtered.map(f => {
+            const parts = f.relative_path.split('/');
+            return { name: parts[parts.length - 1], relativePath: f.relative_path, isDir: false };
+          });
+          setItems(pathItems);
+          setSelectedIndex(0);
+          const statusMap: Record<string, FileStatus> = {};
+          for (const f of filtered) statusMap[f.relative_path] = f.status;
+          setFileStatuses(statusMap);
+        } else {
+          const results = await window.api.listVaultPaths(searchQuery, scope ?? undefined);
+          setItems(results);
+          setSelectedIndex(0);
+          const filePaths = results.filter(r => !r.isDir).map(r => r.relativePath);
+          const statuses = filePaths.length > 0 ? await window.api.getFileStatusesByPaths(filePaths) : {};
+          setFileStatuses(statuses);
+        }
       } catch {
         setItems([]);
       }
@@ -52,9 +70,11 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, scope]);
+  }, [searchQuery, statusFilter, scope]);
 
   const itemStatuses: Record<string, FileStatus> = { ...folderStatuses, ...fileStatuses };
+
+  const displayItems = items;
 
   const handleSelect = useCallback((item: PathItem, e?: React.MouseEvent | KeyboardEvent) => {
     const metaOrCtrl = e && ('metaKey' in e) && (e.metaKey || e.ctrlKey);
@@ -129,23 +149,23 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, items.length - 1));
+        setSelectedIndex(prev => Math.min(prev + 1, displayItems.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (items[selectedIndex]) {
-          handleSelect(items[selectedIndex], e);
+        if (displayItems[selectedIndex]) {
+          handleSelect(displayItems[selectedIndex], e);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [items, selectedIndex, handleSelect]);
+  }, [displayItems, selectedIndex, handleSelect]);
 
-  if (items.length === 0) {
+  if (displayItems.length === 0) {
     return (
       <div className="px-4 py-6 text-center text-3.25 text-text-muted">
         {query ? t('no_matches', 'No matches') : t('no_folders_found', 'No folders found')}
@@ -158,7 +178,7 @@ export const PathResultsList: React.FC<Props> = ({ query, scope, onSelectFolder,
   return (
     <>
       <ul className="list-none m-0 py-1 overflow-y-auto max-h-[340px]" role="listbox">
-        {items.map((item, idx) => (
+        {displayItems.map((item, idx) => (
           <li
             key={item.relativePath}
             className={`group flex items-center gap-2 px-4 py-[7px] cursor-pointer transition-colors ${idx === selectedIndex ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
