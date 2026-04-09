@@ -1,14 +1,17 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
-import { useProcessingStore } from '../stores';
 import { t } from '../lib/i18n';
+import { useQueueData, useErrorData } from '../lib/queries';
 import type { LucideIcon } from 'lucide-react';
 
-function getProcessingStatusConfig(): Record<string, { icon: LucideIcon; className: string; label: string }> {
+type StatusIndicator = 'idle' | 'processing' | 'error';
+
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
+function getStatusConfig(): Record<StatusIndicator, { icon: LucideIcon; className: string; label: string }> {
   return {
     idle:       { icon: Icons.success,  className: 'text-text-muted',               label: t('all_good_view_processing_log', 'All good — view processing log') },
     processing: { icon: Icons.loader,   className: 'text-accent animate-spin-slow', label: `${t('processing', 'Processing')}...` },
-    review:     { icon: Icons.conflict, className: 'text-confidence-medium',        label: t('needs_review', 'Needs review') },
     error:      { icon: Icons.error,    className: 'text-confidence-low',           label: t('error', 'Error') },
   };
 }
@@ -21,8 +24,24 @@ interface Props {
 }
 
 export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, onStatusDotClick }) => {
-  const status = useProcessingStore(s => s.status);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { data: queueData } = useQueueData();
+  const { data: errorData } = useErrorData();
+
+  const status: StatusIndicator = useMemo(() => {
+    const queueFiles = queueData?.files ?? [];
+    const jeQueueItems = queueData?.jeItems ?? [];
+    if (queueFiles.length > 0 || jeQueueItems.length > 0) return 'processing';
+
+    const now = Date.now();
+    const errorLogs = errorData?.logs ?? [];
+    const jeErrors = errorData?.jeErrors ?? [];
+    const hasRecentError = errorLogs.some(l => now - new Date(l.timestamp).getTime() < SIX_HOURS_MS)
+      || jeErrors.some(e => now - new Date(e.updated_at).getTime() < SIX_HOURS_MS);
+    if (hasRecentError) return 'error';
+
+    return 'idle';
+  }, [queueData, errorData]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -41,8 +60,7 @@ export const SearchInput: React.FC<Props> = ({ value, onChange, onCursorChange, 
     }
   };
 
-  const processingStatusConfig = getProcessingStatusConfig();
-  const statusConfig = processingStatusConfig[status] ?? processingStatusConfig['idle'];
+  const statusConfig = getStatusConfig()[status];
 
   return (
     <div className="flex items-center px-4 py-3 border-b border-border gap-2.5">

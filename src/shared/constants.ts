@@ -52,7 +52,7 @@ export const AI_TRIAGE_FILE = 'ai-triage-instructions.md';
 export const INSTRUCTIONS_WATCHER_DEBOUNCE_MS = 5000;
 export const JE_SIMILARITY_THRESHOLD = 0.9;
 export const JE_SIMILARITY_CACHE_SIZE = 10_000;
-export const JE_AI_BATCH_SIZE = 100;
+export const JE_AI_BATCH_SIZE = 300;
 
 export const FILTER_CONFIG_FILE = 'filter-config.json';
 

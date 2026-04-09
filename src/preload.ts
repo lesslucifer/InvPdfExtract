@@ -45,12 +45,6 @@ const api: InvoiceVaultAPI = {
   closeWindow: () => ipcRenderer.invoke('close-window'),
   quitApp: () => ipcRenderer.invoke('quit-app'),
   listVaultPaths: (query: string, scope?: string) => ipcRenderer.invoke('list-vault-paths', query, scope),
-  onStatusUpdate: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, status: 'idle' | 'processing' | 'review' | 'error') => callback(status);
-    ipcRenderer.on('overlay-status-update', listener);
-    // Return an unsubscribe function
-    return () => ipcRenderer.removeListener('overlay-status-update', listener);
-  },
   // Processing status
   getFilesByStatuses: (statuses: FileStatus[]) => ipcRenderer.invoke('get-files-by-statuses', statuses),
   getErrorLogsWithPath: () => ipcRenderer.invoke('get-error-logs-with-path'),

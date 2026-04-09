@@ -68,6 +68,15 @@ export class JESimilarityEngine {
     }
   }
 
+  /** Refresh immediately, bypassing the debounce timer. Use between AI batch flushes. */
+  refreshNow(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    this.refresh();
+  }
+
   private scheduleRefresh(): void {
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
     this.refreshTimer = setTimeout(() => {

@@ -4,11 +4,7 @@ import { useHomeData, useFolderStatuses, useQueueData, useProcessedData, useErro
 import { useSearchStore } from './searchStore';
 import { useOverlayStore } from './overlayStore';
 
-type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
-
 interface ProcessingStore {
-  /** Overall app processing indicator (shown in SearchInput status dot) */
-  status: StatusIndicator;
   /** Bumped on each onJeStatusChanged IPC event */
   jeStatusVersion: number;
   /** Last JE status change data — consumed by ResultDetail to update per-record JE state */
@@ -16,21 +12,16 @@ interface ProcessingStore {
   /** Set when the vault DB fails to open */
   dbError: string | null;
 
-  /** Subscribe to all 3 IPC events. Call once from App.tsx. Returns cleanup function. */
+  /** Subscribe to all IPC events. Call once from App.tsx. Returns cleanup function. */
   startSubscriptions: () => () => void;
 }
 
 export const useProcessingStore = create<ProcessingStore>((set) => ({
-  status: 'idle',
   jeStatusVersion: 0,
   lastJeUpdate: null,
   dbError: null,
 
   startSubscriptions: () => {
-    const unsubStatus = window.api.onStatusUpdate((status) => {
-      set({ status });
-    });
-
     const unsubFile = window.api.onFileStatusChanged(async (_data: { fileIds: string[]; status: FileStatus }) => {
       // Invalidate React Query caches
       useHomeData.invalidate();
@@ -75,7 +66,6 @@ export const useProcessingStore = create<ProcessingStore>((set) => ({
     });
 
     return () => {
-      unsubStatus();
       unsubFile();
       unsubJe();
       unsubDbError();

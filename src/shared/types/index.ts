@@ -549,7 +549,6 @@ export interface InvoiceVaultAPI {
   getInitialState: () => Promise<string | null>;
   closeWindow: () => Promise<void>;
   quitApp: () => Promise<void>;
-  onStatusUpdate: (callback: (status: 'idle' | 'processing' | 'review' | 'error') => void) => () => void;
   listVaultPaths: (query: string, scope?: string) => Promise<Array<{ name: string; relativePath: string; isDir: boolean }>>;
   // Processing status
   getFilesByStatuses: (statuses: FileStatus[]) => Promise<VaultFile[]>;

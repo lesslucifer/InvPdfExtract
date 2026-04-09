@@ -135,11 +135,51 @@ export class JEGenerator {
       }
     }
 
-    // Flush in batches
+    // Flush in batches — after each AI batch, refresh similarity and re-scan remaining
+    // items so duplicates resolved by the AI batch don't need another AI call.
     if (allUnmatched.length > 0) {
-      for (let i = 0; i < allUnmatched.length; i += JE_AI_BATCH_SIZE) {
-        const batch = allUnmatched.slice(i, i + JE_AI_BATCH_SIZE);
-        await this.flushUnclassified(batch);
+      try {
+        let remaining = allUnmatched;
+        while (remaining.length > 0) {
+          const batch = remaining.slice(0, JE_AI_BATCH_SIZE);
+          await this.flushUnclassified(batch);
+
+          remaining = remaining.slice(JE_AI_BATCH_SIZE);
+          if (remaining.length === 0) break;
+
+          // Re-scan remaining items with updated similarity cache
+          this.similarityEngine.refreshNow();
+          const stillUnmatched: UnclassifiedItem[] = [];
+          for (const item of remaining) {
+            const match = this.similarityEngine.findMatch(item.description);
+            if (match) {
+              const isBank = item.docType === 'bank_statement';
+              const isSyntheticInvoice = !isBank && item.id === item.recordId;
+              insertJournalEntry(
+                item.recordId,
+                isBank || isSyntheticInvoice ? null : item.id,
+                isBank ? 'bank' : isSyntheticInvoice ? 'invoice' : 'line',
+                match.account,
+                (match.cashFlow ?? 'operating') as CashFlowType,
+                'similarity', match.score, match.matchedDescription,
+                match.contraAccount ?? null,
+              );
+            } else {
+              stillUnmatched.push(item);
+            }
+          }
+          const similarityHits = remaining.length - stillUnmatched.length;
+          if (similarityHits > 0) {
+            console.log(`[JEGenerator] Inter-batch similarity resolved ${similarityHits}/${remaining.length} items`);
+          }
+          remaining = stillUnmatched;
+        }
+      } catch (err) {
+        const stillProcessing = activeIds.filter(id => this.processing.has(id));
+        updateJeStatus(stillProcessing, 'error');
+        eventBus.emit('je:status-changed', { recordIds: stillProcessing, status: 'error' });
+        for (const id of stillProcessing) this.processing.delete(id);
+        throw err;
       }
     }
 

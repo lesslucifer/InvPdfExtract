@@ -194,7 +194,7 @@ Webpack replaces `__dirname` with `"/"` in the bundled output. This means any co
 - Shared/cross-component state → Zustand store. Local UI state (edit buffers, confirms) → `useState`.
 - Always use selectors: `useStore(s => s.field)`, never bare `useStore()` — prevents unnecessary re-renders.
 - Cross-store access outside React: `useOtherStore.getState()` — standard Zustand pattern.
-- All IPC event subscriptions (`onStatusUpdate`, `onFileStatusChanged`, `onJeStatusChanged`) live in `processingStore` only — never subscribe in components.
+- All IPC event subscriptions (`onFileStatusChanged`, `onJeStatusChanged`) live in `processingStore` only — never subscribe in components.
 - Use `immer` middleware only for stores with complex nested state updates (e.g. `searchStore`).
 
 ## React Query Conventions

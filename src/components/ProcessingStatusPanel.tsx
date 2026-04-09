@@ -191,7 +191,14 @@ const QueueTab: React.FC<{ files: VaultFile[]; jeItems: JeQueueItem[] }> = ({ fi
         {jeItems.map(item => (
           <li key={`je-${item.record_id}`} className="group flex items-center gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
             {(() => { const c = JE_STATUS_ICON_CONFIG[item.je_status]; return c ? <span className={`inline-flex items-center shrink-0 ${c.className}`}><c.icon size={ICON_SIZE.XS} /></span> : null; })()}
-            <FileLink relativePath={item.relative_path} className="flex-1 text-3 text-text" />
+            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+              <span className="text-3 text-text overflow-hidden text-ellipsis whitespace-nowrap">
+                {item.description || item.relative_path}
+              </span>
+              {item.description && (
+                <FileLink relativePath={item.relative_path} className="text-2.75 text-text-muted" />
+              )}
+            </div>
             <span className="text-2.75 text-accent shrink-0">
               {item.je_status === 'processing' ? t('generating_je', 'Generating JE') : t('je_generation_pending', 'JE generation pending')}
             </span>
@@ -512,9 +519,11 @@ const ErrorsTab: React.FC<{ logs: ErrorLogEntry[]; jeErrors: JeErrorItem[] }> = 
           <li key={`je-err-${item.record_id}`} className="group flex items-start gap-2 px-4 py-1.5 text-3 border-b border-border transition-colors hover:bg-bg-hover">
             <span className={`inline-flex items-center shrink-0 ${JE_STATUS_ICON_CONFIG['error'].className}`}><Icons.error size={ICON_SIZE.XS} /></span>
             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-              <FileLink relativePath={item.relative_path} className="text-3 text-text" />
-              {item.description && item.description !== item.relative_path && (
-                <span className="text-2.75 text-text-secondary overflow-hidden text-ellipsis whitespace-nowrap">{item.description}</span>
+              <span className="text-3 text-text overflow-hidden text-ellipsis whitespace-nowrap">
+                {item.description || item.relative_path}
+              </span>
+              {item.description && (
+                <FileLink relativePath={item.relative_path} className="text-2.75 text-text-muted" />
               )}
               <span className="text-2.75 text-confidence-low">{t('je_generation_failed', 'JE generation failed')}</span>
             </div>

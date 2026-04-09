@@ -40,8 +40,6 @@ import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
 import { exportJEToXlsx } from '../core/export';
 
-export type StatusIndicator = 'idle' | 'processing' | 'review' | 'error';
-
 export interface OverlayCallbacks {
   onInitVault: (folderPath: string) => Promise<void>;
   onSwitchVault: (vaultPath: string) => Promise<void>;
@@ -445,26 +443,19 @@ export class OverlayWindow {
   }
 
   subscribeToStatusEvents(): void {
-    const send = (status: StatusIndicator) => {
-      this.broadcastToAll('overlay-status-update', status);
-    };
     const sendFileStatus = (fileIds: string[], status: FileStatus) => {
       this.broadcastToAll('file-status-changed', { fileIds, status });
     };
     eventBus.on('extraction:started', (data) => {
-      send('processing');
       sendFileStatus(data.fileIds, FileStatus.Processing);
     });
     eventBus.on('extraction:completed', (data) => {
-      send('idle');
       sendFileStatus([data.fileId], FileStatus.Done);
     });
     eventBus.on('extraction:error', (data) => {
-      send('error');
       sendFileStatus([data.fileId], FileStatus.Error);
     });
     eventBus.on('review:needed', (data) => {
-      send('review');
       sendFileStatus([data.fileId], FileStatus.Review);
     });
     eventBus.on('file:added', (data) => {
