@@ -171,6 +171,21 @@ export function updateJeStatus(recordIds: string[], status: JEGenerationStatus):
   tx();
 }
 
+export function resetStaleJeProcessing(): number {
+  const db = getDatabase();
+  const result = db.prepare(
+    "UPDATE records SET je_status = 'pending', updated_at = datetime('now') WHERE je_status = 'processing' AND deleted_at IS NULL"
+  ).run();
+  return result.changes;
+}
+
+export function getPendingJeRecordIds(): string[] {
+  const db = getDatabase();
+  return (db.prepare(
+    "SELECT id FROM records WHERE je_status = 'pending' AND deleted_at IS NULL ORDER BY updated_at ASC"
+  ).all() as Array<{ id: string }>).map(r => r.id);
+}
+
 export function getJeQueueItems(): JeQueueItem[] {
   const db = getDatabase();
   return db.prepare(`

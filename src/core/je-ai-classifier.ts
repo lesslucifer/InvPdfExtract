@@ -66,6 +66,7 @@ Return a JSON array with one entry per item.`;
     }
   } catch (err) {
     console.error('[JEAIClassifier] Classification failed:', err);
+    throw err;
   }
 
   return results;

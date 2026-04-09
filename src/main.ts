@@ -22,7 +22,7 @@ import {
   getFilesByStatus, getFilesByStatuses, updateFileStatus, getFileByPath, getFilesByFolder,
   cancelQueueItem, clearPendingQueue, resetStaleProcessingFiles,
 } from './core/db/files';
-import { getRecordsByFileId, updateJeStatus, getRecordIdsByFilters } from './core/db/records';
+import { getRecordsByFileId, updateJeStatus, getRecordIdsByFilters, resetStaleJeProcessing, getPendingJeRecordIds } from './core/db/records';
 import { WATCHED_EXTENSIONS, INVOICEVAULT_DIR } from './shared/constants';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -345,6 +345,20 @@ async function startVault(vaultPath: string): Promise<void> {
     const recoveredCount = resetStaleProcessingFiles();
     if (recoveredCount > 0) {
       console.log(`[InvoiceVault] Recovered ${recoveredCount} stale processing file(s) → pending`);
+    }
+    const recoveredJeCount = resetStaleJeProcessing();
+    if (recoveredJeCount > 0) {
+      console.log(`[InvoiceVault] Recovered ${recoveredJeCount} stale JE processing record(s) → pending`);
+      eventBus.emit('je:status-changed', { recordIds: [], status: 'pending' });
+    }
+    if (jeGenerator) {
+      const pendingJeIds = getPendingJeRecordIds();
+      if (pendingJeIds.length > 0) {
+        console.log(`[InvoiceVault] ${pendingJeIds.length} pending JE record(s) found on startup, triggering generation`);
+        jeGenerator.generateBatch(pendingJeIds).catch((err: Error) => {
+          console.error('[InvoiceVault] Startup JE generation failed:', err);
+        });
+      }
     }
     const queuedCount = getFilesByStatuses([FileStatus.Unfiltered, FileStatus.Pending]).length;
     if (queuedCount > 0) {

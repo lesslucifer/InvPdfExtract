@@ -67,11 +67,10 @@ describe('JE AI Classifier - response parsing', () => {
     expect(results.size).toBe(1); // li-2 missing account
   });
 
-  it('returns empty map on unparseable response', async () => {
+  it('throws on unparseable response', async () => {
     _mockResponse = 'I cannot classify these items because...';
 
-    const results = await classifyWithAI(sampleItems, '/tmp/vault');
-    expect(results.size).toBe(0);
+    await expect(classifyWithAI(sampleItems, '/tmp/vault')).rejects.toThrow(SyntaxError);
   });
 
   it('returns empty map for empty items', async () => {
