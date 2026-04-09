@@ -2,7 +2,7 @@ import { t } from '../lib/i18n';
 import React, { useState, useCallback } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import { useOverlayStore, useLocaleStore } from '../stores';
-import { useAppConfig, useCliStatus } from '../lib/queries';
+import { useAppConfig, useAppVersion, useCliStatus } from '../lib/queries';
 
 interface Props {
   onVaultChanged?: () => void;
@@ -17,6 +17,7 @@ const localeBtnClass = 'bg-bg-secondary border border-accent/30 rounded-md px-2.
 export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const goBack = useOverlayStore(s => s.goBack);
   const { data: config = null } = useAppConfig();
+  const { data: appVersion = '' } = useAppVersion();
   const { data: cliStatus = null } = useCliStatus();
   const locale = useLocaleStore(s => s.locale);
   const changeLocale = useLocaleStore(s => s.changeLocale);
@@ -247,17 +248,26 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
       <div className="h-[1px] bg-border mx-4 my-1" />
 
       <div className="px-4 py-2.5">
-        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('claude_cli', 'Claude CLI')}</div>
+        <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('about', 'About')}</div>
         <div className="text-3 text-text-secondary">
-          {cliStatus === null
+          <span className="font-medium text-text">{t('invoicevault', 'InvoiceVault')}</span> {appVersion ? t('version_prefix', 'v') + appVersion : ''}
+        </div>
+        <div className="text-2.75 text-text-muted mt-1">
+          {t('about_description', 'Vietnamese VAT invoice management — extract, search, and reconcile')}
+        </div>
+        <div className="text-2.75 text-text-muted mt-1">
+          {t('claude_cli', 'Claude CLI')}: {cliStatus === null
             ? `${t('checking', 'Checking')}...`
             : cliStatus.available
-              ? `${t('found', 'Found')} (${cliStatus.version || t('unknown_version', 'unknown version')})`
-              : `${t('not_found_install_claude_code_cli_and_ensure_its_in_your_path', 'Not found — install Claude Code CLI and ensure it\'s in your PATH')}.`}
+              ? `${cliStatus.version || t('unknown_version', 'unknown version')}`
+              : t('not_found', 'Not found')}
         </div>
-        <div className="mt-2">
-          <button className={dangerBtnClass} onClick={handleQuit}>{t('quit_invoicevault', 'Quit InvoiceVault')}</button>
-        </div>
+      </div>
+
+      <div className="h-[1px] bg-border mx-4 my-1" />
+
+      <div className="px-4 py-2.5">
+        <button className={dangerBtnClass} onClick={handleQuit}>{t('quit_invoicevault', 'Quit InvoiceVault')}</button>
       </div>
     </div>
   );

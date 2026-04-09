@@ -34,6 +34,7 @@ const api: InvoiceVaultAPI = {
   exportFiltered: (filters: SearchFilters) => ipcRenderer.invoke('export-filtered', filters),
   showItemInFolder: (absolutePath: string) => ipcRenderer.invoke('show-item-in-folder', absolutePath),
   checkClaudeCli: () => ipcRenderer.invoke('check-claude-cli'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   reprocessAll: () => ipcRenderer.invoke('reprocess-all'),
   reprocessFile: (relativePath: string) => ipcRenderer.invoke('reprocess-file', relativePath),
   reprocessFolder: (folderPrefix: string) => ipcRenderer.invoke('reprocess-folder', folderPrefix),

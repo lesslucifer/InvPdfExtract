@@ -8,6 +8,11 @@ export const useAppConfig = queryHook
   .useQuery(() => ({ queryFn: () => window.api.getAppConfig() as Promise<AppConfig> }))
   .create();
 
+export const useAppVersion = queryHook
+  .ofKey<void, ['appVersion']>(() => ['appVersion'] as const)
+  .useQuery(() => ({ queryFn: () => window.api.getAppVersion() }))
+  .create();
+
 export const useCliStatus = queryHook
   .ofKey<void, ['cliStatus']>(() => ['cliStatus'] as const)
   .useQuery(() => ({ queryFn: () => window.api.checkClaudeCli() as Promise<{ available: boolean; version?: string }> }))

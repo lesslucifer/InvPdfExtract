@@ -1,5 +1,7 @@
 {
   "#": "#",
+  "about": "About",
+  "about_description": "Vietnamese VAT invoice management — extract, search, and reconcile",
   "accept": "Accept",
   "accept_ai": "Accept AI",
   "accept_all_ai": "Accept all AI",
@@ -157,6 +159,7 @@
   "new_vault_created_at": "New vault created at",
   "ngan_hang": "Bank",
   "ngay": "Date",
+  "not_found": "Not found",
   "no_errors": "No errors",
   "no_filters": "No filters",
   "no_folders_found": "No folders found",
@@ -297,6 +300,7 @@
   "unknown_file": "Unknown file",
   "unknown_version": "unknown version",
   "vault_initialized": "Vault Initialized",
+  "version_prefix": "v",
   "view_session_log": "View session log",
   "yes": "Yes"
 }

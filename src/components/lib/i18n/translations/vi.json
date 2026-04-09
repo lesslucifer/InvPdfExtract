@@ -1,5 +1,7 @@
 {
   "#": "#",
+  "about": "Giới thiệu",
+  "about_description": "Quản lý hóa đơn GTGT Việt Nam — trích xuất, tìm kiếm và đối soát",
   "accept": "Chấp nhận",
   "accept_ai": "Chấp nhận AI",
   "accept_all_ai": "Chấp nhận tất cả AI",
@@ -157,6 +159,7 @@
   "new_vault_created_at": "Vault mới được tạo tại",
   "ngan_hang": "Ngân hàng",
   "ngay": "Ngày",
+  "not_found": "Không tìm thấy",
   "no_errors": "Không có lỗi",
   "no_filters": "Không có bộ lọc",
   "no_folders_found": "Không tìm thấy thư mục",
@@ -297,6 +300,7 @@
   "unknown_file": "File không xác định",
   "unknown_version": "phiên bản không xác định",
   "vault_initialized": "Vault đã khởi tạo",
+  "version_prefix": "v",
   "view_session_log": "Xem log phiên làm việc",
   "mst": "Mã số thuế",
   "yes": "Có"

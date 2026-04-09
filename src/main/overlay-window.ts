@@ -802,6 +802,10 @@ export class OverlayWindow {
       }
     });
 
+    ipcMain.handle('get-app-version', () => {
+      return app.getVersion();
+    });
+
     ipcMain.handle('reprocess-all', async () => {
       if (!this.callbacks) return { count: 0 };
       const count = this.callbacks.onReprocessAll();

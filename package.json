@@ -1,7 +1,7 @@
 {
   "name": "invoicevault",
   "productName": "InvoiceVault",
-  "version": "1.0.0",
+  "version": "0.0.6",
   "description": "Vietnamese VAT invoice management — extract, search, and reconcile",
   "main": ".webpack/main",
   "private": true,

@@ -539,6 +539,7 @@ export interface InvoiceVaultAPI {
   exportFiltered: (filters: SearchFilters) => Promise<{ filePath: string | null }>;
   showItemInFolder: (absolutePath: string) => Promise<void>;
   checkClaudeCli: () => Promise<{ available: boolean; version?: string }>;
+  getAppVersion: () => Promise<string>;
   reprocessAll: () => Promise<{ count: number }>;
   reprocessFile: (relativePath: string) => Promise<{ count: number }>;
   reprocessFolder: (folderPrefix: string) => Promise<{ count: number }>;
