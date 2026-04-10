@@ -148,12 +148,15 @@ export class VaultPathCache {
     };
 
     if (!q) {
-      // Bare '/' — return immediate children of scope (or top-level dirs if no scope)
+      // Bare '/' — return immediate children of scope (or top-level if no scope)
       const targetDepth = scopePrefix ? scopePrefix.split('/').length : 1;
-      return this.dirs
-        .filter(e => inScope(e) && e.relativePath.split('/').length === targetDepth)
+      const matchingDirs = this.dirs
+        .filter(e => inScope(e) && e.relativePath.split('/').length === targetDepth);
+      const matchingFiles = this.files
+        .filter(e => inScope(e) && e.relativePath.split('/').length === targetDepth);
+      return [...matchingDirs, ...matchingFiles]
         .slice(0, MAX_RESULTS)
-        .map(e => ({ name: e.name, relativePath: e.relativePath, isDir: true }));
+        .map(e => ({ name: e.name, relativePath: e.relativePath, isDir: e.isDir }));
     }
 
     const scored: ScoredEntry[] = [];

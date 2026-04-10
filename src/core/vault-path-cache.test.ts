@@ -20,7 +20,7 @@ function makeCache(...entries: Array<{ path: string; isDir: boolean }>): VaultPa
 
 describe('VaultPathCache.query', () => {
   describe('bare / (empty query)', () => {
-    it('returns top-level dirs only, sorted alphabetically', () => {
+    it('returns top-level dirs and files, dirs first', () => {
       const cache = makeCache(
         { path: 'zebra', isDir: true },
         { path: 'alpha', isDir: true },
@@ -28,8 +28,7 @@ describe('VaultPathCache.query', () => {
         { path: 'readme.txt', isDir: false },
       );
       const results = cache.query('');
-      const dirNames = results.map(r => r.relativePath);
-      expect(dirNames).toEqual(['alpha', 'zebra']);
+      expect(results.map(r => r.relativePath)).toEqual(['alpha', 'zebra', 'readme.txt']);
     });
   });
 
@@ -187,14 +186,13 @@ describe('VaultPathCache.query with scope', () => {
     );
   }
 
-  it('bare query with scope returns immediate child dirs of the scope', () => {
+  it('bare query with scope returns immediate children (dirs and files) of the scope', () => {
     const cache = scopedCache();
-    const results = cache.query('', '2024');
+    const results = cache.query('', '2024/Q1');
     const paths = results.map(r => r.relativePath);
-    expect(paths).toContain('2024/Q1');
-    expect(paths).toContain('2024/Q2');
+    expect(paths).toContain('2024/Q1/inv001.pdf');
+    expect(paths).not.toContain('2024/Q2/inv002.pdf');
     expect(paths).not.toContain('2025/Q1');
-    expect(paths).not.toContain('2024');
   });
 
   it('text query with scope only returns entries under scope', () => {
