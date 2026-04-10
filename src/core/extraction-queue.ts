@@ -222,23 +222,6 @@ export class ExtractionQueue {
           return;
         }
 
-        // 2b. Matchers didn't match — try running each existing parser directly.
-        // A parser that produces valid output is a match even if its matcher failed.
-        for (const script of allScripts) {
-          try {
-            const scriptFullPath = path.join(this.vault.dotPath, script.script_path);
-            const result = await executeScript(scriptFullPath, fullPath);
-            if (result && result.records && result.records.length > 0) {
-              result.relative_path = file.relative_path;
-              this.scriptRegistry.recordUsage(script.id, file.id);
-              this.reconciler.reconcileResults({ results: [result] }, `script:${script.name}`);
-              console.log(`[ExtractionQueue] Processed with existing parser "${script.name}" (matcher missed): ${file.relative_path}`);
-              return;
-            }
-          } catch {
-            // Parser failed on this file — try next
-          }
-        }
       }
 
       // 3. For spreadsheets, use metadata-driven iterative script generation

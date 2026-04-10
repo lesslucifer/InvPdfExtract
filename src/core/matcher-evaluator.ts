@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as vm from 'vm';
 import { createRequire } from 'module';
 import { ExtractionScript } from '../shared/types';
+import { findNodeModules } from './app-paths';
 
 export interface MatcherEvaluatorOptions {
   matcherTimeoutMs?: number;
@@ -48,9 +49,23 @@ export class MatcherEvaluator {
   private runMatcher(matcherPath: string, filePath: string): boolean {
     const code = fs.readFileSync(matcherPath, 'utf-8');
 
-    // Create a real require() anchored at the matcher's directory
-    // so it can resolve 'xlsx' and other dependencies from node_modules.
-    const matcherRequire = createRequire(matcherPath);
+    // Create a real require() anchored at the matcher's directory,
+    // with fallback to the app's node_modules for dependencies like 'xlsx'.
+    const baseRequire = createRequire(matcherPath);
+    const appModulePaths = findNodeModules();
+    const appRequires = appModulePaths.map(p => createRequire(path.join(p, '_')));
+    const matcherRequire = (id: string) => {
+      try {
+        return baseRequire(id);
+      } catch {
+        for (const fallback of appRequires) {
+          try { return fallback(id); } catch { /* try next */ }
+        }
+        throw new Error(`Cannot find module '${id}'`);
+      }
+    };
+    matcherRequire.resolve = baseRequire.resolve;
+    matcherRequire.cache = baseRequire.cache;
 
     const moduleExports: { exports: unknown } = { exports: {} };
 

@@ -241,12 +241,9 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     mocks.getAllScripts.mockImplementation(() => getAllCount++ === 0 ? [] : [registeredScript]);
     mocks.registerScript.mockReturnValue(registeredScript);
 
-    // Matcher misses on first file, hits on second
-    // Matcher misses on all calls — the brute-force path (try all parsers directly) will
-    // pick up the registered script because executeScript returns records.
-    mocks.findMatchingScript.mockReturnValue(null);
+    // Matcher finds the registered script for the second file (first file has no scripts in registry)
+    mocks.findMatchingScript.mockReturnValue(registeredScript);
 
-    // executeScript returns a non-empty records array so the brute-force reuse path fires
     mocks.executeScript.mockResolvedValue({
       relative_path: '', doc_type: 'bank_statement',
       records: [{ confidence: 1.0, field_confidence: {}, doc_date: null, data: {}, line_items: [] }],
@@ -261,7 +258,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     await queue['processQueue']();
 
     // Script generated only once (first file — no scripts in registry yet).
-    // Second file finds the registered script via brute-force and reuses it.
+    // Second file matched via matcher and reused the registered script.
     expect(mocks.generateParser).toHaveBeenCalledTimes(1);
     expect(mocks.executeScript).toHaveBeenCalledTimes(1);
   });
