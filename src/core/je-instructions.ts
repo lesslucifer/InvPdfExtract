@@ -154,11 +154,11 @@ For each item, determine:
 - cash_flow: one of "operating", "investing", or "financing"
 
 Return ONLY a valid JSON array. Each element must have:
-- "id": the item ID (provided in the input)
+- "id": the 1-based line number from the input
 - "account": string
 - "contra_account": string
 - "cash_flow": string
 
 Example output:
-[{"id":"abc-123","account":"156","contra_account":"331","cash_flow":"operating"}]
+[{"id":1,"account":"156","contra_account":"331","cash_flow":"operating"}]
 `;

@@ -53,6 +53,7 @@ export const INSTRUCTIONS_WATCHER_DEBOUNCE_MS = 5000;
 export const JE_SIMILARITY_THRESHOLD = 0.9;
 export const JE_SIMILARITY_CACHE_SIZE = 10_000;
 export const JE_AI_BATCH_SIZE = 300;
+export const JE_INTRA_BATCH_SIMILARITY_THRESHOLD = 0.85;
 
 export const FILTER_CONFIG_FILE = 'filter-config.json';
 
