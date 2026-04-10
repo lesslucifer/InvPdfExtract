@@ -38,7 +38,7 @@ export class JEGenerator {
 
     try {
       this.similarityEngine.refresh();
-      const unmatched = this.classifyRecord(recordId);
+      const unmatched = await this.classifyRecord(recordId);
       if (unmatched.length > 0) {
         await this.flushUnclassified(unmatched);
       }
@@ -104,6 +104,7 @@ export class JEGenerator {
    */
   async generateForFile(fileId: string): Promise<number> {
     const records = getRecordsByFileId(fileId);
+    console.log(`[JEGenerator] generateForFile: fileId=${fileId.slice(0, 8)}, ${records.length} records`);
     if (records.length === 0) return 0;
     return this.generateBatch(records.map(r => r.id));
   }
@@ -117,16 +118,23 @@ export class JEGenerator {
     const activeIds = recordIds.filter(id => !this.processing.has(id));
     if (activeIds.length === 0) return 0;
 
+    const batchT0 = performance.now();
+    console.log(`[JEGenerator] generateBatch: starting with ${activeIds.length} records`);
+
     // Mark all as processing
     updateJeStatus(activeIds, 'processing');
     eventBus.emit('je:status-changed', { recordIds: activeIds, status: 'processing' });
 
+    const refreshT0 = performance.now();
     this.similarityEngine.refresh();
+    console.log(`[JEGenerator] generateBatch: similarity refresh took ${(performance.now() - refreshT0).toFixed(0)}ms`);
 
+    this.similarityEngine.resetPerfCounters();
+    const classifyT0 = performance.now();
     for (const recordId of activeIds) {
       this.processing.add(recordId);
       try {
-        const unmatched = this.classifyRecord(recordId);
+        const unmatched = await this.classifyRecord(recordId);
         allUnmatched.push(...unmatched);
       } catch {
         updateJeStatus([recordId], 'error');
@@ -134,6 +142,8 @@ export class JEGenerator {
         this.processing.delete(recordId);
       }
     }
+    console.log(`[JEGenerator] generateBatch: classifyRecord loop took ${(performance.now() - classifyT0).toFixed(0)}ms, unmatched=${allUnmatched.length}`);
+    this.similarityEngine.logPerfCounters('classifyRecord loop');
 
     // Flush in batches — after each AI batch, refresh similarity and re-scan remaining
     // items so duplicates resolved by the AI batch don't need another AI call.
@@ -149,10 +159,14 @@ export class JEGenerator {
 
           // Re-scan remaining items with updated similarity cache
           this.similarityEngine.refreshNow();
+          const batchMatches = await this.similarityEngine.findMatchBatch(
+            remaining.map(item => item.description),
+          );
           const stillUnmatched: UnclassifiedItem[] = [];
-          for (const item of remaining) {
-            const match = this.similarityEngine.findMatch(item.description);
+          for (let i = 0; i < remaining.length; i++) {
+            const match = batchMatches.get(i);
             if (match) {
+              const item = remaining[i];
               const isBank = item.docType === 'bank_statement';
               const isSyntheticInvoice = !isBank && item.id === item.recordId;
               insertJournalEntry(
@@ -165,7 +179,7 @@ export class JEGenerator {
                 match.contraAccount ?? null,
               );
             } else {
-              stillUnmatched.push(item);
+              stillUnmatched.push(remaining[i]);
             }
           }
           const similarityHits = remaining.length - stillUnmatched.length;
@@ -184,6 +198,7 @@ export class JEGenerator {
     }
 
     // Generate auto entries and count
+    const autoT0 = performance.now();
     for (const recordId of activeIds) {
       if (!this.processing.has(recordId)) continue; // skip errored
       try {
@@ -201,6 +216,8 @@ export class JEGenerator {
         this.processing.delete(recordId);
       }
     }
+    console.log(`[JEGenerator] generateBatch: autoEntries loop took ${(performance.now() - autoT0).toFixed(0)}ms`);
+    console.log(`[JEGenerator] generateBatch: TOTAL ${(performance.now() - batchT0).toFixed(0)}ms, ${activeIds.length} records, ${totalCount} entries`);
 
     return totalCount;
   }
@@ -226,7 +243,7 @@ export class JEGenerator {
    * Phase 1: Classify a single record using similarity matching.
    * Returns unmatched items for AI fallback.
    */
-  private classifyRecord(recordId: string): UnclassifiedItem[] {
+  private async classifyRecord(recordId: string): Promise<UnclassifiedItem[]> {
     const db = getDatabase();
     const record = db.prepare('SELECT * FROM records WHERE id = ? AND deleted_at IS NULL').get(recordId) as DbRecord | undefined;
     if (!record) return [];
@@ -246,7 +263,8 @@ export class JEGenerator {
     return [];
   }
 
-  private classifyInvoiceRecord(record: DbRecord): UnclassifiedItem[] {
+  private async classifyInvoiceRecord(record: DbRecord): Promise<UnclassifiedItem[]> {
+    const t0 = performance.now();
     const db = getDatabase();
     const lineItems = getLineItemsByRecord(record.id);
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(record.id) as {
@@ -255,7 +273,14 @@ export class JEGenerator {
       total_before_tax?: number;
       total_amount?: number;
     } | undefined;
-    const unmatched: UnclassifiedItem[] = [];
+
+    // Phase 1: Build descriptions and check user-edited status (fast, main thread)
+    interface PendingItem {
+      lineItem: typeof lineItems[0];
+      effectiveDescription: string;
+    }
+    const pending: PendingItem[] = [];
+    let dbCheckMs = 0;
 
     for (const item of lineItems) {
       const rawDescription = item.description?.trim() ?? '';
@@ -272,14 +297,49 @@ export class JEGenerator {
         effectiveDescription = rawDescription;
       }
 
-      // Skip if user already has a manually edited JE for this line item
+      const dbT0 = performance.now();
       const existingUserEdited = db.prepare(
         "SELECT id FROM journal_entries WHERE line_item_id = ? AND user_edited = 1"
       ).get(item.id);
+      dbCheckMs += performance.now() - dbT0;
       if (existingUserEdited) continue;
 
-      const match = this.similarityEngine.findMatch(effectiveDescription);
+      pending.push({ lineItem: item, effectiveDescription });
+    }
+
+    // Handle record with no line items — synthetic description
+    let syntheticDescription: string | null = null;
+    if (lineItems.length === 0) {
+      const existingUserEdited = db.prepare(
+        "SELECT id FROM journal_entries WHERE record_id = ? AND line_item_id IS NULL AND entry_type = 'invoice' AND user_edited = 1"
+      ).get(record.id);
+      if (!existingUserEdited) {
+        const parts: string[] = [];
+        if (invoiceData?.counterparty_name) parts.push(invoiceData.counterparty_name);
+        parts.push(record.doc_type);
+        if (invoiceData?.total_before_tax != null) parts.push(`${invoiceData.total_before_tax.toLocaleString()} VND`);
+        else if (invoiceData?.total_amount != null) parts.push(`${invoiceData.total_amount.toLocaleString()} VND`);
+        syntheticDescription = parts.join(' - ') || record.doc_type;
+      }
+    }
+
+    // Phase 2: Batch similarity match on worker thread
+    const allDescriptions = pending.map(p => p.effectiveDescription);
+    if (syntheticDescription) allDescriptions.push(syntheticDescription);
+
+    const simT0 = performance.now();
+    const matchResults = await this.similarityEngine.findMatchBatch(allDescriptions);
+    const similarityMs = performance.now() - simT0;
+
+    // Phase 3: Process results (fast, main thread)
+    const unmatched: UnclassifiedItem[] = [];
+    let insertMs = 0;
+
+    for (let i = 0; i < pending.length; i++) {
+      const { lineItem: item, effectiveDescription } = pending[i];
+      const match = matchResults.get(i);
       if (match) {
+        const insT0 = performance.now();
         insertJournalEntry(
           record.id, item.id, 'line',
           match.account,
@@ -287,6 +347,7 @@ export class JEGenerator {
           'similarity', match.score, match.matchedDescription,
           match.contraAccount ?? null,
         );
+        insertMs += performance.now() - insT0;
       } else {
         unmatched.push({
           id: item.id,
@@ -302,46 +363,41 @@ export class JEGenerator {
       }
     }
 
-    if (lineItems.length === 0) {
-      const existingUserEdited = db.prepare(
-        "SELECT id FROM journal_entries WHERE record_id = ? AND line_item_id IS NULL AND entry_type = 'invoice' AND user_edited = 1"
-      ).get(record.id);
-      if (!existingUserEdited) {
-        const parts: string[] = [];
-        if (invoiceData?.counterparty_name) parts.push(invoiceData.counterparty_name);
-        parts.push(record.doc_type);
-        if (invoiceData?.total_before_tax != null) parts.push(`${invoiceData.total_before_tax.toLocaleString()} VND`);
-        else if (invoiceData?.total_amount != null) parts.push(`${invoiceData.total_amount.toLocaleString()} VND`);
-        const syntheticDescription = parts.join(' - ') || record.doc_type;
-
-        const match = this.similarityEngine.findMatch(syntheticDescription);
-        if (match) {
-          insertJournalEntry(
-            record.id, null, 'invoice',
-            match.account,
-            (match.cashFlow ?? 'operating') as CashFlowType,
-            'similarity', match.score, match.matchedDescription,
-            match.contraAccount ?? null,
-          );
-        } else {
-          unmatched.push({
-            id: record.id,
-            recordId: record.id,
-            docType: record.doc_type,
-            description: syntheticDescription,
-            counterpartyName: invoiceData?.counterparty_name ?? undefined,
-            taxId: invoiceData?.tax_id ?? undefined,
-            totalWithTax: invoiceData?.total_amount ?? undefined,
-            subtotal: invoiceData?.total_before_tax ?? undefined,
-          });
-        }
+    // Handle synthetic description result
+    if (syntheticDescription) {
+      const syntheticIdx = pending.length;
+      const match = matchResults.get(syntheticIdx);
+      if (match) {
+        insertJournalEntry(
+          record.id, null, 'invoice',
+          match.account,
+          (match.cashFlow ?? 'operating') as CashFlowType,
+          'similarity', match.score, match.matchedDescription,
+          match.contraAccount ?? null,
+        );
+      } else {
+        unmatched.push({
+          id: record.id,
+          recordId: record.id,
+          docType: record.doc_type,
+          description: syntheticDescription,
+          counterpartyName: invoiceData?.counterparty_name ?? undefined,
+          taxId: invoiceData?.tax_id ?? undefined,
+          totalWithTax: invoiceData?.total_amount ?? undefined,
+          subtotal: invoiceData?.total_before_tax ?? undefined,
+        });
       }
+    }
+
+    if (allDescriptions.length > 0) {
+      const totalMs = performance.now() - t0;
+      console.log(`[JEGenerator] classifyInvoiceRecord ${record.id.slice(0, 8)}: ${lineItems.length} items, total=${totalMs.toFixed(0)}ms (dbCheck=${dbCheckMs.toFixed(0)}ms, similarity=${similarityMs.toFixed(0)}ms, insert=${insertMs.toFixed(0)}ms), unmatched=${unmatched.length}`);
     }
 
     return unmatched;
   }
 
-  private classifyBankRecord(record: DbRecord): UnclassifiedItem[] {
+  private async classifyBankRecord(record: DbRecord): Promise<UnclassifiedItem[]> {
     const db = getDatabase();
     const bankData = db.prepare('SELECT * FROM bank_statement_data WHERE record_id = ?').get(record.id) as BankStatementData | undefined;
     if (!bankData || !bankData.description) return [];
@@ -351,7 +407,8 @@ export class JEGenerator {
     ).get(record.id);
     if (existingUserEdited) return [];
 
-    const match = this.similarityEngine.findMatch(bankData.description);
+    const matchResults = await this.similarityEngine.findMatchBatch([bankData.description]);
+    const match = matchResults.get(0);
     if (match) {
       insertJournalEntry(
         record.id, null, 'bank',

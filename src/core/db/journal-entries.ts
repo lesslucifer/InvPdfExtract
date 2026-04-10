@@ -84,14 +84,22 @@ export interface CacheEntry {
 export function getRecentClassifiedLineItems(limit: number): CacheEntry[] {
   const db = getDatabase();
   return db.prepare(`
-    SELECT ili.description, je.record_id, je.line_item_id, je.account, je.contra_account, je.cash_flow, je.entry_type
+    SELECT
+      ili.description,
+      je.record_id,
+      je.line_item_id,
+      je.account,
+      je.contra_account,
+      je.cash_flow,
+      je.entry_type
     FROM journal_entries je
     JOIN invoice_line_items ili ON je.line_item_id = ili.id
     WHERE je.line_item_id IS NOT NULL
       AND je.entry_type = 'line'
       AND ili.description IS NOT NULL
       AND ili.deleted_at IS NULL
-    ORDER BY je.created_at DESC
+    GROUP BY LOWER(TRIM(ili.description)), je.account, COALESCE(je.contra_account, ''), je.cash_flow, je.entry_type
+    ORDER BY MAX(je.created_at) DESC
     LIMIT ?
   `).all(limit) as CacheEntry[];
 }
@@ -99,13 +107,21 @@ export function getRecentClassifiedLineItems(limit: number): CacheEntry[] {
 export function getRecentClassifiedBankItems(limit: number): CacheEntry[] {
   const db = getDatabase();
   return db.prepare(`
-    SELECT bsd.description, je.record_id, NULL as line_item_id, je.account, je.contra_account, je.cash_flow, je.entry_type
+    SELECT
+      bsd.description,
+      je.record_id,
+      NULL as line_item_id,
+      je.account,
+      je.contra_account,
+      je.cash_flow,
+      je.entry_type
     FROM journal_entries je
     JOIN bank_statement_data bsd ON je.record_id = bsd.record_id
     WHERE je.line_item_id IS NULL
       AND je.entry_type = 'bank'
       AND bsd.description IS NOT NULL
-    ORDER BY je.created_at DESC
+    GROUP BY LOWER(TRIM(bsd.description)), je.account, COALESCE(je.contra_account, ''), je.cash_flow, je.entry_type
+    ORDER BY MAX(je.created_at) DESC
     LIMIT ?
   `).all(limit) as CacheEntry[];
 }

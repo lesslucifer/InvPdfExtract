@@ -43,6 +43,7 @@ export class Reconciler {
   }
 
   private reconcileFileResult(fileResult: ExtractionFileResult, sessionLog: string): void {
+    const reconcileT0 = performance.now();
     const file = getFileByPath(fileResult.relative_path);
     if (!file) {
       console.warn(`[Reconciler] File not found in DB: ${fileResult.relative_path}`);
@@ -125,17 +126,24 @@ export class Reconciler {
       }
     });
 
+    const txnT0 = performance.now();
     txn();
+    const txnMs = performance.now() - txnT0;
 
     // Rebuild cross-file duplicate status for invoice records in this file
     const isInvoice = fileResult.doc_type === DocType.InvoiceIn || fileResult.doc_type === DocType.InvoiceOut;
+    const dedupT0 = performance.now();
     if (isInvoice && newFingerprints.size > 0) {
       rebuildDuplicatesForFingerprints(Array.from(newFingerprints));
     }
+    const dedupMs = performance.now() - dedupT0;
 
     // Determine file status based on confidence
     const needsReview = records.some(r => r.confidence < this.confidenceThreshold);
     updateFileStatus(file.id, needsReview ? FileStatus.Review : FileStatus.Done);
+
+    const totalLineItems = records.reduce((sum, r) => sum + (r.line_items?.length ?? 0), 0);
+    console.log(`[Reconciler] reconcileFileResult: ${fileResult.relative_path} — ${records.length} records, ${totalLineItems} lineItems, txn=${txnMs.toFixed(0)}ms, dedup=${dedupMs.toFixed(0)}ms, total=${(performance.now() - reconcileT0).toFixed(0)}ms`);
 
     eventBus.emit('extraction:completed', {
       batchId: batch.id,
@@ -220,6 +228,7 @@ export class Reconciler {
   }
 
   private reconcileLineItems(recordId: string, newLineItems: ExtractionRecord['line_items']): void {
+    const t0 = performance.now();
     const existingItems = getLineItemsByRecord(recordId);
     const existingByLineNumber = new Map(existingItems.map(item => [item.line_number, item]));
     const items = newLineItems || [];
@@ -282,6 +291,9 @@ export class Reconciler {
           db.prepare('DELETE FROM invoice_line_items WHERE id = ?').run(existing.id);
         }
       }
+    }
+    if (items.length > 50) {
+      console.log(`[Reconciler] reconcileLineItems: ${recordId.slice(0, 8)} — ${items.length} items, took ${(performance.now() - t0).toFixed(0)}ms`);
     }
   }
 

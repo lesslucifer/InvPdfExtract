@@ -191,8 +191,10 @@ export class ExtractionQueue {
   }
 
   private async processStructuredFile(file: VaultFile): Promise<void> {
+    const structT0 = performance.now();
     const fullPath = path.join(this.vault.rootPath, file.relative_path);
     const ext = path.extname(file.relative_path).toLowerCase();
+    console.log(`[ExtractionQueue] processStructuredFile: starting ${file.relative_path}`);
 
     try {
       // 1. Try built-in parsers first (XML e-invoices)
@@ -214,10 +216,14 @@ export class ExtractionQueue {
         const matchedScript = this.matcherEvaluator.findMatchingScript(fullPath, allScripts, this.vault.dotPath);
         if (matchedScript) {
           const scriptFullPath = path.join(this.vault.dotPath, matchedScript.script_path);
+          const scriptExecT0 = performance.now();
           const result = await executeScript(scriptFullPath, fullPath);
+          console.log(`[ExtractionQueue] executeScript took ${(performance.now() - scriptExecT0).toFixed(0)}ms for ${file.relative_path} (${result.records?.length ?? 0} records)`);
           result.relative_path = file.relative_path;
           this.scriptRegistry.recordUsage(matchedScript.id, file.id);
+          const reconcileT0 = performance.now();
           this.reconciler.reconcileResults({ results: [result] }, `script:${matchedScript.name}`);
+          console.log(`[ExtractionQueue] reconcileResults took ${(performance.now() - reconcileT0).toFixed(0)}ms for ${file.relative_path}`);
           console.log(`[ExtractionQueue] Processed with cached script "${matchedScript.name}": ${file.relative_path}`);
           return;
         }
@@ -227,6 +233,7 @@ export class ExtractionQueue {
       // 3. For spreadsheets, use metadata-driven iterative script generation
       console.log(`[ExtractionQueue] No cached script matched, generating via metadata pipeline: ${file.relative_path}`);
       await this.processSpreadsheetWithMetadata(file, fullPath);
+      console.log(`[ExtractionQueue] processStructuredFile: finished ${file.relative_path} in ${(performance.now() - structT0).toFixed(0)}ms`);
     } catch (err) {
       console.error(`[ExtractionQueue] Error processing structured file ${file.relative_path}:`, err);
       this.handleFileError(file, `Structured file error: ${file.relative_path}: ${(err as Error).message}`);
