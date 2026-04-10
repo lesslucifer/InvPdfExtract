@@ -6,6 +6,7 @@ import { useOverlayStore } from './overlayStore';
 import { replaceSearchResult } from './search-store-helpers';
 
 const PAGE_SIZE = 50;
+let searchGeneration = 0;
 
 interface SearchStore {
   // Input state
@@ -117,10 +118,14 @@ export const useSearchStore = create<SearchStore>()(
         set({ isLoadingMore: true });
       }
 
+      const myGeneration = ++searchGeneration;
+
       const [res, agg] = await Promise.all([
         window.api.search(searchQuery || '', currentOffset, file ? null : folder, file),
         append ? Promise.resolve(state.aggregates) : window.api.getAggregates(sf),
       ]);
+
+      if (myGeneration !== searchGeneration) return;
 
       if (append) {
         set(s => {

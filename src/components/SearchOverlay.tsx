@@ -96,7 +96,11 @@ export const SearchOverlay: React.FC = () => {
   useEffect(() => {
     if (!isWindowlizedWindow) return;
     window.api.getInitialState().then(raw => {
-      if (!raw) return;
+      if (!raw) {
+        const s = useSearchStore.getState();
+        s.doSearch('', s.filters, s.folderScope, false, s.fileScope);
+        return;
+      }
       try {
         const state = JSON.parse(raw);
         const query: string = state.query ?? '';
@@ -679,12 +683,12 @@ export const SearchOverlay: React.FC = () => {
             ss.setQuery('');
             ps.setPresetQuery('');
           } else if (os.overlayState === OverlayState.PathSearch) {
-            os.setOverlayState(OverlayState.Home);
+            const pss = usePathSearchStore.getState();
+            os.setOverlayState(pss.prePathState === OverlayState.PathSearch
+              ? OverlayState.Home : pss.prePathState);
             ss.setQuery('');
-            usePathSearchStore.getState().setPathQuery('');
-            ss.setFolderScope(null);
-            ss.setFileScope(null);
-            ss.setFilters({ text: '' } as ParsedQuery);
+            pss.setPathQuery('');
+            ss.doSearch('', ss.filters, ss.folderScope, false, ss.fileScope);
           } else if (os.overlayState === OverlayState.Settings ||
                      os.overlayState === OverlayState.Cheatsheet ||
                      os.overlayState === OverlayState.ProcessingStatus) {
