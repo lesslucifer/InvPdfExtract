@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(npx vitest:*)",
+      "Bash(npx electron:*)",
+      "Bash(npx electron-rebuild:*)",
+      "Bash(npx node-gyp:*)",
+      "Bash(node -e:*)",
+      "Bash(python3 -c:*)",
+      "Bash(git commit:*)",
+      "Bash(git reset:*)",
+      "Bash(git rm:*)",
+      "Bash(git ls-remote:*)",
+      "Bash(gh issue:*)",
+      "Bash(lsof -ti:*)",
+      "Bash(xargs kill:*)",
+      "Bash(file *)",
+      "Bash(sips:*)",
+      "Bash(otool:*)",
+      "Bash(system_profiler:*)",
+      "Bash(chmod:*)",
+      "Bash(corepack enable:*)",
+      "Bash(corepack prepare:*)",
+      "Bash(cp:*)",
+      "Bash(echo:*)",
+      "Skill(add-test)",
+      "Skill(enhance-extractor)",
+      "Skill(add-extractor)",
+      "WebSearch"
+    ]
+  }
+}
