@@ -246,7 +246,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
 
     mocks.executeScript.mockResolvedValue({
       relative_path: '', doc_type: 'bank_statement',
-      records: [{ confidence: 1.0, field_confidence: {}, doc_date: null, data: {}, line_items: [] }],
+      records: [{ confidence: 1.0, field_confidence: {}, doc_date: null, data: { amount: 100000, description: 'Bank wire' }, line_items: [] }],
     });
 
     fs.writeFileSync(path.join(rootPath, 'other.xlsx'), '');

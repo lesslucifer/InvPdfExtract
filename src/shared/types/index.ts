@@ -252,6 +252,13 @@ export interface AppConfig {
 
 // === Claude CLI Extraction Types ===
 
+export interface ParsingError {
+  row: number;
+  field: string;
+  rawValue: unknown;
+  error: string;
+}
+
 export interface ExtractionFileResult {
   relative_path: string;
   doc_type: DocType;
@@ -259,6 +266,7 @@ export interface ExtractionFileResult {
   error?: string;
   skipped?: boolean;
   skip_reason?: string;
+  _parsing_errors?: ParsingError[];
 }
 
 export interface ExtractionRecord {

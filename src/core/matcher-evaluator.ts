@@ -34,15 +34,20 @@ export class MatcherEvaluator {
    *                       used to resolve relative matcher_path values
    */
   findMatchingScript(filePath: string, scripts: ExtractionScript[], vaultDotPath: string): ExtractionScript | null {
+    const fileName = path.basename(filePath);
+    console.log(`[MatcherEvaluator] Testing ${fileName} against ${scripts.length} cached script(s)`);
     for (const script of scripts) {
       try {
         const absoluteMatcherPath = path.resolve(vaultDotPath, script.matcher_path);
+        const t0 = performance.now();
         const matched = this.runMatcher(absoluteMatcherPath, filePath);
+        console.log(`[MatcherEvaluator]   "${script.name}" (${script.doc_type}, used ${script.times_used}x) → ${matched ? 'MATCH' : 'no match'} [${(performance.now() - t0).toFixed(0)}ms]`);
         if (matched) return script;
       } catch (err) {
-        console.warn(`[MatcherEvaluator] Matcher ${script.name} failed:`, (err as Error).message);
+        console.warn(`[MatcherEvaluator]   "${script.name}" → ERROR: ${(err as Error).message}`);
       }
     }
+    console.log(`[MatcherEvaluator] No matching script found for ${fileName}`);
     return null;
   }
 

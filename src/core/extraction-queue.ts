@@ -13,6 +13,7 @@ import { parseXmlInvoice } from './parsers/xml-invoice-parser';
 import { extractMetadata } from './parsers/spreadsheet-metadata';
 import { RelevanceFilter } from './filters/relevance-filter';
 import { extractPdfText } from './filters/content-sniffer';
+import { validateScriptOutput } from './validators/output-validator';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
@@ -212,22 +213,53 @@ export class ExtractionQueue {
 
       // 2. Try cached scripts via matcher evaluator
       const allScripts = this.scriptRegistry.getAllScripts();
+      console.log(`[ExtractionQueue] Step 2: checking ${allScripts.length} cached script(s) for ${file.relative_path}`);
       if (allScripts.length > 0) {
         const matchedScript = this.matcherEvaluator.findMatchingScript(fullPath, allScripts, this.vault.dotPath);
         if (matchedScript) {
+          console.log(`[ExtractionQueue] Matched script "${matchedScript.name}" (${matchedScript.script_path}) — executing against ${file.relative_path}`);
           const scriptFullPath = path.join(this.vault.dotPath, matchedScript.script_path);
           const scriptExecT0 = performance.now();
-          const result = await executeScript(scriptFullPath, fullPath);
-          console.log(`[ExtractionQueue] executeScript took ${(performance.now() - scriptExecT0).toFixed(0)}ms for ${file.relative_path} (${result.records?.length ?? 0} records)`);
-          result.relative_path = file.relative_path;
-          this.scriptRegistry.recordUsage(matchedScript.id, file.id);
-          const reconcileT0 = performance.now();
-          this.reconciler.reconcileResults({ results: [result] }, `script:${matchedScript.name}`);
-          console.log(`[ExtractionQueue] reconcileResults took ${(performance.now() - reconcileT0).toFixed(0)}ms for ${file.relative_path}`);
-          console.log(`[ExtractionQueue] Processed with cached script "${matchedScript.name}": ${file.relative_path}`);
-          return;
-        }
+          let result;
+          try {
+            result = await executeScript(scriptFullPath, fullPath);
+          } catch (execErr) {
+            console.warn(`[ExtractionQueue] Cached script "${matchedScript.name}" CRASHED for ${file.relative_path}: ${(execErr as Error).message}. Falling through to new script generation.`);
+            result = null;
+          }
 
+          if (result) {
+            const execMs = (performance.now() - scriptExecT0).toFixed(0);
+            const recordCount = result.records?.length ?? 0;
+            const parsingErrorCount = result._parsing_errors?.length ?? 0;
+            console.log(`[ExtractionQueue] executeScript completed in ${execMs}ms — ${recordCount} records, ${parsingErrorCount} parsing errors reported`);
+
+            if (parsingErrorCount > 0) {
+              const errorSample = result._parsing_errors!.slice(0, 5).map(
+                e => `  row ${e.row}: ${e.field} = ${JSON.stringify(e.rawValue)} (${e.error})`
+              );
+              console.log(`[ExtractionQueue] Parsing errors sample:\n${errorSample.join('\n')}${parsingErrorCount > 5 ? `\n  ... and ${parsingErrorCount - 5} more` : ''}`);
+            }
+
+            result.relative_path = file.relative_path;
+
+            const validation = validateScriptOutput(result, { scriptDocType: matchedScript.doc_type });
+            console.log(`[ExtractionQueue] Output validation: valid=${validation.valid}${validation.warnings.length > 0 ? `, warnings: [${validation.warnings.join('; ')}]` : ''}`);
+
+            if (validation.valid) {
+              this.scriptRegistry.recordUsage(matchedScript.id, file.id);
+              const reconcileT0 = performance.now();
+              this.reconciler.reconcileResults({ results: [result] }, `script:${matchedScript.name}`);
+              console.log(`[ExtractionQueue] reconcileResults took ${(performance.now() - reconcileT0).toFixed(0)}ms for ${file.relative_path}`);
+              console.log(`[ExtractionQueue] SUCCESS: ${file.relative_path} processed with cached script "${matchedScript.name}"`);
+              return;
+            }
+
+            console.warn(`[ExtractionQueue] REJECTED cached script "${matchedScript.name}" for ${file.relative_path} — generating new script`);
+          }
+        } else {
+          console.log(`[ExtractionQueue] No cached script matched ${file.relative_path}`);
+        }
       }
 
       // 3. For spreadsheets, use metadata-driven iterative script generation
@@ -241,9 +273,11 @@ export class ExtractionQueue {
   }
 
   private async processSpreadsheetWithMetadata(file: VaultFile, fullPath: string): Promise<void> {
+    console.log(`[ExtractionQueue] ── New script generation pipeline for ${file.relative_path} ──`);
     // 1. Extract metadata (pure local code, no AI)
     const metadata = extractMetadata(fullPath);
-    console.log(`[ExtractionQueue] Extracted metadata: ${metadata.sheets.length} sheets, ${metadata.totalRows} total rows`);
+    const sheetSummary = metadata.sheets.map(s => `"${s.name}" (${s.rowCount} rows, ${s.colCount} cols, headers: [${s.headers.slice(0, 8).join(', ')}${s.headers.length > 8 ? `, +${s.headers.length - 8} more` : ''}])`).join(', ');
+    console.log(`[ExtractionQueue] Metadata: ${metadata.sheets.length} sheet(s) — ${sheetSummary}`);
 
     // 2. Generate initial parser script via AI
     const generated = await this.scriptGenerator.generateParser(metadata, this.vault.dotPath);

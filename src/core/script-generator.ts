@@ -74,6 +74,37 @@ For invoices, each record should include line_items array:
 
 **Cross-check:** If the document total ≈ SUM(line amounts), those are after-tax. If total ≈ SUM(line amounts) × (1 + rate/100), those are before-tax. Use this to choose the correct mapping.
 
+## Error Collection — REQUIRED
+
+The parser MUST collect field-level parsing errors and include them in the output. This enables automatic detection of format mismatches when the parser is reused on similar files.
+
+**Pattern:**
+- Maintain an \`_errors\` array throughout parsing
+- For each numeric field, validate after parsing — if \`isNaN()\`, push an error object and use \`null\` for the field value
+- For each required string field, check if value is missing/empty when expected
+- Continue processing remaining rows even if some fields fail (never crash on bad data)
+- Include the errors array in the output as \`_parsing_errors\`
+
+**Error object format:** \`{ row: <rowIndex>, field: "<fieldName>", rawValue: <originalValue>, error: "<description>" }\`
+
+**Example:**
+\`\`\`js
+const _errors = [];
+// For each row:
+const taxRateRaw = row['Thuế suất (%)'];
+let tax_rate = null;
+if (taxRateRaw != null && taxRateRaw !== '') {
+  const parsed = typeof taxRateRaw === 'string' ? parseFloat(taxRateRaw) : Number(taxRateRaw);
+  if (isNaN(parsed)) {
+    _errors.push({ row: i, field: 'tax_rate', rawValue: taxRateRaw, error: 'Not a number' });
+  } else {
+    tax_rate = parsed < 1 ? parsed * 100 : parsed;
+  }
+}
+// ... at the end:
+result._parsing_errors = _errors;
+\`\`\`
+
 ## Rules
 
 - Dates MUST be in YYYY-MM-DD format
@@ -98,9 +129,10 @@ const MATCHER_SYSTEM_PROMPT = `You are a code generator. Generate a Node.js Comm
 
 The matcher script MUST:
 - Export a function: module.exports = function(filePath) { return boolean }
-- Use require('xlsx') with { bookSheets: true } to avoid loading all data
-- Return true if the file has the same structure (sheet names, similar headers)
-- Return false otherwise
+- Use require('xlsx') to read headers only (first row of each sheet)
+- Return true ONLY if the file has EXACTLY the same sheet names AND ALL expected headers are present in each sheet
+- Return false if any expected sheet is missing or any expected header is absent
+- Extra columns in the file are OK (return true), but missing expected columns must return false
 - Be fast and lightweight — only check structure, not data content
 
 Respond with ONLY a code block:
@@ -197,7 +229,7 @@ ${sheetsInfo}`;
 File type: ${metadata.fileType}
 ${sheetsInfo}
 
-The matcher should return true for files that have the same sheet names and similar headers.`;
+The matcher MUST return true only if the file has exactly these sheet names AND all listed headers are present in their respective sheets. Extra headers in the file are acceptable.`;
   }
 
   private extractCodeBlock(response: string, label: string): string | null {

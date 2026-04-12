@@ -145,7 +145,7 @@ export class JESimilarityEngine {
   async findMatchBatch(descriptions: string[]): Promise<Map<number, SimilarityMatch>> {
     if (descriptions.length === 0) return new Map();
 
-    const t0 = performance.now();
+    // const t0 = performance.now();
     const results = new Map<number, SimilarityMatch>();
 
     for (let i = 0; i < descriptions.length; i++) {
@@ -155,7 +155,7 @@ export class JESimilarityEngine {
       if (match) results.set(i, match);
     }
 
-    console.log(`[JESimilarity] findMatchBatch: ${descriptions.length} items, ${results.size} matches, ${(performance.now() - t0).toFixed(0)}ms`);
+    // console.log(`[JESimilarity] findMatchBatch: ${descriptions.length} items, ${results.size} matches, ${(performance.now() - t0).toFixed(0)}ms`);
     return results;
   }
 
