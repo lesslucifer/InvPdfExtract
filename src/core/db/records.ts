@@ -78,6 +78,8 @@ interface ExportInvoiceHeaderRow {
   invoice_number: string | null;
   total_before_tax: number | null;
   total_amount: number | null;
+  fee_amount: number | null;
+  fee_description: string | null;
   tax_id: string | null;
   counterparty_name: string | null;
   counterparty_address: string | null;
@@ -260,17 +262,19 @@ export function upsertBankStatementData(recordId: string, data: Partial<BankStat
 export function upsertInvoiceData(recordId: string, data: Partial<InvoiceData>): void {
   const db = getDatabase();
   db.prepare(`
-    INSERT INTO invoice_data (record_id, invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO invoice_data (record_id, invoice_code, invoice_number, total_before_tax, total_amount, fee_amount, fee_description, tax_id, counterparty_name, counterparty_address)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(record_id) DO UPDATE SET
       invoice_code = excluded.invoice_code,
       invoice_number = excluded.invoice_number,
       total_before_tax = excluded.total_before_tax,
       total_amount = excluded.total_amount,
+      fee_amount = excluded.fee_amount,
+      fee_description = excluded.fee_description,
       tax_id = excluded.tax_id,
       counterparty_name = excluded.counterparty_name,
       counterparty_address = excluded.counterparty_address
-  `).run(recordId, data.invoice_code ?? null, data.invoice_number ?? null, data.total_before_tax ?? null, data.total_amount ?? null, data.tax_id ?? null, data.counterparty_name ?? null, data.counterparty_address ?? null);
+  `).run(recordId, data.invoice_code ?? null, data.invoice_number ?? null, data.total_before_tax ?? null, data.total_amount ?? null, data.fee_amount ?? null, data.fee_description ?? null, data.tax_id ?? null, data.counterparty_name ?? null, data.counterparty_address ?? null);
 }
 
 // === Invoice Line Items ===
@@ -679,7 +683,7 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
 
   if (parsed.status === 'mismatch') {
     conditions.push(`r.doc_type IN ('invoice_in', 'invoice_out')
-      AND ABS(COALESCE(id2.total_amount, 0) - COALESCE(
+      AND ABS(COALESCE(id2.total_amount, 0) - COALESCE(id2.fee_amount, 0) - COALESCE(
         (SELECT SUM(COALESCE(total_with_tax, subtotal)) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1000
       AND (SELECT COUNT(*) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) > 0`);
   } else if (parsed.status === 'uncertain') {
@@ -790,6 +794,8 @@ const SEARCH_RESULT_SELECT = `
       COALESCE(id2.invoice_number, bsd.invoice_number, '') as invoice_number,
       COALESCE(id2.total_before_tax, 0) as total_before_tax,
       COALESCE(id2.total_amount, 0) as total_amount,
+      COALESCE(id2.fee_amount, 0) as fee_amount,
+      COALESCE(id2.fee_description, '') as fee_description,
       COALESCE(id2.tax_id, '') as tax_id,
       COALESCE(id2.counterparty_name, bsd.counterparty_name, '') as counterparty_name,
       COALESCE(id2.counterparty_address, '') as counterparty_address,
@@ -876,7 +882,7 @@ export function gatherFilteredExportData(filters: SearchFilters): {
 
   const invoiceHeaders = db.prepare(`
     SELECT r.id as record_id, r.doc_type, r.doc_date, f.relative_path,
-      id2.invoice_code, id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
+      id2.invoice_code, id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.fee_amount, id2.fee_description, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
       r.confidence
     ${BASE_JOINS}
     WHERE ${whereClause} AND r.doc_type IN ('invoice_in', 'invoice_out')

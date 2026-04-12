@@ -148,6 +148,8 @@ export interface InvoiceData {
   invoice_number: string | null;
   total_before_tax: number | null;
   total_amount: number | null;
+  fee_amount: number | null;
+  fee_description: string | null;
   tax_id: string | null;
   counterparty_name: string | null;
   counterparty_address: string | null;
@@ -287,6 +289,8 @@ export interface ExtractionInvoiceData {
   invoice_number?: string;
   total_before_tax?: number;
   total_amount?: number;
+  fee_amount?: number;
+  fee_description?: string;
   tax_id?: string;
   counterparty_name?: string;
   counterparty_address?: string;
@@ -374,6 +378,8 @@ export interface SearchResult {
   invoice_number: string;
   total_before_tax: number;
   total_amount: number;
+  fee_amount: number;
+  fee_description: string;
   tax_id: string;
   // Computed: sum of line item total_with_tax (null if no line items)
   line_item_sum: number | null;

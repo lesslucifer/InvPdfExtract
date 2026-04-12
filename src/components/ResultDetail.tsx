@@ -105,8 +105,8 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   const hasConflicts = overrides.some(o => o.status === 'conflict');
 
   const totalMismatch = useMemo(
-    () => computeTotalMismatch(localTotals.total_amount, lineItems),
-    [localTotals.total_amount, lineItems],
+    () => computeTotalMismatch(localTotals.total_amount, lineItems, result.fee_amount),
+    [localTotals.total_amount, lineItems, result.fee_amount],
   );
 
   const beforeTaxTotalMismatch = useMemo(
@@ -239,6 +239,8 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
               <EditableField label={t('tax_id_label', 'TaxID')} value={result.tax_id || ''} fieldName="tax_id" tableName="invoice_data" recordId={result.id} override={getOverride('tax_id')} onSave={(v) => handleSave('invoice_data', 'tax_id', v)} onResolve={(a) => handleResolve('tax_id', a)} />
               <EditableField label={t('before_tax_total', 'Before-tax Total')} value={String(localTotals.total_before_tax || '')} fieldName="total_before_tax" tableName="invoice_data" recordId={result.id} override={getOverride('total_before_tax')} inputType="number" derivedValue={beforeTaxTotalMismatch.hasMismatch ? beforeTaxTotalMismatch.sum : null} showMismatchIcon={beforeTaxTotalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_before_tax', v)} onResolve={(a) => handleResolve('total_before_tax', a)} />
               <EditableField label={t('total_incl_tax', 'Total (incl. tax)')} value={String(localTotals.total_amount || '')} fieldName="total_amount" tableName="invoice_data" recordId={result.id} override={getOverride('total_amount')} inputType="number" derivedValue={totalMismatch.hasMismatch ? totalMismatch.sum : null} showMismatchIcon={totalMismatch.hasMismatch} onSave={(v) => handleSave('invoice_data', 'total_amount', v)} onResolve={(a) => handleResolve('total_amount', a)} />
+              <EditableField label={t('fee_amount', 'Fee Amount')} value={String(result.fee_amount || '')} fieldName="fee_amount" tableName="invoice_data" recordId={result.id} override={getOverride('fee_amount')} inputType="number" onSave={(v) => handleSave('invoice_data', 'fee_amount', v)} onResolve={(a) => handleResolve('fee_amount', a)} />
+              <EditableField label={t('fee_description', 'Fee Description')} value={result.fee_description || ''} fieldName="fee_description" tableName="invoice_data" recordId={result.id} override={getOverride('fee_description')} onSave={(v) => handleSave('invoice_data', 'fee_description', v)} onResolve={(a) => handleResolve('fee_description', a)} />
               <EditableField label={t('counterparty', 'Counterparty')} value={result.counterparty_name || ''} fieldName="counterparty_name" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_name')} onSave={(v) => handleSave('invoice_data', 'counterparty_name', v)} onResolve={(a) => handleResolve('counterparty_name', a)} />
               <EditableField label={t('address', 'Address')} value={result.counterparty_address || ''} fieldName="counterparty_address" tableName="invoice_data" recordId={result.id} override={getOverride('counterparty_address')} onSave={(v) => handleSave('invoice_data', 'counterparty_address', v)} onResolve={(a) => handleResolve('counterparty_address', a)} />
               <tr><td className="py-[3px] pr-2 text-3 text-text-secondary font-medium whitespace-nowrap w-[100px] align-top">{t('date', 'Date')}</td><td className="py-[3px] text-3 align-top">{result.doc_date || '-'}</td></tr>

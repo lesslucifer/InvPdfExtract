@@ -400,4 +400,11 @@ export const MIGRATIONS: Migration[] = [
   ALTER TABLE records ADD COLUMN je_processing_started_at DATETIME;
   `,
   },
+  {
+    key: '020_invoice_fee_fields',
+    sql: `
+  ALTER TABLE invoice_data ADD COLUMN fee_amount REAL;
+  ALTER TABLE invoice_data ADD COLUMN fee_description TEXT;
+  `,
+  },
 ];

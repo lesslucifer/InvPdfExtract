@@ -54,7 +54,7 @@ Your job is to judge whether the parser script correctly extracts the data.
 }
 
 ### Bank Statement data fields: bank_name, account_number, invoice_code, invoice_number, description, amount, counterparty_name
-### Invoice data fields: invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
+### Invoice data fields: invoice_code, invoice_number, total_before_tax, total_amount, fee_amount, fee_description, tax_id, counterparty_name, counterparty_address
 ### Invoice line_items fields: description, unit_price, quantity, tax_rate, subtotal, total_with_tax
 
 ## Response Format

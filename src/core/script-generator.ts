@@ -36,8 +36,8 @@ The parser script MUST output a JSON object to stdout with this exact structure:
 ## Document Types (doc_type)
 
 - "bank_statement" — sao kê ngân hàng (bank statement). Data fields: bank_name, account_number, invoice_code, invoice_number, description, amount, counterparty_name
-- "invoice_out" — hóa đơn đầu ra (sales/output invoice). Data fields: invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
-- "invoice_in" — hóa đơn đầu vào (purchase/input invoice). Data fields: invoice_code, invoice_number, total_before_tax, total_amount, tax_id, counterparty_name, counterparty_address
+- "invoice_out" — hóa đơn đầu ra (sales/output invoice). Data fields: invoice_code, invoice_number, total_before_tax, total_amount, fee_amount, fee_description, tax_id, counterparty_name, counterparty_address
+- "invoice_in" — hóa đơn đầu vào (purchase/input invoice). Data fields: invoice_code, invoice_number, total_before_tax, total_amount, fee_amount, fee_description, tax_id, counterparty_name, counterparty_address
 
 ## Invoice Reference Split
 
@@ -71,6 +71,7 @@ For invoices, each record should include line_items array:
 **Invoice total:**
 - total_amount = final payment amount including VAT (usually the biggest total on the document) / tổng cộng thanh toán
 - total_before_tax = subtotal before VAT / cộng tiền hàng
+- total_amount ≈ total_before_tax + tax + fee_amount (when fee exists)
 
 **Cross-check:** If the document total ≈ SUM(line amounts), those are after-tax. If total ≈ SUM(line amounts) × (1 + rate/100), those are before-tax. Use this to choose the correct mapping.
 

@@ -95,6 +95,8 @@
   "extraction_complete": "Trích xuất hoàn tất",
   "extraction_error": "Lỗi trích xuất",
   "failed_to_process": "Xử lý thất bại",
+  "fee_amount": "Phí khác",
+  "fee_description": "Mô tả phí",
   "field_conflicts": "Xung đột trường",
   "field_conflicts_after_reprocessing": "xung đột trường sau khi xử lý lại",
   "file": "File",

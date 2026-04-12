@@ -38,6 +38,9 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
   // Total before tax (TgTCThue) — before-tax
   const tongTienTruocThue = ttoan ? parseNumber(getTextContent(ttoan, 'TgTCThue')) : null;
 
+  // Parse fees from DSLPhi (Danh sách loại phí)
+  const { feeAmount, feeDescription } = parseFees(ttoan);
+
   // Parse line items
   const lineItems = parseLineItems(dsHHDVu);
 
@@ -46,6 +49,8 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
     invoice_number: soHoaDon ?? undefined,
     total_before_tax: tongTienTruocThue ?? undefined,
     total_amount: tongTien ?? undefined,
+    fee_amount: feeAmount ?? undefined,
+    fee_description: feeDescription ?? undefined,
     tax_id: taxId ?? undefined,
     counterparty_name: tenDoiTac ?? undefined,
     counterparty_address: diaChiDoiTac ?? undefined,
@@ -56,6 +61,8 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
     invoice_number: 1.0,
     total_before_tax: 1.0,
     total_amount: 1.0,
+    fee_amount: 1.0,
+    fee_description: 1.0,
     tax_id: 1.0,
     counterparty_name: 1.0,
     doc_date: 1.0,
@@ -131,6 +138,33 @@ function parseTaxRate(value: string | null): number | null {
   const cleaned = value.replace('%', '').trim();
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
+}
+
+function parseFees(ttoan: string | null): { feeAmount: number | null; feeDescription: string | null } {
+  if (!ttoan) return { feeAmount: null, feeDescription: null };
+
+  const dsLPhi = extractElement(ttoan, 'DSLPhi');
+  if (!dsLPhi) return { feeAmount: null, feeDescription: null };
+
+  const amounts: number[] = [];
+  const descriptions: string[] = [];
+  const regex = /<LPhi>([\s\S]*?)<\/LPhi>/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(dsLPhi)) !== null) {
+    const lphiXml = match[1];
+    const amount = parseNumber(getTextContent(lphiXml, 'TPhi'));
+    const desc = getTextContent(lphiXml, 'TLPhi');
+    if (amount != null) amounts.push(amount);
+    if (desc) descriptions.push(desc);
+  }
+
+  if (amounts.length === 0) return { feeAmount: null, feeDescription: null };
+
+  return {
+    feeAmount: amounts.reduce((a, b) => a + b, 0),
+    feeDescription: descriptions.join('; ') || null,
+  };
 }
 
 function parseLineItems(dsHHDVu: string | null): ExtractionLineItem[] {

@@ -95,6 +95,8 @@
   "extraction_complete": "Extraction Complete",
   "extraction_error": "Extraction Error",
   "failed_to_process": "Failed to process",
+  "fee_amount": "Fee Amount",
+  "fee_description": "Fee Description",
   "field_conflicts": "Field Conflicts",
   "field_conflicts_after_reprocessing": "field conflict(s) after re-processing",
   "file": "File",

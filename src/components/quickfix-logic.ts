@@ -9,12 +9,14 @@ export const TOTAL_TOLERANCE = 1000; // 1000 VND tolerance for invoice-level tot
 export function computeTotalMismatch(
   totalAmount: number,
   lineItems: { total_with_tax?: number | null }[],
+  feeAmount?: number | null,
 ): { hasMismatch: boolean; sum: number } {
   if (lineItems.length === 0 || !totalAmount) {
     return { hasMismatch: false, sum: 0 };
   }
   const sum = lineItems.reduce((acc, item) => acc + (item.total_with_tax ?? 0), 0);
-  const hasMismatch = Math.abs(sum - totalAmount) > TOTAL_TOLERANCE;
+  const adjustedTotal = totalAmount - (feeAmount ?? 0);
+  const hasMismatch = Math.abs(sum - adjustedTotal) > TOTAL_TOLERANCE;
   return { hasMismatch, sum };
 }
 

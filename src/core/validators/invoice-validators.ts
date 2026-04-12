@@ -19,14 +19,16 @@ export interface TaxBracket {
 export function validateLineItemSum(
   lineItems: { total_with_tax?: number }[],
   total: number,
+  feeAmount?: number,
 ): ValidationWarning[] {
   const sum = lineItems.reduce((acc, item) => acc + (item.total_with_tax ?? 0), 0);
+  const adjustedTotal = total - (feeAmount ?? 0);
 
-  if (Math.abs(sum - total) > 1) {
+  if (Math.abs(sum - adjustedTotal) > 1) {
     return [{
       type: 'line_item_sum_mismatch',
-      message: `Sum of line items after-tax (${sum}) does not match total (${total})`,
-      expected: total,
+      message: `Sum of line items after-tax (${sum}) does not match total (${adjustedTotal})${feeAmount ? ` (total ${total} minus fee ${feeAmount})` : ''}`,
+      expected: adjustedTotal,
       actual: sum,
     }];
   }

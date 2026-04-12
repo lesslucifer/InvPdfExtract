@@ -204,6 +204,8 @@ export class Reconciler {
         invoice_number: inv.invoice_number ?? null,
         total_before_tax: inv.total_before_tax ?? null,
         total_amount: inv.total_amount ?? null,
+        fee_amount: inv.fee_amount ?? null,
+        fee_description: inv.fee_description ?? null,
         tax_id: inv.tax_id ?? null,
         counterparty_name: inv.counterparty_name ?? null,
         counterparty_address: inv.counterparty_address ?? null,
