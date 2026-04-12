@@ -197,6 +197,8 @@ Invoice-level fields:
 - \`tax_id\`: Mã số thuế (TEXT)
 - \`counterparty_name\`: Tên đơn vị (TEXT)
 - \`counterparty_address\`: Địa chỉ (TEXT)
+- \`fee_amount\`: Phí khác / Khoản thu hộ — additional fees/surcharges not in line items (REAL, null if none)
+- \`fee_description\`: Mô tả phí — description of the fee (TEXT, null if none)
 
 Line item fields (chi tiết):
 - \`description\`: Tên hàng hóa, dịch vụ (TEXT)
@@ -251,6 +253,9 @@ Return ONLY raw JSON, no markdown fences, no extra text:
   **Invoice totals:**
   - \`total_amount\` = after-tax final payment ("Tổng cộng thanh toán")
   - \`total_before_tax\` = before-tax subtotal ("Cộng tiền hàng")
+  - \`fee_amount\` = additional fees/surcharges shown as a separate line on the invoice, NOT included in line items (e.g. "Các khoản thu hộ nhà chức trách", "Phí khác"). Set null if no separate fee exists.
+  - \`fee_description\` = description text of the fee. Set null if no fee.
+  - When fee exists: \`total_amount\` ≈ SUM(line item totals) + \`fee_amount\`
   - Cross-check: if \`total_amount\` ≈ SUM(line amounts), those amounts are after-tax; if ≈ SUM × (1 + rate/100), they are before-tax
 
 ## Task Instructions

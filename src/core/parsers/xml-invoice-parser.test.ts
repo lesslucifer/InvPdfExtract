@@ -302,6 +302,58 @@ describe('XML Invoice Parser', () => {
     });
   });
 
+  // ── Fee parsing (DSLPhi) ──
+
+  describe('Fee parsing', () => {
+    it('returns undefined fee fields for invoices without DSLPhi', () => {
+      const result = parseXmlInvoice(
+        XML_FILES.inKyThuatSo911,
+        'xml/0310989626_1_C26TAA_911_31012026_congtytnhhinkythuatso.xml',
+      );
+      const data = result.records[0].data as ExtractionInvoiceData;
+      expect(data.fee_amount).toBeUndefined();
+      expect(data.fee_description).toBeUndefined();
+    });
+
+    it('returns undefined fee fields for invoices with empty DSLPhi', () => {
+      const result = parseXmlInvoice(
+        XML_FILES.dauTuDuyPhu,
+        'xml/0314499083_1_C26TDP_1_31012026_congtytnhhdautuduyphu.xml',
+      );
+      const data = result.records[0].data as ExtractionInvoiceData;
+      expect(data.fee_amount).toBeUndefined();
+      expect(data.fee_description).toBeUndefined();
+    });
+
+    it('parses single fee entry from DSLPhi', () => {
+      const xml = `<?xml version="1.0"?><HDon><DLHDon><TTChung><KHHDon>C26TSS</KHHDon><SHDon>2451</SHDon><NLap>2026-01-12</NLap></TTChung><NDHDon><NBan><Ten>Test</Ten><MST>0301479499</MST><DChi>Addr</DChi></NBan><DSHHDVu><HHDVu><TChat>1</TChat><THHDVu>Item 1</THHDVu><DGia>100000</DGia><SLuong>1</SLuong><ThTien>100000</ThTien><TSuat>8%</TSuat></HHDVu></DSHHDVu><TToan><TgTCThue>100000</TgTCThue><TgTThue>8000</TgTThue><DSLPhi><LPhi><TLPhi>Các khoản thu hộ nhà chức trách</TLPhi><TPhi>12518000</TPhi></LPhi></DSLPhi><TgTTTBSo>12626000</TgTTTBSo></TToan></NDHDon></DLHDon></HDon>`;
+      const tmpFile = path.join(os.tmpdir(), 'fee-test.xml');
+      fs.writeFileSync(tmpFile, xml);
+      try {
+        const result = parseXmlInvoice(tmpFile, 'fee-test.xml');
+        const data = result.records[0].data as ExtractionInvoiceData;
+        expect(data.fee_amount).toBe(12518000);
+        expect(data.fee_description).toBe('Các khoản thu hộ nhà chức trách');
+      } finally {
+        fs.unlinkSync(tmpFile);
+      }
+    });
+
+    it('sums multiple fee entries from DSLPhi', () => {
+      const xml = `<?xml version="1.0"?><HDon><DLHDon><TTChung><KHHDon>C26TSS</KHHDon><SHDon>100</SHDon><NLap>2026-01-12</NLap></TTChung><NDHDon><NBan><Ten>Test</Ten><MST>0301479499</MST><DChi>Addr</DChi></NBan><DSHHDVu><HHDVu><TChat>1</TChat><THHDVu>Item</THHDVu><DGia>100000</DGia><SLuong>1</SLuong><ThTien>100000</ThTien><TSuat>8%</TSuat></HHDVu></DSHHDVu><TToan><TgTCThue>100000</TgTCThue><TgTThue>8000</TgTThue><DSLPhi><LPhi><TLPhi>Fee A</TLPhi><TPhi>5000</TPhi></LPhi><LPhi><TLPhi>Fee B</TLPhi><TPhi>3000</TPhi></LPhi></DSLPhi><TgTTTBSo>116000</TgTTTBSo></TToan></NDHDon></DLHDon></HDon>`;
+      const tmpFile = path.join(os.tmpdir(), 'multi-fee-test.xml');
+      fs.writeFileSync(tmpFile, xml);
+      try {
+        const result = parseXmlInvoice(tmpFile, 'multi-fee-test.xml');
+        const data = result.records[0].data as ExtractionInvoiceData;
+        expect(data.fee_amount).toBe(8000);
+        expect(data.fee_description).toBe('Fee A; Fee B');
+      } finally {
+        fs.unlinkSync(tmpFile);
+      }
+    });
+  });
+
   // ── Error handling ──
 
   describe('Error handling', () => {

@@ -53,6 +53,29 @@ describe('computeTotalMismatch', () => {
     expect(result.hasMismatch).toBe(false);
     expect(result.sum).toBe(500);
   });
+
+  it('accounts for fee_amount when computing mismatch', () => {
+    const result = computeTotalMismatch(50475000, [
+      { total_with_tax: 37957000 },
+    ], 12518000);
+    expect(result.hasMismatch).toBe(false);
+    expect(result.sum).toBe(37957000);
+  });
+
+  it('detects mismatch even with fee_amount', () => {
+    const result = computeTotalMismatch(50475000, [
+      { total_with_tax: 30000000 },
+    ], 12518000);
+    expect(result.hasMismatch).toBe(true);
+  });
+
+  it('ignores null fee_amount', () => {
+    const result = computeTotalMismatch(1000, [
+      { total_with_tax: 400 },
+      { total_with_tax: 600 },
+    ], null);
+    expect(result.hasMismatch).toBe(false);
+  });
 });
 
 describe('computeLineItemMismatch', () => {

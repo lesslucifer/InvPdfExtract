@@ -42,7 +42,7 @@ export function gatherExportData(options: ExportOptions = {}): ExportData {
   // Invoice headers (both in and out)
   const invoiceHeaders = db.prepare(`
     SELECT r.id as record_id, r.doc_type, r.doc_date, f.relative_path,
-      id2.invoice_code, id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
+      id2.invoice_code, id2.invoice_number, id2.total_before_tax, id2.total_amount, id2.fee_amount, id2.fee_description, id2.tax_id, id2.counterparty_name, id2.counterparty_address,
       r.confidence
     FROM records r
     JOIN files f ON r.file_id = f.id
@@ -83,9 +83,9 @@ export function exportToCsv(data: ExportData): Map<string, string> {
 
   // Invoice headers CSV
   if (data.invoiceHeaders.length > 0) {
-    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('invoice_code', 'Ký hiệu HĐ'), t('so_hd', 'Số HĐ'), t('tong_tien_truoc_thue', 'Tổng tiền trước thuế'), t('tong_tien', 'Tổng tiền'), t('taxId', 'TaxID'), t('doi_tac', 'Đối tác'), t('dia_chi', 'Địa chỉ'), t('confidence', 'Confidence'), t('file', 'File')];
+    const headers = [t('loai', 'Loại'), t('ngay', 'Ngày'), t('invoice_code', 'Ký hiệu HĐ'), t('so_hd', 'Số HĐ'), t('tong_tien_truoc_thue', 'Tổng tiền trước thuế'), t('tong_tien', 'Tổng tiền'), t('phi_khac', 'Phí khác'), t('mo_ta_phi', 'Mô tả phí'), t('taxId', 'TaxID'), t('doi_tac', 'Đối tác'), t('dia_chi', 'Địa chỉ'), t('confidence', 'Confidence'), t('file', 'File')];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
+      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.total_before_tax, r.total_amount, r.fee_amount, r.fee_description, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);
     files.set('invoices.csv', toCsv(headers, rows));
   }
@@ -136,9 +136,9 @@ export function exportToXlsx(data: ExportData): Buffer {
   }
 
   if (data.invoiceHeaders.length > 0) {
-    const headers = ['Loai', 'Ngay', 'Ky hieu HD', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'TaxID', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
+    const headers = ['Loai', 'Ngay', 'Ky hieu HD', 'So HD', 'Tong tien truoc thue', 'Tong tien', 'Phi khac', 'Mo ta phi', 'TaxID', 'Doi tac', 'Dia chi', 'Confidence', 'File'];
     const rows = data.invoiceHeaders.map(r => [
-      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.total_before_tax, r.total_amount, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
+      r.doc_type, r.doc_date, r.invoice_code, r.invoice_number, r.total_before_tax, r.total_amount, r.fee_amount, r.fee_description, r.tax_id, r.counterparty_name, r.counterparty_address, r.confidence, r.relative_path,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, 'Hoa don');

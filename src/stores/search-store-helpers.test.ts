@@ -17,6 +17,8 @@ function makeResult(id: string, overrides: Partial<SearchResult> = {}): SearchRe
     invoice_number: '0001',
     total_before_tax: 100,
     total_amount: 110,
+    fee_amount: 0,
+    fee_description: '',
     tax_id: '1234567890',
     line_item_sum: 110,
     line_item_sum_before_tax: 100,

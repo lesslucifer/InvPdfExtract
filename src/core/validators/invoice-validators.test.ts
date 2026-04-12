@@ -46,6 +46,34 @@ describe('Invoice Validators', () => {
       expect(warnings[0].actual).toBe(300000);
     });
 
+    it('passes when sum + fee_amount equals total', () => {
+      const lineItems = [
+        { total_with_tax: 37957000 },
+      ];
+      const warnings = validateLineItemSum(lineItems, 50475000, 12518000);
+      expect(warnings).toHaveLength(0);
+    });
+
+    it('returns warning when sum + fee_amount does not match total', () => {
+      const lineItems = [
+        { total_with_tax: 100000 },
+        { total_with_tax: 200000 },
+      ];
+      const warnings = validateLineItemSum(lineItems, 500000, 50000);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0].type).toBe('line_item_sum_mismatch');
+      expect(warnings[0].expected).toBe(450000);
+      expect(warnings[0].actual).toBe(300000);
+    });
+
+    it('ignores undefined feeAmount (backward compatible)', () => {
+      const warnings = validateLineItemSum(
+        [{ total_with_tax: 351000 }],
+        351000,
+      );
+      expect(warnings).toHaveLength(0);
+    });
+
     it('handles missing total_with_tax values gracefully', () => {
       const lineItems = [
         { total_with_tax: 100000 },
