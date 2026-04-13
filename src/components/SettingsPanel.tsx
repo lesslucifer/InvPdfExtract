@@ -95,6 +95,14 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
     setTimeout(() => setBackupStatus(s => ({ ...s, [vaultPath]: 'idle' })), 3000);
   }, []);
 
+  const handleVaultDataClick = useCallback((vaultPath: string, e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey) {
+      handleBackupVault(vaultPath);
+    } else {
+      window.api.openVaultDataFolder(vaultPath);
+    }
+  }, [handleBackupVault]);
+
   const handleExportInstructions = useCallback(async () => {
     const result = await window.api.exportInstructions();
     if (result.canceled) return;
@@ -150,9 +158,9 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
               <button className={settingsBtnClass} onClick={() => handleOpenVault(config.lastVaultPath!)} title={t('locate_in_file_manager', 'Locate in file manager')}>{t('locate', 'Locate')}</button>
               <button
                 className={settingsBtnClass}
-                onClick={() => handleBackupVault(config.lastVaultPath!)}
+                onClick={(e) => handleVaultDataClick(config.lastVaultPath!, e)}
                 disabled={backupStatus[config.lastVaultPath!] === 'busy'}
-                title={t('backup_vault_title', 'Export vault to ZIP')}
+                title={t('open_vault_data_title', 'Open vault data folder (Cmd+click to backup)')}
               >
                 {backupStatus[config.lastVaultPath!] === 'busy'
                   ? `${t('backing_up', 'Backing up')}...`
@@ -160,7 +168,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
                     ? t('backup_done', 'Backed up!')
                     : backupStatus[config.lastVaultPath!] === 'error'
                       ? t('backup_failed', 'Backup failed')
-                      : t('backup', 'Backup')}
+                      : t('vault_data', 'Vault Data')}
               </button>
               <button
                 className={clearConfirmVault === config.lastVaultPath ? confirmBtnClass : dangerBtnClass}
@@ -190,9 +198,9 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
                 </button>
                 <button
                   className={settingsBtnClass}
-                  onClick={() => handleBackupVault(vp)}
+                  onClick={(e) => handleVaultDataClick(vp, e)}
                   disabled={backupStatus[vp] === 'busy'}
-                  title={t('backup_vault_title', 'Export vault to ZIP')}
+                  title={t('open_vault_data_title', 'Open vault data folder (Cmd+click to backup)')}
                 >
                   {backupStatus[vp] === 'busy'
                     ? `${t('backing_up', 'Backing up')}...`
@@ -200,7 +208,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
                       ? t('backup_done', 'Backed up!')
                       : backupStatus[vp] === 'error'
                         ? t('backup_failed', 'Backup failed')
-                        : t('backup', 'Backup')}
+                        : t('vault_data', 'Vault Data')}
                 </button>
                 <button
                   className={clearConfirmVault === vp ? confirmBtnClass : dangerBtnClass}

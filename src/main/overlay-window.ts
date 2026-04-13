@@ -35,6 +35,7 @@ import {
   getVaultStatePath,
   WindowState, PersistedWindowGeometry, PersistedSpawnedWindow,
 } from '../core/window-state';
+import { getVaultDotPath } from '../core/vault-paths';
 import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
@@ -810,6 +811,11 @@ export class OverlayWindow {
       if (!this.vaultPath) return;
       const fullPath = path.join(this.vaultPath, relativePath);
       shell.showItemInFolder(fullPath);
+    });
+
+    ipcMain.handle('open-vault-data-folder', async (_event, vaultPath: string) => {
+      const dotPath = getVaultDotPath(vaultPath);
+      shell.openPath(dotPath);
     });
 
     ipcMain.handle('show-item-in-folder', async (_event, absolutePath: string) => {
