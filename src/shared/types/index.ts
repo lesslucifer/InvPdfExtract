@@ -162,7 +162,7 @@ export interface InvoiceLineItem {
   description: string | null;
   unit_price: number | null;
   quantity: number | null;
-  tax_rate: number | null;
+  tax_rate: number | string | null;
   subtotal: number | null;
   total_with_tax: number | null;
   deleted_at: string | null;
@@ -309,7 +309,7 @@ export interface ExtractionLineItem {
   description?: string;
   unit_price?: number;
   quantity?: number;
-  tax_rate?: number;
+  tax_rate?: number | string;
   subtotal?: number;
   total_with_tax?: number;
 }

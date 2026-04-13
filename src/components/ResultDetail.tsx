@@ -169,7 +169,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
 
   const derivedTaxAmount = useMemo(() => {
     return lineItems
-      .filter(li => li.tax_rate != null && li.tax_rate > 0)
+      .filter(li => typeof li.tax_rate === 'number' && li.tax_rate > 0)
       .reduce((sum, li) => {
         const before = li.subtotal ?? 0;
         const after = li.total_with_tax ?? 0;
@@ -291,7 +291,7 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                         <EditableCell value={String(item.quantity ?? '')} fieldName="quantity" lineItemId={item.id} override={getLineItemOverride(item.id, 'quantity')} inputType="number" derivedValue={deriveFieldValue('quantity', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <EditableCell value={String(item.unit_price ?? '')} fieldName="unit_price" lineItemId={item.id} override={getLineItemOverride(item.id, 'unit_price')} inputType="number" derivedValue={deriveFieldValue('unit_price', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <EditableCell value={String(item.subtotal ?? '')} fieldName="subtotal" lineItemId={item.id} override={getLineItemOverride(item.id, 'subtotal')} inputType="number" derivedValue={deriveFieldValue('subtotal', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={item.tax_rate != null ? String(item.tax_rate) : ''} fieldName="tax_rate" lineItemId={item.id} override={getLineItemOverride(item.id, 'tax_rate')} inputType="number" derivedValue={deriveFieldValue('tax_rate', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={item.tax_rate != null ? String(item.tax_rate) : ''} fieldName="tax_rate" lineItemId={item.id} override={getLineItemOverride(item.id, 'tax_rate')} derivedValue={deriveFieldValue('tax_rate', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <EditableCell value={String(item.total_with_tax ?? '')} fieldName="total_with_tax" lineItemId={item.id} override={getLineItemOverride(item.id, 'total_with_tax')} inputType="number" derivedValue={deriveFieldValue('total_with_tax', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <JeCell account={je?.account ?? null} onSave={(account, contra) => handleSaveJeAccount('line', item.id, account, contra)} />
                         <JeCell account={je?.contra_account ?? null} onSave={(contra) => handleSaveJeAccount('line', item.id, je?.account ?? '', contra)} />

@@ -66,9 +66,9 @@ export function getMismatchedLineItems(
  * Check if total_with_tax (after-tax) matches subtotal * (1 + tax_rate/100).
  */
 export function computeAfterTaxMismatch(
-  item: { subtotal?: number | null; tax_rate?: number | null; total_with_tax?: number | null },
+  item: { subtotal?: number | null; tax_rate?: number | string | null; total_with_tax?: number | null },
 ): { hasMismatch: boolean; expected: number | null } {
-  if (item.subtotal == null || item.tax_rate == null || item.total_with_tax == null) {
+  if (item.subtotal == null || item.tax_rate == null || typeof item.tax_rate === 'string' || item.total_with_tax == null) {
     return { hasMismatch: false, expected: null };
   }
   const expected = Math.round(item.subtotal * (1 + item.tax_rate / 100));
@@ -81,9 +81,9 @@ export function computeAfterTaxMismatch(
  * percentage (e.g. 8). Values < 1 are almost certainly decimals that need *100.
  */
 export function computeTaxRateMismatch(
-  item: { tax_rate?: number | null },
+  item: { tax_rate?: number | string | null },
 ): { hasMismatch: boolean; expected: number | null } {
-  if (item.tax_rate == null || item.tax_rate === 0) {
+  if (item.tax_rate == null || typeof item.tax_rate === 'string' || item.tax_rate === 0) {
     return { hasMismatch: false, expected: null };
   }
   if (item.tax_rate > 0 && item.tax_rate < 1) {
@@ -141,6 +141,7 @@ export function deriveFieldValue(
       break;
 
     case 'tax_rate': {
+      if (typeof tax === 'string') return null; // string tax rates (KCT, KKKNT) — no derivation
       // Auto-fix decimal rates (0.08 -> 8)
       const taxMismatch = computeTaxRateMismatch(item);
       if (taxMismatch.hasMismatch) {
@@ -162,7 +163,7 @@ export function deriveFieldValue(
       break;
 
     case 'total_with_tax': // after_tax = subtotal * (1 + tax/100)
-      if (beforeTax != null && tax != null) {
+      if (beforeTax != null && typeof tax === 'number') {
         derived = Math.round(beforeTax * (1 + tax / 100));
       }
       current = afterTax;
