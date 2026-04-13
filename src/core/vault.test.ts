@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { INVOICEVAULT_DIR, CONFIG_FILE, DB_FILE, VAULT_SUBDIRS } from '../shared/constants';
+import { CONFIG_FILE, DB_FILE, VAULT_SUBDIRS } from '../shared/constants';
+import { setUserDataPath, getVaultDotPath } from './vault-paths';
 
 // Mock the database module to avoid native module issues in tests
 vi.mock('./db/database', () => ({
@@ -14,9 +15,10 @@ import { isVault, initVault, openVault, closeVault, getVaultConfig, updateVaultC
 import { openDatabase, closeDatabase } from './db/database';
 
 const TEST_ROOT = '/tmp/iv-test-vault';
+const TEST_USER_DATA = '/tmp/iv-test-userdata';
 
 function createTestVault(vaultPath: string): void {
-  const dotPath = path.join(vaultPath, INVOICEVAULT_DIR);
+  const dotPath = getVaultDotPath(vaultPath);
   fs.mkdirSync(dotPath, { recursive: true });
   for (const sub of VAULT_SUBDIRS) {
     fs.mkdirSync(path.join(dotPath, sub), { recursive: true });
@@ -39,12 +41,16 @@ function cleanDir(dir: string): void {
 
 beforeEach(() => {
   cleanDir(TEST_ROOT);
+  cleanDir(TEST_USER_DATA);
   fs.mkdirSync(TEST_ROOT, { recursive: true });
+  fs.mkdirSync(TEST_USER_DATA, { recursive: true });
+  setUserDataPath(TEST_USER_DATA);
   vi.clearAllMocks();
 });
 
 afterEach(() => {
   cleanDir(TEST_ROOT);
+  cleanDir(TEST_USER_DATA);
 });
 
 describe('vault core', () => {
@@ -53,25 +59,26 @@ describe('vault core', () => {
       expect(await isVault(TEST_ROOT)).toBe(false);
     });
 
-    it('returns false when .invoicevault exists but config.json is missing', async () => {
-      fs.mkdirSync(path.join(TEST_ROOT, INVOICEVAULT_DIR), { recursive: true });
+    it('returns false when vault dir exists but config.json is missing', async () => {
+      const dotPath = getVaultDotPath(TEST_ROOT);
+      fs.mkdirSync(dotPath, { recursive: true });
       expect(await isVault(TEST_ROOT)).toBe(false);
     });
 
-    it('returns true when .invoicevault and config.json exist', async () => {
+    it('returns true when vault dir and config.json exist', async () => {
       createTestVault(TEST_ROOT);
       expect(await isVault(TEST_ROOT)).toBe(true);
     });
   });
 
   describe('initVault', () => {
-    it('creates .invoicevault directory structure', async () => {
+    it('creates vault data directory structure', async () => {
       const vaultPath = path.join(TEST_ROOT, 'new-vault');
       fs.mkdirSync(vaultPath, { recursive: true });
 
       await initVault(vaultPath);
 
-      const dotPath = path.join(vaultPath, INVOICEVAULT_DIR);
+      const dotPath = getVaultDotPath(vaultPath);
       expect(fs.existsSync(dotPath)).toBe(true);
       for (const sub of VAULT_SUBDIRS) {
         expect(fs.existsSync(path.join(dotPath, sub))).toBe(true);
@@ -84,7 +91,7 @@ describe('vault core', () => {
 
       await initVault(vaultPath);
 
-      const configPath = path.join(vaultPath, INVOICEVAULT_DIR, CONFIG_FILE);
+      const configPath = path.join(getVaultDotPath(vaultPath), CONFIG_FILE);
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       expect(config.version).toBe(1);
       expect(config.confidence_threshold).toBe(0.8);
@@ -97,7 +104,7 @@ describe('vault core', () => {
 
       await initVault(vaultPath);
 
-      const expectedDbPath = path.join(vaultPath, INVOICEVAULT_DIR, DB_FILE);
+      const expectedDbPath = path.join(getVaultDotPath(vaultPath), DB_FILE);
       expect(openDatabase).toHaveBeenCalledWith(expectedDbPath);
     });
 
@@ -108,10 +115,20 @@ describe('vault core', () => {
       const handle = await initVault(vaultPath);
 
       expect(handle.rootPath).toBe(vaultPath);
-      expect(handle.dotPath).toBe(path.join(vaultPath, INVOICEVAULT_DIR));
-      expect(handle.dbPath).toBe(path.join(vaultPath, INVOICEVAULT_DIR, DB_FILE));
+      expect(handle.dotPath).toBe(getVaultDotPath(vaultPath));
+      expect(handle.dbPath).toBe(path.join(getVaultDotPath(vaultPath), DB_FILE));
       expect(handle.config.version).toBe(1);
       expect(handle.db).toBeDefined();
+    });
+
+    it('stores vault data outside the workspace folder', async () => {
+      const vaultPath = path.join(TEST_ROOT, 'new-vault');
+      fs.mkdirSync(vaultPath, { recursive: true });
+
+      const handle = await initVault(vaultPath);
+
+      expect(handle.dotPath.startsWith(TEST_USER_DATA)).toBe(true);
+      expect(handle.dotPath.startsWith(vaultPath)).toBe(false);
     });
 
     it('writes default extraction prompt', async () => {
@@ -120,7 +137,7 @@ describe('vault core', () => {
 
       await initVault(vaultPath);
 
-      const promptPath = path.join(vaultPath, INVOICEVAULT_DIR, 'instructions', 'extraction-prompt.md');
+      const promptPath = path.join(getVaultDotPath(vaultPath), 'instructions', 'extraction-prompt.md');
       expect(fs.existsSync(promptPath)).toBe(true);
       const content = fs.readFileSync(promptPath, 'utf-8');
       expect(content).toContain('invoice_code');
@@ -146,7 +163,7 @@ describe('vault core', () => {
       expect(handle.rootPath).toBe(TEST_ROOT);
       expect(handle.config.version).toBe(1);
       expect(openDatabase).toHaveBeenCalledWith(
-        path.join(TEST_ROOT, INVOICEVAULT_DIR, DB_FILE),
+        path.join(getVaultDotPath(TEST_ROOT), DB_FILE),
       );
     });
 
@@ -165,7 +182,7 @@ describe('vault core', () => {
   describe('getVaultConfig / updateVaultConfig', () => {
     it('reads config from disk', async () => {
       createTestVault(TEST_ROOT);
-      const dotPath = path.join(TEST_ROOT, INVOICEVAULT_DIR);
+      const dotPath = getVaultDotPath(TEST_ROOT);
 
       const config = await getVaultConfig(dotPath);
 
@@ -175,7 +192,7 @@ describe('vault core', () => {
 
     it('updates config fields while preserving others', async () => {
       createTestVault(TEST_ROOT);
-      const dotPath = path.join(TEST_ROOT, INVOICEVAULT_DIR);
+      const dotPath = getVaultDotPath(TEST_ROOT);
 
       await updateVaultConfig(dotPath, { confidence_threshold: 0.9 });
 
@@ -195,14 +212,12 @@ describe('vault core', () => {
       await initVault(vault1);
       await initVault(vault2);
 
-      // Update vault1 config
       await updateVaultConfig(
-        path.join(vault1, INVOICEVAULT_DIR),
+        getVaultDotPath(vault1),
         { confidence_threshold: 0.5 },
       );
 
-      // vault2 should be unchanged
-      const config2 = await getVaultConfig(path.join(vault2, INVOICEVAULT_DIR));
+      const config2 = await getVaultConfig(getVaultDotPath(vault2));
       expect(config2.confidence_threshold).toBe(0.8);
     });
 
@@ -216,32 +231,28 @@ describe('vault core', () => {
       const handle2 = await initVault(vault2);
 
       expect(handle1.dbPath).not.toBe(handle2.dbPath);
-      expect(handle1.dbPath).toContain('vault1');
-      expect(handle2.dbPath).toContain('vault2');
     });
   });
 
   describe('clearVaultData', () => {
-    it('deletes the .invoicevault directory', async () => {
+    it('deletes the vault data directory', async () => {
       const vaultPath = path.join(TEST_ROOT, 'clear-test');
       fs.mkdirSync(vaultPath, { recursive: true });
       await initVault(vaultPath);
 
-      const dotPath = path.join(vaultPath, INVOICEVAULT_DIR);
+      const dotPath = getVaultDotPath(vaultPath);
       expect(fs.existsSync(dotPath)).toBe(true);
 
       await clearVaultData(vaultPath);
 
       expect(fs.existsSync(dotPath)).toBe(false);
-      // The root folder itself should still exist
       expect(fs.existsSync(vaultPath)).toBe(true);
     });
 
-    it('is a no-op for a folder without .invoicevault', async () => {
+    it('is a no-op for a folder without vault data', async () => {
       const vaultPath = path.join(TEST_ROOT, 'no-vault');
       fs.mkdirSync(vaultPath, { recursive: true });
 
-      // Should not throw
       await clearVaultData(vaultPath);
 
       expect(fs.existsSync(vaultPath)).toBe(true);
@@ -264,7 +275,6 @@ describe('vault core', () => {
       await initVault(vaultPath);
       await clearVaultData(vaultPath);
 
-      // Should not throw — the vault was cleared
       const handle = await initVault(vaultPath);
       expect(handle.rootPath).toBe(vaultPath);
       expect(await isVault(vaultPath)).toBe(true);

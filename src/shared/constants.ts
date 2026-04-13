@@ -14,7 +14,7 @@ export const WATCHED_EXTENSIONS = new Set([
 ]);
 
 export const IGNORED_DIRS = [
-  INVOICEVAULT_DIR,
+  INVOICEVAULT_DIR, // legacy: kept for safety in case old vault dirs remain in workspace
   'node_modules',
   '.git',
 ];

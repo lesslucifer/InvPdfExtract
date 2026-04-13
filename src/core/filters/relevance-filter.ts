@@ -73,7 +73,7 @@ export class RelevanceFilter {
       } catch { /* empty text */ }
 
       const triageInputs: TriageInput[] = [{ relativePath: file.relative_path, textSample, layer2Score: layer2Result.score }];
-      const triageResults = await aiTriageBatch(triageInputs, this.config, this.vault.rootPath, this.cliPath);
+      const triageResults = await aiTriageBatch(triageInputs, this.config, this.vault.dotPath, this.cliPath);
       const result = triageResults[0];
       log.debug(LogModule.Filter, `Layer 3 (AI): score=${result.score.toFixed(2)}, decision=${result.decision}`, { path: file.relative_path });
 

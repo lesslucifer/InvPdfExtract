@@ -1,23 +1,23 @@
 import * as path from 'path';
-import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, AI_TRIAGE_FILE } from '../../shared/constants';
+import { INSTRUCTIONS_SUBDIR, AI_TRIAGE_FILE } from '../../shared/constants';
 import { writeInstruction, readInstruction } from '../instruction-manager';
 
-export function getTriageInstructionsPath(vaultRoot: string): string {
-  return path.join(vaultRoot, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, AI_TRIAGE_FILE);
+export function getTriageInstructionsPath(dotPath: string): string {
+  return path.join(dotPath, INSTRUCTIONS_SUBDIR, AI_TRIAGE_FILE);
 }
 
-export async function readTriageInstructions(vaultRoot: string): Promise<string> {
-  const p = getTriageInstructionsPath(vaultRoot);
+export async function readTriageInstructions(dotPath: string): Promise<string> {
+  const p = getTriageInstructionsPath(dotPath);
   try {
     return await readInstruction(p);
   } catch {
-    await writeDefaultTriageInstructions(vaultRoot);
+    await writeDefaultTriageInstructions(dotPath);
     return await readInstruction(p);
   }
 }
 
-export async function writeDefaultTriageInstructions(vaultRoot: string): Promise<void> {
-  const p = getTriageInstructionsPath(vaultRoot);
+export async function writeDefaultTriageInstructions(dotPath: string): Promise<void> {
+  const p = getTriageInstructionsPath(dotPath);
   await writeInstruction(p, DEFAULT_AI_TRIAGE_SYSTEM_ZONE);
 }
 

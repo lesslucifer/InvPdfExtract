@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { watch, FSWatcher } from 'chokidar';
 import * as path from 'path';
 import {
-  WATCHED_EXTENSIONS, INVOICEVAULT_DIR, WATCHER_DEBOUNCE_MS,
+  WATCHED_EXTENSIONS, WATCHER_DEBOUNCE_MS,
   INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, JE_INSTRUCTIONS_FILE,
   INSTRUCTIONS_WATCHER_DEBOUNCE_MS,
 } from '../shared/constants';
@@ -32,11 +32,13 @@ export class FileWatcher {
   private watcher: FSWatcher | null = null;
   private instructionsWatcher: FSWatcher | null = null;
   private vaultRoot: string;
+  private dotPath: string;
   private callback: WatcherCallback;
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 
-  constructor(vaultRoot: string, callback: WatcherCallback) {
+  constructor(vaultRoot: string, dotPath: string, callback: WatcherCallback) {
     this.vaultRoot = vaultRoot;
+    this.dotPath = dotPath;
     this.callback = callback;
   }
 
@@ -58,10 +60,8 @@ export class FileWatcher {
           const rel = path.relative(this.vaultRoot, filePath);
           // Always allow root
           if (rel === '' || rel === '.') return false;
-          // Ignore .invoicevault dir
-          const parts = rel.split(path.sep);
-          if (parts.some(p => p === INVOICEVAULT_DIR)) return true;
           // Check against ignore patterns
+          const parts = rel.split(path.sep);
           const basename = path.basename(filePath);
           return ignorePatterns.some(pattern => {
             if (pattern.includes('/') || pattern.includes('*')) {
@@ -90,7 +90,7 @@ export class FileWatcher {
   }
 
   private startInstructionsWatcher(): void {
-    const instructionsDir = path.join(this.vaultRoot, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR);
+    const instructionsDir = path.join(this.dotPath, INSTRUCTIONS_SUBDIR);
     const watchedFiles = new Set([EXTRACTION_PROMPT_FILE, JE_INSTRUCTIONS_FILE]);
 
     this.instructionsWatcher = watch(instructionsDir, {

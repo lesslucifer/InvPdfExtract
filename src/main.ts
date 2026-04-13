@@ -25,7 +25,8 @@ import {
   cancelQueueItem, clearPendingQueue, resetStaleProcessingFiles,
 } from './core/db/files';
 import { getRecordsByFileId, updateJeStatus, getRecordIdsByFilters, resetStaleJeProcessing, getPendingJeRecordIds } from './core/db/records';
-import { WATCHED_EXTENSIONS, INVOICEVAULT_DIR } from './shared/constants';
+import { WATCHED_EXTENSIONS } from './shared/constants';
+import { setUserDataPath } from './core/vault-paths';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -80,6 +81,8 @@ app.on('before-quit', (event) => {
 });
 
 app.on('ready', async () => {
+  setUserDataPath(app.getPath('userData'));
+
   await initLogger(path.join(app.getPath('userData'), 'logs'), {
     console: !app.isPackaged,
   });
@@ -315,7 +318,7 @@ async function startVault(vaultPath: string): Promise<void> {
   syncEngine = new SyncEngine(currentVault.rootPath);
 
   // Start file watcher
-  fileWatcher = new FileWatcher(currentVault.rootPath, (event, relativePath, fullPath) => {
+  fileWatcher = new FileWatcher(currentVault.rootPath, currentVault.dotPath, (event, relativePath, fullPath) => {
     syncEngine!.handleEvent(event, relativePath, fullPath);
     // Keep path cache in sync
     if (event === 'file:added') vaultPathCache?.onFileAdded(relativePath);
@@ -337,10 +340,10 @@ async function startVault(vaultPath: string): Promise<void> {
   extractionQueue = new ExtractionQueue(currentVault, relevanceFilter, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
 
   // Initialize JE similarity engine & generator
-  await writeDefaultInstructions(currentVault.rootPath);
+  await writeDefaultInstructions(currentVault.dotPath);
   similarityEngine = new JESimilarityEngine();
   similarityEngine.initialize();
-  jeGenerator = new JEGenerator(currentVault.rootPath, similarityEngine, appConfig.claudeCliPath || undefined);
+  jeGenerator = new JEGenerator(currentVault.dotPath, similarityEngine, appConfig.claudeCliPath || undefined);
 
   // Auto-generate JEs after extraction completes
   eventBus.on('extraction:completed', async (data) => {
@@ -402,7 +405,7 @@ async function startVault(vaultPath: string): Promise<void> {
         for (const entry of entries) {
           const rel = dir ? `${dir}/${entry.name}` : entry.name;
           if (entry.isDirectory()) {
-            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === INVOICEVAULT_DIR) continue;
+            if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
             await scan(rel);
           } else if (entry.isFile()) {
             const ext = path.extname(entry.name).toLowerCase();
@@ -422,11 +425,11 @@ async function startVault(vaultPath: string): Promise<void> {
     }
   }
 
-  overlayWindow?.setVaultPath(vaultPath);
+  overlayWindow?.setVaultPath(vaultPath, currentVault.dotPath);
 
   // Load persisted window state for this vault and restore its spawned windows
   if (overlayWindow) {
-    await overlayWindow.loadPersistedState(vaultPath);
+    await overlayWindow.loadPersistedState(currentVault.dotPath);
     await overlayWindow.restoreSpawnedWindows();
   }
 

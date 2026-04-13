@@ -16,12 +16,12 @@ import { log, LogModule } from './logger';
 
 export class JEGenerator {
   private similarityEngine: JESimilarityEngine;
-  private vaultRoot: string;
+  private dotPath: string;
   private cliPath?: string;
   private processing = new Set<string>();
 
-  constructor(vaultRoot: string, similarityEngine: JESimilarityEngine, cliPath?: string) {
-    this.vaultRoot = vaultRoot;
+  constructor(dotPath: string, similarityEngine: JESimilarityEngine, cliPath?: string) {
+    this.dotPath = dotPath;
     this.similarityEngine = similarityEngine;
     this.cliPath = cliPath;
   }
@@ -490,7 +490,7 @@ export class JEGenerator {
     if (items.length === 0) return;
     log.info(LogModule.JEGenerator, `Flushing ${items.length} unclassified items to AI`);
 
-    const results = await classifyWithAI(items, this.vaultRoot, this.cliPath);
+    const results = await classifyWithAI(items, this.dotPath, this.cliPath);
 
     for (const item of items) {
       const classification = results.get(item.id);

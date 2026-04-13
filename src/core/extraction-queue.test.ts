@@ -132,7 +132,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
 
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eq-test-'));
     rootPath = tmpDir;
-    dotPath = path.join(tmpDir, '.invoicevault');
+    dotPath = path.join(tmpDir, 'vault-data');
     fs.mkdirSync(dotPath, { recursive: true });
 
     // Dummy files on disk

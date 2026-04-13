@@ -4,8 +4,8 @@
  * These tests use a real filesystem (under /tmp) and exercise the same
  * sequence the `clear-vault-data` IPC handler runs:
  *   1. Stop vault (close DB)
- *   2. Auto-backup (.invoicevault → .zip)
- *   3. Delete .invoicevault directory
+ *   2. Auto-backup (vault data → .zip)
+ *   3. Delete vault data directory
  *   4. Update app config
  *
  * The suite intentionally avoids mocking the filesystem so failures are
@@ -15,8 +15,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { INVOICEVAULT_DIR, CONFIG_FILE, VAULT_SUBDIRS } from '../shared/constants';
+import { CONFIG_FILE, VAULT_SUBDIRS } from '../shared/constants';
 import { clearVaultData, backupVault, isVault, initVault } from '../core/vault';
+import { setUserDataPath, getVaultDotPath } from '../core/vault-paths';
 import { AppConfig } from '../shared/types';
 import { DEFAULT_CLAUDE_MODELS } from '../shared/constants';
 
@@ -27,13 +28,14 @@ vi.mock('../core/db/database', () => ({
 }));
 
 const TEST_ROOT = '/tmp/iv-clear-e2e';
+const TEST_USER_DATA = '/tmp/iv-clear-e2e-userdata';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function buildVault(vaultPath: string): void {
-  const dotPath = path.join(vaultPath, INVOICEVAULT_DIR);
+  const dotPath = getVaultDotPath(vaultPath);
   fs.mkdirSync(dotPath, { recursive: true });
   for (const sub of VAULT_SUBDIRS) {
     fs.mkdirSync(path.join(dotPath, sub), { recursive: true });
@@ -90,9 +92,9 @@ async function runClearFlow(
     // swallow — same as the IPC handler
   }
 
-  // Delete .invoicevault
+  // Delete vault data
   await clearVaultData(vaultPath);
-  const dotPathDeleted = !fs.existsSync(path.join(vaultPath, INVOICEVAULT_DIR));
+  const dotPathDeleted = !fs.existsSync(getVaultDotPath(vaultPath));
 
   // Update config
   const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
@@ -114,11 +116,15 @@ async function runClearFlow(
 
 beforeEach(() => {
   if (fs.existsSync(TEST_ROOT)) fs.rmSync(TEST_ROOT, { recursive: true, force: true });
+  if (fs.existsSync(TEST_USER_DATA)) fs.rmSync(TEST_USER_DATA, { recursive: true, force: true });
   fs.mkdirSync(TEST_ROOT, { recursive: true });
+  fs.mkdirSync(TEST_USER_DATA, { recursive: true });
+  setUserDataPath(TEST_USER_DATA);
 });
 
 afterEach(() => {
   if (fs.existsSync(TEST_ROOT)) fs.rmSync(TEST_ROOT, { recursive: true, force: true });
+  if (fs.existsSync(TEST_USER_DATA)) fs.rmSync(TEST_USER_DATA, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------------------
@@ -127,12 +133,12 @@ afterEach(() => {
 
 describe('clear vault e2e', () => {
   describe('clearVaultData (core function)', () => {
-    it('deletes .invoicevault and all its contents', async () => {
+    it('deletes vault data directory and all its contents', async () => {
       const vaultPath = path.join(TEST_ROOT, 'vault-a');
       fs.mkdirSync(vaultPath, { recursive: true });
       buildVault(vaultPath);
 
-      const dotPath = path.join(vaultPath, INVOICEVAULT_DIR);
+      const dotPath = getVaultDotPath(vaultPath);
       expect(fs.existsSync(dotPath)).toBe(true);
 
       await clearVaultData(vaultPath);
@@ -150,7 +156,7 @@ describe('clear vault e2e', () => {
       expect(fs.existsSync(vaultPath)).toBe(true);
     });
 
-    it('does not throw when .invoicevault does not exist (idempotent)', async () => {
+    it('does not throw when vault data does not exist (idempotent)', async () => {
       const vaultPath = path.join(TEST_ROOT, 'no-vault-dir');
       fs.mkdirSync(vaultPath, { recursive: true });
 
@@ -163,7 +169,7 @@ describe('clear vault e2e', () => {
       buildVault(vaultPath);
 
       // Add extra nested content
-      const dotPath = path.join(vaultPath, INVOICEVAULT_DIR);
+      const dotPath = getVaultDotPath(vaultPath);
       fs.mkdirSync(path.join(dotPath, 'deep', 'nested'), { recursive: true });
       fs.writeFileSync(path.join(dotPath, 'deep', 'nested', 'file.txt'), 'content');
 
@@ -174,7 +180,7 @@ describe('clear vault e2e', () => {
   });
 
   describe('full clear flow (IPC handler simulation)', () => {
-    it('deletes .invoicevault when clearing the active vault', async () => {
+    it('deletes vault data when clearing the active vault', async () => {
       const vaultPath = path.join(TEST_ROOT, 'active-vault');
       fs.mkdirSync(vaultPath, { recursive: true });
       buildVault(vaultPath);
@@ -186,7 +192,7 @@ describe('clear vault e2e', () => {
       const { dotPathDeleted } = await runClearFlow(vaultPath, config, { onStopVault, onSwitchVault });
 
       expect(dotPathDeleted).toBe(true);
-      expect(fs.existsSync(path.join(vaultPath, INVOICEVAULT_DIR))).toBe(false);
+      expect(fs.existsSync(getVaultDotPath(vaultPath))).toBe(false);
     });
 
     it('calls onStopVault before deleting when the vault is active', async () => {
@@ -233,7 +239,7 @@ describe('clear vault e2e', () => {
       const { backupCreated } = await runClearFlow(vaultPath, config, { onStopVault, onSwitchVault });
 
       expect(backupCreated).toBe(true);
-      // The backup zip is placed in the vault root (not inside .invoicevault)
+      // The backup zip is placed in the vault root (not inside vault data)
       const zips = fs.readdirSync(vaultPath).filter(f => f.endsWith('.zip'));
       expect(zips.length).toBe(1);
       expect(zips[0]).toMatch(/^invoicevault\.backup\.\d+\.zip$/);
@@ -242,19 +248,15 @@ describe('clear vault e2e', () => {
     it('proceeds with deletion even when backup fails', async () => {
       const vaultPath = path.join(TEST_ROOT, 'backup-fail');
       fs.mkdirSync(vaultPath, { recursive: true });
-      // Do NOT call buildVault — no .invoicevault means backupVault will throw
-      // But we still call clearVaultData which should be a no-op
-      fs.mkdirSync(vaultPath, { recursive: true });
 
       const config = makeConfig({ vaultPaths: [vaultPath], lastVaultPath: vaultPath });
       const onStopVault = vi.fn().mockResolvedValue(undefined);
       const onSwitchVault = vi.fn().mockResolvedValue(undefined);
 
-      // Should not throw
       const { backupCreated, dotPathDeleted } = await runClearFlow(vaultPath, config, { onStopVault, onSwitchVault });
 
       expect(backupCreated).toBe(false);
-      expect(dotPathDeleted).toBe(true); // no .invoicevault → "deleted" (never existed)
+      expect(dotPathDeleted).toBe(true);
     });
 
     it('removes the cleared vault from the config', async () => {

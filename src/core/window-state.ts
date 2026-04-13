@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { OverlayState } from '../shared/types';
-import { INVOICEVAULT_DIR } from '../shared/constants';
 import type { ParsedQuery } from '../shared/parse-query';
 import { log, LogModule } from './logger';
 
@@ -47,8 +46,8 @@ const TRANSIENT_STATES = new Set([
   OverlayState.PresetSearch,
 ]);
 
-export function getVaultStatePath(vaultRoot: string): string {
-  return path.join(vaultRoot, INVOICEVAULT_DIR, STATE_FILENAME);
+export function getVaultStatePath(dotPath: string): string {
+  return path.join(dotPath, STATE_FILENAME);
 }
 
 // Per-path write queue to prevent concurrent read-merge-write races

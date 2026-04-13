@@ -3,30 +3,31 @@ import * as path from 'path';
 import { openDatabase, closeDatabase, setActiveDatabase } from './db/database';
 import { VaultConfig, VaultHandle } from '../shared/types';
 import {
-  INVOICEVAULT_DIR, CONFIG_FILE, DB_FILE, VAULT_SUBDIRS,
+  CONFIG_FILE, DB_FILE, VAULT_SUBDIRS,
   DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_AMOUNT_TOLERANCE, DEFAULT_FILTER_CONFIG, FILTER_CONFIG_FILE,
   INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE,
 } from '../shared/constants';
 import { writeInstruction } from './instruction-manager';
 import { writeDefaultTriageInstructions } from './filters/ai-triage-instructions';
+import { getVaultDotPath } from './vault-paths';
 import archiver from 'archiver';
 import { log, LogModule } from './logger';
 
 const pathExists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
 
 export async function isVault(folderPath: string): Promise<boolean> {
-  const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
+  const dotPath = getVaultDotPath(folderPath);
   return (await pathExists(dotPath)) && (await pathExists(path.join(dotPath, CONFIG_FILE)));
 }
 
 export async function initVault(folderPath: string): Promise<VaultHandle> {
-  const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
+  const dotPath = getVaultDotPath(folderPath);
 
   if (await isVault(folderPath)) {
     throw new Error(`Folder is already an InvoiceVault: ${folderPath}`);
   }
 
-  // Create .invoicevault/ and subdirectories
+  // Create vault data directory and subdirectories
   await fs.promises.mkdir(dotPath, { recursive: true });
   for (const sub of VAULT_SUBDIRS) {
     await fs.promises.mkdir(path.join(dotPath, sub), { recursive: true });
@@ -52,7 +53,7 @@ export async function initVault(folderPath: string): Promise<VaultHandle> {
   // Write default extraction prompt
   await writeDefaultExtractionPrompt(dotPath);
   await migrateOldExtractionPrompt(dotPath);
-  await writeDefaultTriageInstructions(folderPath);
+  await writeDefaultTriageInstructions(dotPath);
 
   log.info(LogModule.Vault, `Initialized at ${folderPath}`);
 
@@ -64,7 +65,7 @@ export async function openVault(folderPath: string): Promise<VaultHandle> {
     throw new Error(`Not an InvoiceVault: ${folderPath}`);
   }
 
-  const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
+  const dotPath = getVaultDotPath(folderPath);
   const dbPath = path.join(dotPath, DB_FILE);
   const configRaw = await fs.promises.readFile(path.join(dotPath, CONFIG_FILE), 'utf-8');
   const config: VaultConfig = JSON.parse(configRaw);
@@ -75,7 +76,7 @@ export async function openVault(folderPath: string): Promise<VaultHandle> {
   // Ensure extraction prompt exists (may be missing in older vaults)
   await migrateOldExtractionPrompt(dotPath);
   await writeDefaultExtractionPrompt(dotPath);
-  await writeDefaultTriageInstructions(folderPath);
+  await writeDefaultTriageInstructions(dotPath);
 
   log.info(LogModule.Vault, `Opened ${folderPath}`);
 
@@ -92,14 +93,14 @@ export function closeVault(handle?: VaultHandle): void {
 }
 
 export async function clearVaultData(folderPath: string): Promise<void> {
-  const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
+  const dotPath = getVaultDotPath(folderPath);
   if (!await pathExists(dotPath)) return;
   await fs.promises.rm(dotPath, { recursive: true, force: true });
   log.info(LogModule.Vault, `Cleared data at ${folderPath}`);
 }
 
 export async function backupVault(folderPath: string, destPath: string): Promise<void> {
-  const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
+  const dotPath = getVaultDotPath(folderPath);
   if (!await pathExists(dotPath)) throw new Error(`No vault data at ${folderPath}`);
 
   await new Promise<void>((resolve, reject) => {
@@ -108,7 +109,7 @@ export async function backupVault(folderPath: string, destPath: string): Promise
     output.on('close', resolve);
     archive.on('error', reject);
     archive.pipe(output);
-    archive.directory(dotPath, INVOICEVAULT_DIR);
+    archive.directory(dotPath, 'invoicevault');
     archive.finalize();
   });
 

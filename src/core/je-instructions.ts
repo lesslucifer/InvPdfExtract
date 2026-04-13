@@ -1,39 +1,39 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE } from '../shared/constants';
+import { INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE } from '../shared/constants';
 import { writeInstruction, readInstruction } from './instruction-manager';
 import { log, LogModule } from './logger';
 
-export function getInstructionsPath(vaultRoot: string): string {
-  return path.join(vaultRoot, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE);
+export function getInstructionsPath(dotPath: string): string {
+  return path.join(dotPath, INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE);
 }
 
-export async function readInstructions(vaultRoot: string): Promise<string> {
-  await migrateOldInstructions(vaultRoot);
-  const p = getInstructionsPath(vaultRoot);
+export async function readInstructions(dotPath: string): Promise<string> {
+  await migrateOldInstructions(dotPath);
+  const p = getInstructionsPath(dotPath);
   try {
     return await readInstruction(p);
   } catch {
     log.info(LogModule.JEGenerator, 'JE instructions not found, writing defaults');
-    await writeDefaultInstructions(vaultRoot);
+    await writeDefaultInstructions(dotPath);
     return await readInstruction(p);
   }
 }
 
-export async function writeInstructions(vaultRoot: string, content: string): Promise<void> {
-  const p = getInstructionsPath(vaultRoot);
+export async function writeInstructions(dotPath: string, content: string): Promise<void> {
+  const p = getInstructionsPath(dotPath);
   await fs.promises.writeFile(p, content, 'utf-8');
   log.info(LogModule.JEGenerator, 'JE instructions updated');
 }
 
-export async function writeDefaultInstructions(vaultRoot: string): Promise<void> {
-  const p = getInstructionsPath(vaultRoot);
+export async function writeDefaultInstructions(dotPath: string): Promise<void> {
+  const p = getInstructionsPath(dotPath);
   await writeInstruction(p, DEFAULT_JE_SYSTEM_ZONE);
 }
 
-async function migrateOldInstructions(vaultRoot: string): Promise<void> {
-  const oldPath = path.join(vaultRoot, INVOICEVAULT_DIR, 'je-instructions.txt');
-  const newPath = getInstructionsPath(vaultRoot);
+async function migrateOldInstructions(dotPath: string): Promise<void> {
+  const oldPath = path.join(dotPath, 'je-instructions.txt');
+  const newPath = getInstructionsPath(dotPath);
 
   try {
     await fs.promises.access(oldPath);

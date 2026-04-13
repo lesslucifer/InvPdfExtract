@@ -19,13 +19,13 @@ interface TriageOutput {
 export async function aiTriageBatch(
   inputs: TriageInput[],
   config: RelevanceFilterConfig,
-  vaultRoot: string,
+  dotPath: string,
   cliPath?: string,
 ): Promise<FilterResult[]> {
   if (inputs.length === 0) return [];
 
   log.info(LogModule.Filter, `AI triage batch: ${inputs.length} files`);
-  const systemPrompt = await readTriageInstructions(vaultRoot);
+  const systemPrompt = await readTriageInstructions(dotPath);
   const runner = new ClaudeCodeRunner(cliPath, 30_000, 'fast'); // Haiku, 30s timeout
 
   const fileSections = inputs.map((input, idx) => {

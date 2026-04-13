@@ -26,7 +26,7 @@ import {
 } from '../core/db/journal-entries';
 import { readInstructions, writeInstructions, getInstructionsPath } from '../core/je-instructions';
 import { readInstruction } from '../core/instruction-manager';
-import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, CONFIG_FILE, DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
+import { INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, CONFIG_FILE, DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
 import { clearVaultData, backupVault, getVaultConfig, updateVaultConfig } from '../core/vault';
@@ -67,6 +67,7 @@ const OVERLAY_MAX_HEIGHT = 560;
 export class OverlayWindow {
   private window: BrowserWindow | null = null;
   private vaultPath: string | null = null;
+  private dotPath: string | null = null;
   private callbacks: OverlayCallbacks | null = null;
   private isHiding = false;
   private pathCache: VaultPathCache | null = null;
@@ -97,21 +98,21 @@ export class OverlayWindow {
   }
 
   private get currentStatePath(): string | null {
-    return this.vaultPath ? getVaultStatePath(this.vaultPath) : null;
+    return this.dotPath ? getVaultStatePath(this.dotPath) : null;
   }
 
   private async getAmountTolerance(): Promise<number> {
-    if (!this.vaultPath) return DEFAULT_AMOUNT_TOLERANCE;
+    if (!this.dotPath) return DEFAULT_AMOUNT_TOLERANCE;
     try {
-      const config = await getVaultConfig(path.join(this.vaultPath, INVOICEVAULT_DIR));
+      const config = await getVaultConfig(this.dotPath);
       return config.amountTolerance ?? DEFAULT_AMOUNT_TOLERANCE;
     } catch {
       return DEFAULT_AMOUNT_TOLERANCE;
     }
   }
 
-  async loadPersistedState(vaultRoot: string): Promise<void> {
-    const statePath = getVaultStatePath(vaultRoot);
+  async loadPersistedState(dotPath: string): Promise<void> {
+    const statePath = getVaultStatePath(dotPath);
     this.persistedState = await loadWindowState(statePath);
     this.overlayGeometry = this.persistedState.overlayGeometry;
   }
@@ -135,8 +136,9 @@ export class OverlayWindow {
     globalShortcut.unregisterAll();
   }
 
-  setVaultPath(vaultPath: string | null): void {
+  setVaultPath(vaultPath: string | null, dotPath: string | null = null): void {
     this.vaultPath = vaultPath;
+    this.dotPath = dotPath;
   }
 
   notifyDbError(error: string): void {
@@ -670,13 +672,13 @@ export class OverlayWindow {
     });
 
     ipcMain.handle('get-vault-config', async () => {
-      if (!this.vaultPath) return null;
-      return await getVaultConfig(path.join(this.vaultPath, INVOICEVAULT_DIR));
+      if (!this.dotPath) return null;
+      return await getVaultConfig(this.dotPath);
     });
 
     ipcMain.handle('update-vault-config', async (_event, updates: Record<string, unknown>) => {
-      if (!this.vaultPath) return;
-      await updateVaultConfig(path.join(this.vaultPath, INVOICEVAULT_DIR), updates);
+      if (!this.dotPath) return;
+      await updateVaultConfig(this.dotPath, updates);
     });
 
     ipcMain.handle('get-locale', async () => {
@@ -1173,9 +1175,8 @@ export class OverlayWindow {
 
     ipcMain.handle('get-je-instructions', async () => {
       try {
-        const root = this.callbacks?.getVaultRoot();
-        if (!root) return '';
-        return await readInstructions(root);
+        if (!this.dotPath) return '';
+        return await readInstructions(this.dotPath);
       } catch (err) {
         log.error(LogModule.Overlay, 'Get instructions failed', err);
         return '';
@@ -1184,9 +1185,8 @@ export class OverlayWindow {
 
     ipcMain.handle('save-je-instructions', async (_event, content: string) => {
       try {
-        const root = this.callbacks?.getVaultRoot();
-        if (!root) return;
-        await writeInstructions(root, content);
+        if (!this.dotPath) return;
+        await writeInstructions(this.dotPath, content);
         eventBus.emit('je:instructions-changed', {} as never);
       } catch (err) {
         log.error(LogModule.Overlay, 'Save instructions failed', err);
@@ -1196,9 +1196,8 @@ export class OverlayWindow {
 
     ipcMain.handle('get-extraction-prompt', async () => {
       try {
-        const root = this.callbacks?.getVaultRoot();
-        if (!root) return '';
-        const p = path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
+        if (!this.dotPath) return '';
+        const p = path.join(this.dotPath, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
         return await readInstruction(p);
       } catch (err) {
         log.error(LogModule.Overlay, 'Get extraction prompt failed', err);
@@ -1208,8 +1207,7 @@ export class OverlayWindow {
 
     ipcMain.handle('export-instructions', async () => {
       try {
-        const root = this.callbacks?.getVaultRoot();
-        if (!root) return { success: false };
+        if (!this.dotPath) return { success: false };
 
         const { canceled, filePath: destPath } = await dialog.showSaveDialog({
           title: 'Export Instructions',
@@ -1218,7 +1216,7 @@ export class OverlayWindow {
         });
         if (canceled || !destPath) return { success: false, canceled: true };
 
-        const instructionsDir = path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR);
+        const instructionsDir = path.join(this.dotPath, INSTRUCTIONS_SUBDIR);
 
         await new Promise<void>((resolve, reject) => {
           const output = fs.createWriteStream(destPath);
@@ -1227,7 +1225,7 @@ export class OverlayWindow {
           archive.on('error', reject);
           archive.pipe(output);
           archive.file(path.join(instructionsDir, EXTRACTION_PROMPT_FILE), { name: EXTRACTION_PROMPT_FILE });
-          archive.file(getInstructionsPath(root), { name: 'je-instructions.md' });
+          archive.file(getInstructionsPath(this.dotPath!), { name: 'je-instructions.md' });
           archive.finalize();
         });
 
@@ -1240,15 +1238,14 @@ export class OverlayWindow {
 
     ipcMain.handle('open-instruction-file', async (_event, file: 'extraction-prompt' | 'je-instructions' | 'config') => {
       try {
-        const root = this.callbacks?.getVaultRoot();
-        if (!root) return;
+        if (!this.dotPath) return;
         let filePath: string;
         if (file === 'extraction-prompt') {
-          filePath = path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
+          filePath = path.join(this.dotPath, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
         } else if (file === 'config') {
-          filePath = path.join(root, INVOICEVAULT_DIR, CONFIG_FILE);
+          filePath = path.join(this.dotPath, CONFIG_FILE);
         } else {
-          filePath = getInstructionsPath(root);
+          filePath = getInstructionsPath(this.dotPath);
         }
         await shell.openPath(filePath);
       } catch (err) {

@@ -78,7 +78,7 @@ function mergeSimilarGroups(
 
 export async function classifyWithAI(
   items: UnclassifiedItem[],
-  vaultRoot: string,
+  dotPath: string,
   cliPath?: string,
 ): Promise<Map<string, JEClassificationResult>> {
   const results = new Map<string, JEClassificationResult>();
@@ -99,7 +99,7 @@ export async function classifyWithAI(
   const reduction = items.length > 0 ? Math.round((1 - uniqueCount / items.length) * 100) : 0;
   log.info(LogModule.JEGenerator, `Dedup: ${items.length} items → ${uniqueCount} unique (${reduction}% reduction)`);
 
-  const systemPrompt = await readInstructions(vaultRoot);
+  const systemPrompt = await readInstructions(dotPath);
 
   const majorityCounterparty = findMajorityCounterparty(representatives);
 
@@ -131,7 +131,7 @@ Return a JSON array where each entry has: id (1-based line number), account, con
   const runner = new ClaudeCodeRunner(cliPath, undefined, 'medium');
 
   try {
-    const raw = await runner.invokeRaw(userPrompt, systemPrompt, vaultRoot);
+    const raw = await runner.invokeRaw(userPrompt, systemPrompt, dotPath);
     const parsed = parseJEResponse(raw);
     const arr = Array.isArray(parsed) ? parsed : parsed.results ?? parsed.entries ?? [];
 
