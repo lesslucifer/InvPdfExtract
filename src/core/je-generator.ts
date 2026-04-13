@@ -538,7 +538,7 @@ export class JEGenerator {
     if (!existingTax || !existingTax.user_edited) {
       let hasTaxableItems: boolean;
       if (lineItems.length > 0) {
-        hasTaxableItems = lineItems.some(li => li.tax_rate != null && li.tax_rate > 0);
+        hasTaxableItems = lineItems.some(li => typeof li.tax_rate === 'number' && li.tax_rate > 0);
       } else {
         const invData = db.prepare('SELECT total_before_tax, total_amount FROM invoice_data WHERE record_id = ?')
           .get(recordId) as { total_before_tax?: number; total_amount?: number } | undefined;

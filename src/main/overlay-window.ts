@@ -608,10 +608,16 @@ export class OverlayWindow {
         const currentAiValue = String((row?.[input.fieldName as keyof InvoiceLineItem] ?? ''));
 
         // Update the field value
-        const numericFields = ['unit_price', 'quantity', 'tax_rate', 'subtotal', 'total_with_tax'];
-        const value = numericFields.includes(input.fieldName)
-          ? (input.userValue === '' ? null : parseFloat(input.userValue))
-          : input.userValue;
+        const numericFields = ['unit_price', 'quantity', 'subtotal', 'total_with_tax'];
+        let value: string | number | null;
+        if (input.fieldName === 'tax_rate') {
+          if (input.userValue === '') { value = null; }
+          else { const n = parseFloat(input.userValue); value = isNaN(n) ? input.userValue : n; }
+        } else if (numericFields.includes(input.fieldName)) {
+          value = input.userValue === '' ? null : parseFloat(input.userValue);
+        } else {
+          value = input.userValue;
+        }
         db.prepare(`UPDATE invoice_line_items SET ${input.fieldName} = ? WHERE id = ?`)
           .run(value, input.lineItemId);
 

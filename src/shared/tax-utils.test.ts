@@ -71,6 +71,21 @@ describe('computeMissingTaxField', () => {
     const result = computeMissingTaxField({ beforeTax: -10000, taxRate: 10 });
     expect(result).toEqual({ beforeTax: -10000, afterTax: -11000 });
   });
+
+  it('treats string tax rate (KCT) as 0% — afterTax equals beforeTax', () => {
+    const result = computeMissingTaxField({ beforeTax: 10000, taxRate: 'KCT' });
+    expect(result).toEqual({ beforeTax: 10000, afterTax: 10000 });
+  });
+
+  it('treats string tax rate (KKKNT) as 0%', () => {
+    const result = computeMissingTaxField({ beforeTax: 50000, taxRate: 'KKKNT' });
+    expect(result).toEqual({ beforeTax: 50000, afterTax: 50000 });
+  });
+
+  it('returns both as-is when string rate + both amounts provided', () => {
+    const result = computeMissingTaxField({ beforeTax: 10000, afterTax: 10000, taxRate: 'KCT' });
+    expect(result).toEqual({ beforeTax: 10000, afterTax: 10000 });
+  });
 });
 
 describe('normalizeTaxRate', () => {
@@ -108,5 +123,13 @@ describe('normalizeTaxRate', () => {
 
   it('handles edge case 0.005 (0.5%) → 1', () => {
     expect(normalizeTaxRate(0.005)).toBe(1);
+  });
+
+  it('returns string tax rate as-is (KCT)', () => {
+    expect(normalizeTaxRate('KCT')).toBe('KCT');
+  });
+
+  it('returns string tax rate as-is (KKKNT)', () => {
+    expect(normalizeTaxRate('KKKNT')).toBe('KKKNT');
   });
 });

@@ -204,7 +204,7 @@ Line item fields (chi tiết):
 - \`description\`: Tên hàng hóa, dịch vụ (TEXT)
 - \`unit_price\`: Đơn giá before tax (REAL)
 - \`quantity\`: Số lượng (REAL)
-- \`tax_rate\`: Thuế suất as percentage INTEGER — 8 not 0.08 (REAL)
+- \`tax_rate\`: Thuế suất — percentage INTEGER (8, 10, not 0.08) OR string label (KCT, KKKNT)
 - \`subtotal\`: Thành tiền — line total BEFORE tax (REAL)
 - \`total_with_tax\`: Thành tiền sau thuế — line total AFTER tax (REAL)
 
@@ -241,7 +241,7 @@ Return ONLY raw JSON, no markdown fences, no extra text:
 - Overall confidence = average of field confidences
 - Bank statements: return empty \`line_items\` array []
 - Invoices: always include line items
-- IMPORTANT: \`tax_rate\` must ALWAYS be a percentage integer (5, 8, 10). If source shows 0.08, multiply by 100.
+- IMPORTANT: \`tax_rate\` must be a percentage integer (5, 8, 10) OR a string label for non-numeric rates (KCT = không chịu thuế, KKKNT = không kê khai nộp thuế). If source shows 0.08, multiply by 100.
 - CRITICAL: For invoice amounts:
 
   **Line item amounts — prefer BEFORE-tax (\`subtotal\`):**

@@ -133,11 +133,12 @@ function parseNumber(value: string | null): number | null {
   return isNaN(num) ? null : num;
 }
 
-function parseTaxRate(value: string | null): number | null {
+function parseTaxRate(value: string | null): number | string | null {
   if (value === null) return null;
   const cleaned = value.replace('%', '').trim();
+  if (cleaned === '') return null;
   const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
+  return isNaN(num) ? cleaned : num;
 }
 
 function parseFees(ttoan: string | null): { feeAmount: number | null; feeDescription: string | null } {

@@ -52,7 +52,7 @@ For invoices, each record should include line_items array:
 - description: item description / tên hàng hóa, dịch vụ
 - unit_price: unit price (before tax) / đơn giá
 - quantity: quantity / số lượng
-- tax_rate: tax rate as a percentage INTEGER (e.g. 8 for 8%, 10 for 10%) / thuế suất. NEVER output decimals like 0.08 — if the source data has 0.08, multiply by 100 to get 8.
+- tax_rate: tax rate as a percentage INTEGER (e.g. 8 for 8%, 10 for 10%) OR a string display value (e.g. "KCT", "KKKNT") / thuế suất. NEVER output decimals like 0.08 — if the source data has 0.08, multiply by 100 to get 8. If the source has a non-numeric tax label (KCT = không chịu thuế, KKKNT = không kê khai nộp thuế), output the string as-is.
 - subtotal: line total BEFORE tax / thành tiền (usually = unit_price × quantity)
 - total_with_tax: line total AFTER tax (usually = subtotal × (1 + tax_rate/100))
 
@@ -97,7 +97,8 @@ let tax_rate = null;
 if (taxRateRaw != null && taxRateRaw !== '') {
   const parsed = typeof taxRateRaw === 'string' ? parseFloat(taxRateRaw) : Number(taxRateRaw);
   if (isNaN(parsed)) {
-    _errors.push({ row: i, field: 'tax_rate', rawValue: taxRateRaw, error: 'Not a number' });
+    // Non-numeric tax labels (KCT, KKKNT, etc.) — keep as string
+    tax_rate = String(taxRateRaw).trim();
   } else {
     tax_rate = parsed < 1 ? parsed * 100 : parsed;
   }

@@ -12,7 +12,7 @@ export interface UnclassifiedItem {
   description: string;
   counterpartyName?: string;
   taxId?: string;
-  taxRate?: number;
+  taxRate?: number | string;
   totalWithTax?: number;
   subtotal?: number;
 }
