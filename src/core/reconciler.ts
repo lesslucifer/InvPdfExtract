@@ -341,6 +341,7 @@ export class Reconciler {
       case DocType.InvoiceIn: {
         const inv = data as ExtractionInvoiceData;
         hash.update(
+          normalize(inv.invoice_code) + '|' +
           normalize(inv.invoice_number) + '|' +
           normalize(inv.tax_id) + '|' +
           normalize(record.doc_date)
