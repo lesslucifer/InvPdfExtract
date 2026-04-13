@@ -407,4 +407,11 @@ export const MIGRATIONS: Migration[] = [
   ALTER TABLE invoice_data ADD COLUMN fee_description TEXT;
   `,
   },
+
+  {
+    key: '021_script_user_hint',
+    sql: `
+  ALTER TABLE extraction_scripts ADD COLUMN user_hint TEXT;
+  `,
+  },
 ];

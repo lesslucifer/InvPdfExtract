@@ -70,6 +70,26 @@ export class ExtractionQueue {
     });
   }
 
+  async reanalyzeFile(file: VaultFile, hint: string): Promise<void> {
+    const fullPath = path.join(this.vault.rootPath, file.relative_path);
+    const ext = path.extname(file.relative_path).toLowerCase();
+
+    if (!SPREADSHEET_EXTENSIONS.has(ext)) {
+      throw new Error(`Re-analyze is only supported for spreadsheet files, got ${ext}`);
+    }
+
+    console.log(`[ExtractionQueue] Re-analyzing ${file.relative_path} with user hint`);
+    eventBus.emit('extraction:started', { fileIds: [file.id] });
+    updateFileStatus(file.id, FileStatus.Processing);
+
+    try {
+      await this.processSpreadsheetWithMetadata(file, fullPath, hint);
+    } catch (err) {
+      console.error(`[ExtractionQueue] Re-analyze error for ${file.relative_path}:`, err);
+      this.handleFileError(file, `Re-analyze error: ${file.relative_path}: ${(err as Error).message}`);
+    }
+  }
+
   private async processQueue(): Promise<void> {
     this.processing = true;
 
@@ -272,7 +292,7 @@ export class ExtractionQueue {
     }
   }
 
-  private async processSpreadsheetWithMetadata(file: VaultFile, fullPath: string): Promise<void> {
+  private async processSpreadsheetWithMetadata(file: VaultFile, fullPath: string, userHint?: string): Promise<void> {
     console.log(`[ExtractionQueue] ── New script generation pipeline for ${file.relative_path} ──`);
     // 1. Extract metadata (pure local code, no AI)
     const metadata = extractMetadata(fullPath);
@@ -280,7 +300,7 @@ export class ExtractionQueue {
     console.log(`[ExtractionQueue] Metadata: ${metadata.sheets.length} sheet(s) — ${sheetSummary}`);
 
     // 2. Generate initial parser script via AI
-    const generated = await this.scriptGenerator.generateParser(metadata, this.vault.dotPath);
+    const generated = await this.scriptGenerator.generateParser(metadata, this.vault.dotPath, userHint);
     console.log(`[ExtractionQueue] Generated parser: ${generated.name}`);
 
     // 3. Iterative verify-and-refine loop — Claude judges each iteration
@@ -311,6 +331,7 @@ export class ExtractionQueue {
         scriptPath: path.relative(this.vault.dotPath, generated.parserPath),
         matcherPath: path.relative(this.vault.dotPath, matcherPath),
         description: `Auto-generated parser for ${metadata.fileName}`,
+        userHint: userHint,
       });
       this.scriptRegistry.recordUsage(script.id, file.id);
     }

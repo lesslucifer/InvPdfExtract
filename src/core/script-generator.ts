@@ -153,8 +153,11 @@ export class ScriptGenerator {
    * Generate only the parser script from metadata.
    * Matcher is generated separately after the parser is verified.
    */
-  async generateParser(metadata: SpreadsheetMetadata, vaultDotPath: string): Promise<GeneratedParser> {
-    const userPrompt = this.buildParserPrompt(metadata);
+  async generateParser(metadata: SpreadsheetMetadata, vaultDotPath: string, userHint?: string): Promise<GeneratedParser> {
+    let userPrompt = this.buildParserPrompt(metadata);
+    if (userHint) {
+      userPrompt += `\n\n## User Feedback on Previous Extraction\n\nThe user reported the following issue with a previous extraction of this file. Use this to guide your parser generation:\n\n${userHint}`;
+    }
     const response = await this.runner.invokeRaw(userPrompt, PARSER_SYSTEM_PROMPT, path.dirname(vaultDotPath));
 
     const parserCode = this.extractCodeBlock(response, 'parser.js');

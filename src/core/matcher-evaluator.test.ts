@@ -20,6 +20,7 @@ function makeScript(overrides: Partial<ExtractionScript> & { matcher_path: strin
     doc_type: DocType.InvoiceIn,
     script_path: 'parser.js',
     matcher_description: null,
+    user_hint: null,
     times_used: 0,
     created_at: new Date().toISOString(),
     last_used_at: new Date().toISOString(),

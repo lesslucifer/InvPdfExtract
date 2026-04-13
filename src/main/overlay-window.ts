@@ -46,6 +46,8 @@ export interface OverlayCallbacks {
   onStopVault: () => Promise<void>;
   onReprocessAll: () => number;
   onReprocessFile: (relativePath: string) => number;
+  onReanalyzeFile: (relativePath: string, hint: string) => Promise<number>;
+  onCheckFileHasResults: (relativePath: string) => boolean;
   onReprocessFolder: (folderPrefix: string) => Promise<number>;
   onCountFolderFiles: (folderPrefix: string) => Promise<number>;
   onCancelQueueItem: (fileId: string) => boolean;
@@ -807,6 +809,17 @@ export class OverlayWindow {
       if (!this.callbacks) return { count: 0 };
       const count = this.callbacks.onReprocessFile(relativePath);
       return { count };
+    });
+
+    ipcMain.handle('reanalyze-file', async (_event, relativePath: string, hint: string) => {
+      if (!this.callbacks) return { count: 0 };
+      const count = await this.callbacks.onReanalyzeFile(relativePath, hint);
+      return { count };
+    });
+
+    ipcMain.handle('check-file-has-results', async (_event, relativePath: string) => {
+      if (!this.callbacks) return false;
+      return this.callbacks.onCheckFileHasResults(relativePath);
     });
 
     ipcMain.handle('reprocess-folder', async (_event, folderPrefix: string) => {

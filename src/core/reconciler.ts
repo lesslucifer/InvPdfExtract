@@ -288,8 +288,10 @@ export class Reconciler {
         if (hasLockedFields(existing.id)) {
           // Keep user-edited items that AI no longer returns
         } else {
-          // Delete items with no locks
+          // Cascade-delete dependent rows before removing line item
           const db = getDatabase();
+          db.prepare('DELETE FROM journal_entries WHERE line_item_id = ?').run(existing.id);
+          db.prepare('DELETE FROM field_overrides WHERE line_item_id = ?').run(existing.id);
           db.prepare('DELETE FROM invoice_line_items WHERE id = ?').run(existing.id);
         }
       }

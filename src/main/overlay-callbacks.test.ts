@@ -15,6 +15,8 @@ function createMockCallbacks(overrides?: Partial<OverlayCallbacks>): OverlayCall
     onStopVault: vi.fn().mockResolvedValue(undefined),
     onReprocessAll: vi.fn().mockReturnValue(5),
     onReprocessFile: vi.fn().mockReturnValue(1),
+    onReanalyzeFile: vi.fn().mockResolvedValue(1),
+    onCheckFileHasResults: vi.fn().mockReturnValue(false),
     onReprocessFolder: vi.fn().mockResolvedValue(3),
     onCountFolderFiles: vi.fn().mockResolvedValue(10),
     onCancelQueueItem: vi.fn().mockReturnValue(true),

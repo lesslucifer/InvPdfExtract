@@ -40,6 +40,7 @@ import {
   CircleCheck,
   CircleX,
   CircleSlash,
+  Sparkles,
 } from 'lucide-react';
 
 export const ICON_SIZE = {
@@ -97,6 +98,7 @@ export const Icons = {
   mismatch: CircleAlert,
   fingerprint: FingerprintPattern,
   circleHelp: CircleHelp,
+  sparkles: Sparkles,
 } as const;
 
 export type IconName = keyof typeof Icons;

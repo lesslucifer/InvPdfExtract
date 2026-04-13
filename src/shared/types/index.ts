@@ -175,6 +175,7 @@ export interface ExtractionScript {
   script_path: string;
   matcher_path: string;
   matcher_description: string | null;
+  user_hint: string | null;
   times_used: number;
   created_at: string;
   last_used_at: string;
@@ -556,6 +557,8 @@ export interface InvoiceVaultAPI {
   getAppVersion: () => Promise<string>;
   reprocessAll: () => Promise<{ count: number }>;
   reprocessFile: (relativePath: string) => Promise<{ count: number }>;
+  reanalyzeFile: (relativePath: string, hint: string) => Promise<{ count: number }>;
+  checkFileHasResults: (relativePath: string) => Promise<boolean>;
   reprocessFolder: (folderPrefix: string) => Promise<{ count: number }>;
   countFolderFiles: (folderPrefix: string) => Promise<{ count: number }>;
   hideOverlay: () => Promise<void>;

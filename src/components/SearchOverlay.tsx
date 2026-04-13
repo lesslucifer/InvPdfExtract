@@ -15,6 +15,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { CheatsheetPanel } from './CheatsheetPanel';
 import { StickyFooter, StickyFooterHandle } from './StickyFooter';
 import { PathResultsList } from './PathResultsList';
+import { ReanalyzePrompt } from './ReanalyzePrompt';
 import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
 import { SavePresetModal } from './SavePresetModal';
@@ -57,6 +58,9 @@ export const SearchOverlay: React.FC = () => {
   // Empty-input hint bar: shows after 300ms of empty focused input
   const [showHintBar, setShowHintBar] = useState(false);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reanalyze prompt state — shown on Alt+Click or breadcrumb reload for files with results
+  const [reanalyzeTarget, setReanalyzeTarget] = useState<string | null>(null);
 
   // On mount: check if vault exists or if there is a pending DB error
   useEffect(() => {
@@ -463,6 +467,11 @@ export const SearchOverlay: React.FC = () => {
   }, []);
 
   const handleReprocessFile = useCallback(async (relativePath: string) => {
+    const hasResults = await window.api.checkFileHasResults(relativePath);
+    if (hasResults) {
+      setReanalyzeTarget(relativePath);
+      return;
+    }
     useSearchStore.getState().markFileReprocessing(relativePath);
     await window.api.reprocessFile(relativePath);
   }, []);
@@ -472,14 +481,41 @@ export const SearchOverlay: React.FC = () => {
     await window.api.reprocessFolder(folderPrefix);
   }, []);
 
-  const handleBreadcrumbReload = useCallback(() => {
+  const handleBreadcrumbReload = useCallback(async () => {
     const ss = useSearchStore.getState();
+    if (ss.fileScope) {
+      const hasResults = await window.api.checkFileHasResults(ss.fileScope);
+      if (hasResults) {
+        setReanalyzeTarget(ss.fileScope);
+        return;
+      }
+    }
     ss.markBreadcrumbReprocessing();
     if (ss.fileScope) {
       window.api.reprocessFile(ss.fileScope);
     } else if (ss.folderScope) {
       window.api.reprocessFolder(ss.folderScope);
     }
+  }, []);
+
+  const handleReanalyzeReprocess = useCallback(() => {
+    if (!reanalyzeTarget) return;
+    const target = reanalyzeTarget;
+    setReanalyzeTarget(null);
+    useSearchStore.getState().markFileReprocessing(target);
+    window.api.reprocessFile(target);
+  }, [reanalyzeTarget]);
+
+  const handleReanalyzeSubmit = useCallback((hint: string) => {
+    if (!reanalyzeTarget) return;
+    const target = reanalyzeTarget;
+    setReanalyzeTarget(null);
+    useSearchStore.getState().markFileReprocessing(target);
+    window.api.reanalyzeFile(target, hint);
+  }, [reanalyzeTarget]);
+
+  const handleReanalyzeCancel = useCallback(() => {
+    setReanalyzeTarget(null);
   }, []);
 
   const handleBreadcrumbReloadJE = useCallback((aiOnly: boolean) => {
@@ -806,6 +842,14 @@ export const SearchOverlay: React.FC = () => {
             onReloadJE={handleBreadcrumbReloadJE}
           />
         )}
+        {reanalyzeTarget && (
+          <ReanalyzePrompt
+            fileName={reanalyzeTarget.split('/').pop() || reanalyzeTarget}
+            onReprocess={handleReanalyzeReprocess}
+            onReanalyze={handleReanalyzeSubmit}
+            onCancel={handleReanalyzeCancel}
+          />
+        )}
         <PathResultsList
           query={pathQuery}
           scope={folderScope}
@@ -865,6 +909,14 @@ export const SearchOverlay: React.FC = () => {
           onOpenFolder={() => folderScope && handleLocateFolder(folderScope)}
           onReload={handleBreadcrumbReload}
           onReloadJE={handleBreadcrumbReloadJE}
+        />
+      )}
+      {reanalyzeTarget && (
+        <ReanalyzePrompt
+          fileName={reanalyzeTarget.split('/').pop() || reanalyzeTarget}
+          onReprocess={handleReanalyzeReprocess}
+          onReanalyze={handleReanalyzeSubmit}
+          onCancel={handleReanalyzeCancel}
         />
       )}
       {hasSearched && (

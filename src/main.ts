@@ -18,6 +18,7 @@ import { JEGenerator } from './core/je-generator';
 import { writeDefaultInstructions } from './core/je-instructions';
 import { TrayManager } from './main/tray-manager';
 import { RelevanceFilter } from './core/filters/relevance-filter';
+import { cleanupUnusedScripts } from './core/script-cleanup';
 import {
   getFilesByStatus, getFilesByStatuses, updateFileStatus, getFileByPath, getFilesByFolder,
   cancelQueueItem, clearPendingQueue, resetStaleProcessingFiles,
@@ -155,6 +156,19 @@ app.on('ready', async () => {
         return 1;
       }
       return 0;
+    },
+    onReanalyzeFile: async (relativePath: string, hint: string) => {
+      if (!currentVault || !extractionQueue) return 0;
+      const file = getFileByPath(relativePath);
+      if (!file) return 0;
+      overlayWindow?.notifyFileStatusChanged([file.id], FileStatus.Processing);
+      await extractionQueue.reanalyzeFile(file, hint);
+      return 1;
+    },
+    onCheckFileHasResults: (relativePath: string) => {
+      const file = getFileByPath(relativePath);
+      if (!file) return false;
+      return getRecordsByFileId(file.id).length > 0;
     },
     onReprocessFolder: async (folderPrefix: string) => {
       if (!currentVault) return 0;
@@ -339,6 +353,13 @@ async function startVault(vaultPath: string): Promise<void> {
       console.error('[JEGenerator] Auto-generation failed:', err);
     }
   });
+
+  // Background cleanup of unused extraction scripts
+  try {
+    cleanupUnusedScripts(currentVault.dotPath);
+  } catch (err) {
+    console.error('[InvoiceVault] Script cleanup failed:', err);
+  }
 
   // Startup recovery: reset stale processing files and trigger queue
   {

@@ -8,6 +8,7 @@ export interface RegisterScriptInput {
   scriptPath: string;
   matcherPath: string;
   description?: string;
+  userHint?: string;
 }
 
 export class ScriptRegistry {
@@ -22,9 +23,9 @@ export class ScriptRegistry {
     const now = new Date().toISOString();
 
     this.db.prepare(`
-      INSERT INTO extraction_scripts (id, name, doc_type, script_path, matcher_path, matcher_description, times_used, created_at, last_used_at)
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
-    `).run(id, input.name, input.docType, input.scriptPath, input.matcherPath, input.description ?? null, now, now);
+      INSERT INTO extraction_scripts (id, name, doc_type, script_path, matcher_path, matcher_description, user_hint, times_used, created_at, last_used_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+    `).run(id, input.name, input.docType, input.scriptPath, input.matcherPath, input.description ?? null, input.userHint ?? null, now, now);
 
     return {
       id,
@@ -33,6 +34,7 @@ export class ScriptRegistry {
       script_path: input.scriptPath,
       matcher_path: input.matcherPath,
       matcher_description: input.description ?? null,
+      user_hint: input.userHint ?? null,
       times_used: 0,
       created_at: now,
       last_used_at: now,
@@ -40,7 +42,7 @@ export class ScriptRegistry {
   }
 
   getAllScripts(): ExtractionScript[] {
-    return this.db.prepare('SELECT * FROM extraction_scripts').all() as ExtractionScript[];
+    return this.db.prepare('SELECT * FROM extraction_scripts ORDER BY created_at DESC').all() as ExtractionScript[];
   }
 
   getScriptById(id: string): ExtractionScript | null {

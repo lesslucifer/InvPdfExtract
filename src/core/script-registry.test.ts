@@ -56,6 +56,32 @@ describe('ScriptRegistry', () => {
       expect(row).toBeTruthy();
       expect(row.name).toBe('vn-xml-invoice');
     });
+
+    it('stores user_hint when provided', () => {
+      const script = registry.registerScript({
+        name: 'hint-test',
+        docType: DocType.InvoiceIn,
+        scriptPath: 'parser.js',
+        matcherPath: 'matcher.js',
+        userHint: 'tax rate column shows 8% as text',
+      });
+
+      expect(script.user_hint).toBe('tax rate column shows 8% as text');
+
+      const row = db.prepare('SELECT user_hint FROM extraction_scripts WHERE id = ?').get(script.id) as any;
+      expect(row.user_hint).toBe('tax rate column shows 8% as text');
+    });
+
+    it('stores user_hint as null when not provided', () => {
+      const script = registry.registerScript({
+        name: 'no-hint',
+        docType: DocType.InvoiceIn,
+        scriptPath: 'parser.js',
+        matcherPath: 'matcher.js',
+      });
+
+      expect(script.user_hint).toBeNull();
+    });
   });
 
   // ── Lookup ──
@@ -83,6 +109,26 @@ describe('ScriptRegistry', () => {
 
       const all = registry.getAllScripts();
       expect(all).toHaveLength(3);
+    });
+
+    it('returns scripts sorted newest-first by created_at', () => {
+      // Insert with explicit created_at to control order
+      const now = Date.now();
+      db.prepare(`
+        INSERT INTO extraction_scripts (id, name, doc_type, script_path, matcher_path, times_used, created_at, last_used_at)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+      `).run('oldest', 'oldest', DocType.InvoiceIn, 'a.js', 'a-m.js', new Date(now - 3000).toISOString(), new Date(now).toISOString());
+      db.prepare(`
+        INSERT INTO extraction_scripts (id, name, doc_type, script_path, matcher_path, times_used, created_at, last_used_at)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+      `).run('newest', 'newest', DocType.InvoiceIn, 'b.js', 'b-m.js', new Date(now).toISOString(), new Date(now).toISOString());
+      db.prepare(`
+        INSERT INTO extraction_scripts (id, name, doc_type, script_path, matcher_path, times_used, created_at, last_used_at)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+      `).run('middle', 'middle', DocType.InvoiceIn, 'c.js', 'c-m.js', new Date(now - 1000).toISOString(), new Date(now).toISOString());
+
+      const all = registry.getAllScripts();
+      expect(all.map(s => s.name)).toEqual(['newest', 'middle', 'oldest']);
     });
   });
 
