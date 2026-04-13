@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import { DocType, ExtractionFileResult, ExtractionInvoiceData, ExtractionLineItem } from '../../shared/types';
 import { computeMissingTaxField } from '../../shared/tax-utils';
+import { log, LogModule } from '../logger';
 
 /**
  * Parse a Vietnamese e-invoice XML file (hóa đơn điện tử) into structured data.
@@ -9,16 +10,19 @@ import { computeMissingTaxField } from '../../shared/tax-utils';
  *   - Wrapped (TDiep): <TDiep><DLieu><HDon><DLHDon>...
  */
 export function parseXmlInvoice(filePath: string, relativePath: string): ExtractionFileResult {
+  log.debug(LogModule.Parser, `Parsing XML invoice: ${relativePath}`);
   const content = fs.readFileSync(filePath, 'utf-8');
   const hdonContent = extractHDonContent(content);
   const dlhdon = extractElement(hdonContent, 'DLHDon');
   if (!dlhdon) {
+    log.error(LogModule.Parser, `No DLHDon element`, { relativePath });
     throw new Error(`No DLHDon element found in ${relativePath}`);
   }
 
   const ttchung = extractElement(dlhdon, 'TTChung');
   const ndHdon = extractElement(dlhdon, 'NDHDon');
   if (!ttchung || !ndHdon) {
+    log.error(LogModule.Parser, `Missing TTChung or NDHDon`, { relativePath });
     throw new Error(`Missing TTChung or NDHDon in ${relativePath}`);
   }
 
@@ -68,6 +72,8 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
     doc_date: 1.0,
     counterparty_address: 1.0,
   };
+
+  log.info(LogModule.Parser, `XML invoice parsed: ${data.invoice_code ?? '?'}-${data.invoice_number ?? '?'}`, { relativePath, lineItems: lineItems.length });
 
   return {
     relative_path: relativePath,

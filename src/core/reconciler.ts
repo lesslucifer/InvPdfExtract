@@ -16,6 +16,7 @@ import { getDatabase } from './db/database';
 import { rebuildDuplicatesForFingerprints } from './db/dedup';
 import { eventBus } from './event-bus';
 import { FileStatus } from '../shared/types';
+import { log, LogModule } from './logger';
 
 type ReconciledFieldValue = string | number | null;
 type ReconciledFields = Record<string, ReconciledFieldValue>;
@@ -32,7 +33,7 @@ export class Reconciler {
       try {
         this.reconcileFileResult(fileResult, sessionLog);
       } catch (err) {
-        console.error(`[Reconciler] Error reconciling ${fileResult.relative_path}:`, err);
+        log.error(LogModule.Reconciler, `Error reconciling ${fileResult.relative_path}:`, err);
         const file = getFileByPath(fileResult.relative_path);
         if (file) {
           updateFileStatus(file.id, FileStatus.Error);
@@ -46,7 +47,7 @@ export class Reconciler {
     const reconcileT0 = performance.now();
     const file = getFileByPath(fileResult.relative_path);
     if (!file) {
-      console.warn(`[Reconciler] File not found in DB: ${fileResult.relative_path}`);
+      log.warn(LogModule.Reconciler, `File not found in DB: ${fileResult.relative_path}`);
       return;
     }
 
@@ -143,7 +144,7 @@ export class Reconciler {
     updateFileStatus(file.id, needsReview ? FileStatus.Review : FileStatus.Done);
 
     const totalLineItems = records.reduce((sum, r) => sum + (r.line_items?.length ?? 0), 0);
-    console.log(`[Reconciler] reconcileFileResult: ${fileResult.relative_path} — ${records.length} records, ${totalLineItems} lineItems, txn=${txnMs.toFixed(0)}ms, dedup=${dedupMs.toFixed(0)}ms, total=${(performance.now() - reconcileT0).toFixed(0)}ms`);
+    log.info(LogModule.Reconciler, `reconcileFileResult: ${fileResult.relative_path} — ${records.length} records, ${totalLineItems} lineItems, txn=${txnMs.toFixed(0)}ms, dedup=${dedupMs.toFixed(0)}ms, total=${(performance.now() - reconcileT0).toFixed(0)}ms`);
 
     eventBus.emit('extraction:completed', {
       batchId: batch.id,
@@ -297,7 +298,7 @@ export class Reconciler {
       }
     }
     if (items.length > 50) {
-      console.log(`[Reconciler] reconcileLineItems: ${recordId.slice(0, 8)} — ${items.length} items, took ${(performance.now() - t0).toFixed(0)}ms`);
+      log.info(LogModule.Reconciler, `reconcileLineItems: ${recordId.slice(0, 8)} — ${items.length} items, took ${(performance.now() - t0).toFixed(0)}ms`);
     }
   }
 

@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
+import { log, LogModule } from '../logger';
 import { normalizeQuery } from '../../shared/normalize-query';
 import {
   ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
@@ -125,6 +126,7 @@ export function createBatch(fileId: string, status: BatchStatus, recordCount: nu
     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `).run(id, fileId, status, recordCount, confidence, sessionLog, scriptId);
 
+  log.debug(LogModule.DB, `Created batch: ${status}, ${recordCount} records, confidence=${confidence.toFixed(2)}`, { batchId: id, fileId });
   return db.prepare('SELECT * FROM extraction_batches WHERE id = ?').get(id) as ExtractionBatch;
 }
 
@@ -143,6 +145,7 @@ export function insertRecord(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, batchId, fileId, docType, fingerprint, confidence, docDate, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), now, now);
 
+  log.debug(LogModule.DB, `Inserted record: ${docType}`, { recordId: id, fileId, confidence });
   return db.prepare('SELECT * FROM records WHERE id = ?').get(id) as DbRecord;
 }
 
@@ -155,6 +158,7 @@ export function updateRecord(
     UPDATE records SET batch_id = ?, confidence = ?, doc_date = ?, field_confidence = ?, raw_extraction = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(batchId, confidence, docDate, JSON.stringify(fieldConfidence), JSON.stringify(rawExtraction), recordId);
+  log.debug(LogModule.DB, `Updated record`, { recordId, confidence });
 }
 
 export function getRecordsByFileId(fileId: string): DbRecord[] {
@@ -171,6 +175,7 @@ export function updateJeStatus(recordIds: string[], status: JEGenerationStatus):
     for (const id of recordIds) stmt.run(status, id);
   });
   tx();
+  log.debug(LogModule.DB, `JE status → ${status} for ${recordIds.length} records`);
 }
 
 export function resetStaleJeProcessing(): number {
@@ -178,6 +183,7 @@ export function resetStaleJeProcessing(): number {
   const result = db.prepare(
     "UPDATE records SET je_status = 'pending', updated_at = datetime('now') WHERE je_status = 'processing' AND deleted_at IS NULL"
   ).run();
+  log.info(LogModule.DB, `Reset ${result.changes} stale JE processing records`);
   return result.changes;
 }
 
@@ -237,6 +243,7 @@ export function softDeleteRecord(recordId: string): void {
   db.prepare('UPDATE records SET deleted_at = ? WHERE id = ?').run(now, recordId);
   db.prepare('UPDATE invoice_line_items SET deleted_at = ? WHERE record_id = ?').run(now, recordId);
   db.prepare('DELETE FROM record_duplicate_sources WHERE canonical_record_id = ? OR source_record_id = ?').run(recordId, recordId);
+  log.debug(LogModule.DB, `Soft-deleted record`, { recordId });
 }
 
 // === Bank Statement Data ===
@@ -255,6 +262,7 @@ export function upsertBankStatementData(recordId: string, data: Partial<BankStat
       amount = excluded.amount,
       counterparty_name = excluded.counterparty_name
   `).run(recordId, data.bank_name ?? null, data.account_number ?? null, data.invoice_code ?? null, data.invoice_number ?? null, data.description ?? null, data.amount ?? null, data.counterparty_name ?? null);
+  log.debug(LogModule.DB, `Upserted bank statement data`, { recordId });
 }
 
 // === Invoice Data ===
@@ -275,6 +283,7 @@ export function upsertInvoiceData(recordId: string, data: Partial<InvoiceData>):
       counterparty_name = excluded.counterparty_name,
       counterparty_address = excluded.counterparty_address
   `).run(recordId, data.invoice_code ?? null, data.invoice_number ?? null, data.total_before_tax ?? null, data.total_amount ?? null, data.fee_amount ?? null, data.fee_description ?? null, data.tax_id ?? null, data.counterparty_name ?? null, data.counterparty_address ?? null);
+  log.debug(LogModule.DB, `Upserted invoice data`, { recordId });
 }
 
 // === Invoice Line Items ===
@@ -287,6 +296,7 @@ export function insertLineItem(recordId: string, lineNumber: number, data: Parti
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, recordId, lineNumber, data.description ?? null, data.unit_price ?? null, data.quantity ?? null, data.tax_rate ?? null, data.subtotal ?? null, data.total_with_tax ?? null);
 
+  log.debug(LogModule.DB, `Inserted line item #${lineNumber}`, { recordId, lineItemId: id });
   return db.prepare('SELECT * FROM invoice_line_items WHERE id = ?').get(id) as InvoiceLineItem;
 }
 
@@ -297,6 +307,7 @@ export function updateLineItem(lineItemId: string, data: Partial<InvoiceLineItem
     SET description = ?, unit_price = ?, quantity = ?, tax_rate = ?, subtotal = ?, total_with_tax = ?
     WHERE id = ?
   `).run(data.description ?? null, data.unit_price ?? null, data.quantity ?? null, data.tax_rate ?? null, data.subtotal ?? null, data.total_with_tax ?? null, lineItemId);
+  log.debug(LogModule.DB, `Updated line item`, { lineItemId });
 }
 
 export function softDeleteLineItem(lineItemId: string): void {
@@ -307,6 +318,7 @@ export function softDeleteLineItem(lineItemId: string): void {
 export function deleteLineItemsByRecord(recordId: string): void {
   const db = getDatabase();
   db.prepare('DELETE FROM invoice_line_items WHERE record_id = ?').run(recordId);
+  log.debug(LogModule.DB, `Deleted all line items for record`, { recordId });
 }
 
 export function deleteUnlockedLineItemsByRecord(recordId: string): string[] {
@@ -324,6 +336,7 @@ export function deleteUnlockedLineItemsByRecord(recordId: string): string[] {
       db.prepare('DELETE FROM invoice_line_items WHERE id = ?').run(item.id);
     }
   }
+  log.debug(LogModule.DB, `Deleted unlocked line items, kept ${kept.length} locked`, { recordId });
   return kept;
 }
 
@@ -506,6 +519,7 @@ export function upsertFieldOverride(
       VALUES (?, ?, ?, ?, ?, ?, 'locked', datetime('now'), ?)
     `).run(id, recordId, tableName, fieldName, userValue, aiValueAtLock, lineItemId ?? null);
   }
+  log.debug(LogModule.DB, `Field override: ${tableName}.${fieldName}`, { recordId, isUpdate: !!existing });
 }
 
 export function setFieldConflict(recordId: string, tableName: string, fieldName: string, aiValueLatest: string): void {
@@ -515,6 +529,7 @@ export function setFieldConflict(recordId: string, tableName: string, fieldName:
     SET ai_value_latest = ?, status = 'conflict', conflict_at = datetime('now')
     WHERE record_id = ? AND table_name = ? AND field_name = ? AND resolved_at IS NULL
   `).run(aiValueLatest, recordId, tableName, fieldName);
+  log.info(LogModule.DB, `Field conflict detected: ${fieldName}`, { recordId });
 }
 
 export function resolveConflictKeep(recordId: string, fieldName: string): void {
@@ -524,6 +539,7 @@ export function resolveConflictKeep(recordId: string, fieldName: string): void {
     SET status = 'locked', ai_value_latest = NULL, conflict_at = NULL
     WHERE record_id = ? AND field_name = ? AND resolved_at IS NULL
   `).run(recordId, fieldName);
+  log.info(LogModule.DB, `Conflict resolved (keep user value): ${fieldName}`, { recordId });
 }
 
 export function resolveConflictAccept(recordId: string, fieldName: string): void {
@@ -553,6 +569,7 @@ export function resolveConflictAccept(recordId: string, fieldName: string): void
 
     db.prepare(`UPDATE ${tableName} SET ${fieldName} = ? WHERE record_id = ?`).run(finalValue, recordId);
   }
+  log.info(LogModule.DB, `Conflict resolved (accept AI value): ${fieldName}`, { recordId });
 }
 
 export function resolveAllConflictsForRecord(recordId: string, action: 'keep' | 'accept'): void {
@@ -568,6 +585,7 @@ export function resolveAllConflictsForRecord(recordId: string, action: 'keep' | 
       resolveConflictAccept(recordId, override.field_name);
     }
   }
+  log.info(LogModule.DB, `Resolved all conflicts: ${action} (${conflicts.length} fields)`, { recordId });
 }
 
 export function getLockedFieldsForRecord(recordId: string): Map<string, { tableName: string; userValue: string; aiValueAtLock: string }> {

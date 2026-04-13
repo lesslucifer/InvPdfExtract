@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE } from '../shared/constants';
 import { writeInstruction, readInstruction } from './instruction-manager';
+import { log, LogModule } from './logger';
 
 export function getInstructionsPath(vaultRoot: string): string {
   return path.join(vaultRoot, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, JE_INSTRUCTIONS_FILE);
@@ -13,6 +14,7 @@ export async function readInstructions(vaultRoot: string): Promise<string> {
   try {
     return await readInstruction(p);
   } catch {
+    log.info(LogModule.JEGenerator, 'JE instructions not found, writing defaults');
     await writeDefaultInstructions(vaultRoot);
     return await readInstruction(p);
   }
@@ -21,6 +23,7 @@ export async function readInstructions(vaultRoot: string): Promise<string> {
 export async function writeInstructions(vaultRoot: string, content: string): Promise<void> {
   const p = getInstructionsPath(vaultRoot);
   await fs.promises.writeFile(p, content, 'utf-8');
+  log.info(LogModule.JEGenerator, 'JE instructions updated');
 }
 
 export async function writeDefaultInstructions(vaultRoot: string): Promise<void> {
@@ -43,6 +46,7 @@ async function migrateOldInstructions(vaultRoot: string): Promise<void> {
   } catch {
     await fs.promises.mkdir(path.dirname(newPath), { recursive: true });
     await fs.promises.rename(oldPath, newPath);
+    log.info(LogModule.JEGenerator, 'Migrated old je-instructions.txt to new path');
     return;
   }
 

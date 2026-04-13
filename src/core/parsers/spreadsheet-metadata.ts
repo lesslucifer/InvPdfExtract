@@ -2,11 +2,13 @@ import * as path from 'path';
 import * as XLSX from 'xlsx';
 import { SpreadsheetMetadata, SheetMetadata, ColumnTypeInfo } from '../../shared/types';
 import { METADATA_SAMPLE_ROWS, METADATA_SAMPLE_VALUES } from '../../shared/constants';
+import { log, LogModule } from '../logger';
 
 export function extractMetadata(filePath: string): SpreadsheetMetadata {
+  const fileName = path.basename(filePath);
+  log.debug(LogModule.Parser, `Extracting metadata: ${fileName}`);
   const ext = path.extname(filePath).toLowerCase();
   const fileType = ext === '.csv' ? 'csv' : 'xlsx';
-  const fileName = path.basename(filePath);
 
   // Read workbook — full read to get accurate row counts and sample data
   const wb = XLSX.readFile(filePath);
@@ -51,6 +53,8 @@ export function extractMetadata(filePath: string): SpreadsheetMetadata {
   }
 
   const totalRows = sheets.reduce((sum, s) => sum + s.rowCount, 0);
+
+  log.debug(LogModule.Parser, `Metadata extracted: ${sheets.length} sheets, ${totalRows} total rows`, { fileName });
 
   return {
     fileName,

@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getDatabase } from './db/database';
+import { log, LogModule } from './logger';
 
 const GRACE_PERIOD_DAYS = 7;
 
@@ -48,6 +49,6 @@ export function cleanupUnusedScripts(vaultDotPath: string): number {
     deleteScript.run(script.id);
   }
 
-  console.log(`[ScriptCleanup] Removed ${unusedScripts.length} unused script(s)`);
+  log.info(LogModule.Script, `Removed ${unusedScripts.length} unused script(s)`);
   return unusedScripts.length;
 }

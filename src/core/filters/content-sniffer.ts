@@ -4,12 +4,14 @@ import { Worker } from 'worker_threads';
 import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
 import { getMergedKeywords, createKeywordMatcher } from './keyword-bank';
 import { findNodeModules } from '../app-paths';
+import { log, LogModule } from '../logger';
 
 export async function contentSniffer(
   fullPath: string,
   layer1Score: number,
   config: RelevanceFilterConfig
 ): Promise<FilterResult> {
+  log.debug(LogModule.Filter, `Content sniffing: ${path.basename(fullPath)}`);
   const ext = path.extname(fullPath).toLowerCase();
   let textSample = '';
 
@@ -28,6 +30,7 @@ export async function contentSniffer(
       case '.jpg':
       case '.jpeg':
       case '.png':
+        log.debug(LogModule.Filter, `Image file, skipping content sniff`, { path: path.basename(fullPath) });
         return {
           score: layer1Score,
           reason: 'Image file - content sniffing not available, relying on filename heuristics',
@@ -42,7 +45,7 @@ export async function contentSniffer(
         textSample = '';
     }
   } catch (err) {
-    console.warn(`[ContentSniffer] Failed to extract text from ${fullPath}: ${(err as Error).message}`);
+    log.warn(LogModule.Filter, `Failed to extract text from ${fullPath}: ${(err as Error).message}`);
     return {
       score: layer1Score,
       reason: `Content extraction failed: ${(err as Error).message}`,

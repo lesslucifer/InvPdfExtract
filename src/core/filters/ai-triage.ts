@@ -1,6 +1,7 @@
 import { ClaudeCodeRunner } from '../claude-cli';
 import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
 import { readTriageInstructions } from './ai-triage-instructions';
+import { log, LogModule } from '../logger';
 
 interface TriageInput {
   relativePath: string;
@@ -23,6 +24,7 @@ export async function aiTriageBatch(
 ): Promise<FilterResult[]> {
   if (inputs.length === 0) return [];
 
+  log.info(LogModule.Filter, `AI triage batch: ${inputs.length} files`);
   const systemPrompt = await readTriageInstructions(vaultRoot);
   const runner = new ClaudeCodeRunner(cliPath, 30_000, 'fast'); // Haiku, 30s timeout
 
@@ -37,6 +39,7 @@ export async function aiTriageBatch(
     const raw = await runner.invokeRaw(userPrompt, systemPrompt);
     const parsed = parseTriageResponse(raw, inputs.length);
 
+    log.info(LogModule.Filter, `AI triage completed: ${inputs.length} files classified`);
     return inputs.map((input, idx) => {
       const triageResult = parsed[idx];
       if (!triageResult) {
@@ -64,7 +67,7 @@ export async function aiTriageBatch(
       };
     });
   } catch (err) {
-    console.error('[AITriage] Batch triage failed:', (err as Error).message);
+    log.error(LogModule.Filter, `Batch triage failed: ${(err as Error).message}`);
     return inputs.map(input => ({
       score: input.layer2Score,
       reason: `AI triage failed: ${(err as Error).message}. Defaulting to process.`,

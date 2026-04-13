@@ -3,6 +3,7 @@ import { ClaudeCodeRunner } from './claude-cli';
 import { executeScript } from './script-sandbox';
 import { SpreadsheetMetadata, ExtractionFileResult, VerificationResult } from '../shared/types';
 import { SCRIPT_VERIFY_MAX_RETRIES } from '../shared/constants';
+import { log, LogModule } from './logger';
 
 /** Max records to include in truncated output sent to Claude */
 const TRUNCATE_MAX_RECORDS = 3;
@@ -108,7 +109,7 @@ export class ScriptVerifier {
       const prompt = this.buildJudgePrompt(metadata, currentScript, output, runError);
 
       // 3. Ask Claude to judge
-      console.log(`[ScriptVerifier] Attempt ${attempt + 1}/${maxRetries + 1}: ${runError ? 'error' : `${output?.records?.length ?? 0} records`}`);
+      log.info(LogModule.Script, `Attempt ${attempt + 1}/${maxRetries + 1}: ${runError ? 'error' : `${output?.records?.length ?? 0} records`}`);
       const response = await this.runner.invokeRaw(prompt, JUDGE_SYSTEM_PROMPT, vaultRootPath);
 
       // 4. Check Claude's verdict
@@ -117,7 +118,7 @@ export class ScriptVerifier {
           // Claude said APPROVED but script had an error — shouldn't happen, but handle it
           return { success: false, error: `Script error despite approval: ${runError}` };
         }
-        console.log(`[ScriptVerifier] APPROVED on attempt ${attempt + 1}`);
+        log.info(LogModule.Script, `APPROVED on attempt ${attempt + 1}`);
         return { success: true, output };
       }
 
@@ -125,12 +126,12 @@ export class ScriptVerifier {
       const fixedCode = this.extractCodeBlock(response);
       if (fixedCode) {
         fs.writeFileSync(parserPath, fixedCode);
-        console.log(`[ScriptVerifier] Claude provided fix, retrying...`);
+        log.info(LogModule.Script, 'Claude provided fix, retrying...');
         continue;
       }
 
       // Claude responded but no APPROVED and no code block — treat as error
-      console.warn(`[ScriptVerifier] Unexpected response (no APPROVED, no code block), retrying...`);
+      log.warn(LogModule.Script, 'Unexpected response (no APPROVED, no code block), retrying...');
     }
 
     return {

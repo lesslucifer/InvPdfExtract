@@ -3,6 +3,7 @@ import * as path from 'path';
 import { OverlayState } from '../shared/types';
 import { INVOICEVAULT_DIR } from '../shared/constants';
 import type { ParsedQuery } from '../shared/parse-query';
+import { log, LogModule } from './logger';
 
 const STATE_FILENAME = 'window-state.json';
 
@@ -55,7 +56,7 @@ const writeQueues = new Map<string, Promise<void>>();
 
 function enqueue(statePath: string, task: () => Promise<void>): Promise<void> {
   const prev = writeQueues.get(statePath) ?? Promise.resolve();
-  const next = prev.then(task).catch(err => console.error('[WindowState] write failed:', err));
+  const next = prev.then(task).catch(err => log.error(LogModule.Overlay, 'Window state write failed', err));
   writeQueues.set(statePath, next);
   next.then(() => { if (writeQueues.get(statePath) === next) writeQueues.delete(statePath); });
   return next;
@@ -88,7 +89,7 @@ export function saveWindowStateSync(statePath: string, patch: Partial<WindowStat
     const merged = { ...existing, ...patch };
     fs.writeFileSync(statePath, JSON.stringify(merged, null, 2));
   } catch (err) {
-    console.error('[WindowState] saveWindowStateSync failed:', err);
+    log.error(LogModule.Overlay, 'Sync window state save failed', err);
   }
 }
 

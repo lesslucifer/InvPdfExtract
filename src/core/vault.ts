@@ -10,6 +10,7 @@ import {
 import { writeInstruction } from './instruction-manager';
 import { writeDefaultTriageInstructions } from './filters/ai-triage-instructions';
 import archiver from 'archiver';
+import { log, LogModule } from './logger';
 
 const pathExists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
 
@@ -52,7 +53,7 @@ export async function initVault(folderPath: string): Promise<VaultHandle> {
   await migrateOldExtractionPrompt(dotPath);
   await writeDefaultTriageInstructions(folderPath);
 
-  console.log(`[Vault] Initialized at ${folderPath}`);
+  log.info(LogModule.Vault, `Initialized at ${folderPath}`);
 
   return { rootPath: folderPath, dotPath, dbPath, config, db };
 }
@@ -75,7 +76,7 @@ export async function openVault(folderPath: string): Promise<VaultHandle> {
   await writeDefaultExtractionPrompt(dotPath);
   await writeDefaultTriageInstructions(folderPath);
 
-  console.log(`[Vault] Opened ${folderPath}`);
+  log.info(LogModule.Vault, `Opened ${folderPath}`);
 
   return { rootPath: folderPath, dotPath, dbPath, config, db };
 }
@@ -86,14 +87,14 @@ export function closeVault(handle?: VaultHandle): void {
   } else {
     closeDatabase();
   }
-  console.log('[Vault] Closed');
+  log.info(LogModule.Vault, 'Closed');
 }
 
 export async function clearVaultData(folderPath: string): Promise<void> {
   const dotPath = path.join(folderPath, INVOICEVAULT_DIR);
   if (!await pathExists(dotPath)) return;
   await fs.promises.rm(dotPath, { recursive: true, force: true });
-  console.log(`[Vault] Cleared data at ${folderPath}`);
+  log.info(LogModule.Vault, `Cleared data at ${folderPath}`);
 }
 
 export async function backupVault(folderPath: string, destPath: string): Promise<void> {
@@ -110,7 +111,7 @@ export async function backupVault(folderPath: string, destPath: string): Promise
     archive.finalize();
   });
 
-  console.log(`[Vault] Backed up ${folderPath} → ${destPath}`);
+  log.info(LogModule.Vault, `Backed up ${folderPath} → ${destPath}`);
 }
 
 export async function getVaultConfig(dotPath: string): Promise<VaultConfig> {

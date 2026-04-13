@@ -6,6 +6,7 @@ import { loadFilterConfig } from './config';
 import { filenameFilter } from './filename-filter';
 import { contentSniffer, extractPdfText, extractSpreadsheetText, extractXmlText } from './content-sniffer';
 import { aiTriageBatch, TriageInput } from './ai-triage';
+import { log, LogModule } from '../logger';
 
 export class RelevanceFilter {
   private vault: VaultHandle;
@@ -20,24 +21,30 @@ export class RelevanceFilter {
 
   static async create(vault: VaultHandle, cliPath?: string): Promise<RelevanceFilter> {
     const config = await loadFilterConfig(vault.dotPath);
-    return new RelevanceFilter(vault, config, cliPath);
+    const instance = new RelevanceFilter(vault, config, cliPath);
+    log.debug(LogModule.Filter, `RelevanceFilter created (aiTriage=${config.aiTriageEnabled})`);
+    return instance;
   }
 
   async reloadConfig(): Promise<void> {
     this.config = await loadFilterConfig(this.vault.dotPath);
+    log.debug(LogModule.Filter, 'Filter config reloaded');
   }
 
   async filterFile(file: VaultFile): Promise<'accepted' | 'skipped'> {
     const fullPath = path.join(this.vault.rootPath, file.relative_path);
 
     const layer1Result = filenameFilter(file.relative_path, file.file_size, this.config);
+    log.debug(LogModule.Filter, `Layer 1: score=${layer1Result.score.toFixed(2)}, decision=${layer1Result.decision}`, { path: file.relative_path });
 
     if (layer1Result.decision === 'process') {
+      log.debug(LogModule.Filter, `Accepted at layer 1`, { path: file.relative_path });
       updateFileFilterResult(file.id, FileStatus.Pending, layer1Result.score, layer1Result.reason, 1);
       return 'accepted';
     }
 
     const layer2Result = await contentSniffer(fullPath, layer1Result.score, this.config);
+    log.debug(LogModule.Filter, `Layer 2: score=${layer2Result.score.toFixed(2)}, decision=${layer2Result.decision}`, { path: file.relative_path });
 
     if (layer2Result.decision === 'process') {
       updateFileFilterResult(file.id, FileStatus.Pending, layer2Result.score, layer2Result.reason, 2);
@@ -68,6 +75,7 @@ export class RelevanceFilter {
       const triageInputs: TriageInput[] = [{ relativePath: file.relative_path, textSample, layer2Score: layer2Result.score }];
       const triageResults = await aiTriageBatch(triageInputs, this.config, this.vault.rootPath, this.cliPath);
       const result = triageResults[0];
+      log.debug(LogModule.Filter, `Layer 3 (AI): score=${result.score.toFixed(2)}, decision=${result.decision}`, { path: file.relative_path });
 
       if (result.decision === 'skip') {
         updateFileFilterResult(file.id, FileStatus.Skipped, result.score, result.reason, 3);
@@ -84,7 +92,7 @@ export class RelevanceFilter {
       return 'accepted';
     }
 
-    // AI triage disabled — default uncertain files to process
+    log.debug(LogModule.Filter, `Accepted (AI triage disabled, uncertain → process)`, { path: file.relative_path });
     updateFileFilterResult(
       file.id, FileStatus.Pending,
       layer2Result.score, `${layer2Result.reason} (AI triage disabled, defaulting to process)`, 2

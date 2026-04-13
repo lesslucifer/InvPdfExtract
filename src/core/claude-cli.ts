@@ -8,6 +8,7 @@ import * as path from 'path';
 import { ExtractionResult, ModelTier, MODEL_TIER_MAP } from '../shared/types';
 import { DEFAULT_CLI_TIMEOUT, MIN_PDF_TEXT_CHARS } from '../shared/constants';
 import { extractPdfText } from './filters/content-sniffer';
+import { log, LogModule } from './logger';
 
 export class CliError extends Error {
   constructor(
@@ -232,7 +233,7 @@ export class ClaudeCodeRunner {
     const textBased = textResults.filter(r => r.isTextBased);
     const imageBased = textResults.filter(r => !r.isTextBased);
 
-    console.log(`[ClaudeCodeRunner] Text-based: ${textBased.length}, image-based: ${imageBased.length}`);
+    log.info(LogModule.ClaudeCLI, `Text-based: ${textBased.length}, image-based: ${imageBased.length}`);
 
     // Build prompt sections
     const textSection = textBased.length > 0
@@ -270,7 +271,7 @@ For each file, return a result with relative_path matching exactly as shown abov
       const result = this.parseResponse(stdout);
       return { result, sessionLog };
     } catch (firstErr) {
-      console.warn(`[ClaudeCodeRunner] Parse failed, retrying with JSON emphasis: ${(firstErr as Error).message}`);
+      log.warn(LogModule.ClaudeCLI, `Parse failed, retrying with JSON emphasis: ${(firstErr as Error).message}`);
 
       const retryPrompt = `Your previous response could not be parsed as valid JSON.
 Please try again for the same files. Return ONLY a valid JSON object matching the ExtractionResult schema.
@@ -348,7 +349,7 @@ Located relative to: ${vaultRoot}`;
           try {
             const parsed = JSON.parse(trimmed);
             if (parsed?.type === 'result' && parsed?.is_error === false && parsed?.stop_reason === 'end_turn') {
-              console.warn(`[ClaudeCodeRunner] CLI exited ${code} but stdout has completed result — treating as success`);
+              log.warn(LogModule.ClaudeCLI, `CLI exited ${code} but stdout has completed result — treating as success`);
               resolve(trimmed);
               return;
             }
@@ -362,7 +363,7 @@ Located relative to: ${vaultRoot}`;
               try {
                 const parsed = JSON.parse(repaired);
                 if (parsed?.type === 'result' && parsed?.is_error === false && parsed?.stop_reason === 'end_turn') {
-                  console.warn(`[ClaudeCodeRunner] CLI exited ${code} but repaired truncated envelope — treating as success`);
+                  log.warn(LogModule.ClaudeCLI, `CLI exited ${code} but repaired truncated envelope — treating as success`);
                   resolve(repaired);
                   return;
                 }
@@ -418,7 +419,7 @@ Located relative to: ${vaultRoot}`;
     if (repaired) {
       const repairedResult = this.tryParseExtractionResult(repaired);
       if (repairedResult) {
-        console.warn('[ClaudeCodeRunner] Parsed truncated JSON — extraction data may be incomplete');
+        log.warn(LogModule.ClaudeCLI, 'Parsed truncated JSON — extraction data may be incomplete');
         return repairedResult;
       }
     }

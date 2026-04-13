@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { openSqlite } from './sqlite-binding';
 import { MIGRATIONS } from './schema';
 import { normalizeQuery } from '../../shared/normalize-query';
+import { log, LogModule } from '../logger';
 
 let activeDb: Database.Database | null = null;
 
@@ -69,7 +70,7 @@ function runMigrations(database: Database.Database): void {
         applied_at DATETIME NOT NULL DEFAULT (datetime('now'))
       );
     `);
-    console.log('[DB] Rebuilt _migrations table with TEXT keys');
+    log.info(LogModule.DB, 'Rebuilt _migrations table with TEXT keys');
   }
 
   const applied = new Set(
@@ -81,6 +82,6 @@ function runMigrations(database: Database.Database): void {
 
     database.exec(migration.sql);
     database.prepare('INSERT INTO _migrations (id) VALUES (?)').run(migration.key);
-    console.log(`[DB] Applied migration ${migration.key}`);
+    log.info(LogModule.DB, `Applied migration ${migration.key}`);
   }
 }
