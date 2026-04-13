@@ -733,8 +733,9 @@ export const SearchOverlay: React.FC = () => {
             ss.setExpandedId(null);
           } else if (ss.query) {
             handleQueryChange('');
-          } else if (ss.filters.docType || ss.filters.status || ss.filters.taxId || ss.filters.amountMin != null ||
-                     ss.filters.amountMax != null || ss.filters.dateFilter) {
+          } else if (ss.filters.docType || ss.filters.status || ss.filters.taxId || ss.filters.invoiceCode ||
+                     ss.filters.amountMin != null || ss.filters.amountMax != null || ss.filters.dateFilter ||
+                     (ss.filters.sortField && !(ss.filters.sortField === 'time' && (!ss.filters.sortDirection || ss.filters.sortDirection === 'desc')))) {
             ss.setFilters({ text: '' } as ParsedQuery);
             if (!ss.folderScope && !ss.fileScope) {
               os.setOverlayState(OverlayState.Home);
@@ -760,7 +761,7 @@ export const SearchOverlay: React.FC = () => {
   // Check if there are active filter pills
   const hasSortPill = filters.sortField &&
     !(filters.sortField === 'time' && (!filters.sortDirection || filters.sortDirection === 'desc'));
-  const hasFilterPills = filters.docType || filters.status || filters.taxId ||
+  const hasFilterPills = filters.docType || filters.status || filters.taxId || filters.invoiceCode ||
     filters.amountMin != null || filters.amountMax != null || filters.dateFilter || hasSortPill;
 
   const titleBar = isWindowlized && !hasNativeFrame ? (
