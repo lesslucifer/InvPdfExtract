@@ -18,6 +18,7 @@ import { PathResultsList } from './PathResultsList';
 import { ReanalyzePrompt } from './ReanalyzePrompt';
 import { ProcessingStatusPanel } from './ProcessingStatusPanel';
 import { PresetList } from './PresetList';
+import { queryClient } from '../lib/queryClient';
 import { SavePresetModal } from './SavePresetModal';
 import { mergePresetState } from '../shared/merge-preset';
 import { useOverlayStore, useSearchStore, usePathSearchStore, usePresetStore, useProcessingStore } from '../stores';
@@ -537,6 +538,7 @@ export const SearchOverlay: React.FC = () => {
   const handleVaultChanged = useCallback(() => {
     useSearchStore.getState().resetSearch();
     initialLoadDone.current = false;
+    queryClient.invalidateQueries();
     window.api.getAppConfig().then(config => {
       if (!config.lastVaultPath || !config.vaultPaths || config.vaultPaths.length === 0) {
         useOverlayStore.getState().setOverlayState(OverlayState.NoVault);

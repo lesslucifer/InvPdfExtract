@@ -2,6 +2,7 @@ import { t } from '../lib/i18n';
 import React, { useState, useCallback } from 'react';
 import { OverlayState } from '../shared/types';
 import { useOverlayStore } from '../stores';
+import { useAppConfig } from '../lib/queries';
 
 export const NoVaultScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +17,7 @@ export const NoVaultScreen: React.FC = () => {
     try {
       const result = await window.api.initVault(folderPath);
       if (result.success) {
+        useAppConfig.invalidate();
         useOverlayStore.getState().goTo(OverlayState.Home);
       } else {
         setError(result.error || 'Failed to initialize vault.');

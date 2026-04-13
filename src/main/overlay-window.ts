@@ -29,7 +29,7 @@ import { readInstruction } from '../core/instruction-manager';
 import { INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, CONFIG_FILE, DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
-import { clearVaultData, backupVault, getVaultConfig, updateVaultConfig } from '../core/vault';
+import { clearVaultData, backupVault, getVaultConfig, updateVaultConfig, isVault } from '../core/vault';
 import {
   loadWindowState, saveWindowState, saveWindowStateSync, sanitizeUIState,
   getVaultStatePath,
@@ -41,6 +41,13 @@ import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
 import { exportJEToXlsx } from '../core/export';
 import { log, LogModule } from '../core/logger';
+
+async function findFirstValidVault(vaultPaths: string[]): Promise<string | null> {
+  for (const vp of vaultPaths) {
+    if (await isVault(vp)) return vp;
+  }
+  return null;
+}
 
 export interface OverlayCallbacks {
   onInitVault: (folderPath: string) => Promise<void>;
@@ -732,14 +739,16 @@ export class OverlayWindow {
         if (this.callbacks) await this.callbacks.onStopVault();
       }
 
+      // Find first valid vault to switch to
+      const nextVault = isActive ? await findFirstValidVault(vaultPaths) : null;
+
       await saveAppConfig({
         vaultPaths,
-        lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
+        lastVaultPath: isActive ? (nextVault || null) : config.lastVaultPath,
       });
 
-      // If there's another vault, switch to it
-      if (isActive && vaultPaths.length > 0 && this.callbacks) {
-        await this.callbacks.onSwitchVault(vaultPaths[0]);
+      if (nextVault && this.callbacks) {
+        await this.callbacks.onSwitchVault(nextVault);
       }
     });
 
@@ -794,16 +803,17 @@ export class OverlayWindow {
 
       // Remove from config
       const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
+      const nextVault = isActive ? await findFirstValidVault(vaultPaths) : null;
       await saveAppConfig({
         vaultPaths,
-        lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
+        lastVaultPath: isActive ? (nextVault || null) : config.lastVaultPath,
       });
       log.info(LogModule.Overlay, 'Config updated, remaining vaults:', vaultPaths);
 
-      // Switch to next vault if available
-      if (isActive && vaultPaths.length > 0 && this.callbacks) {
-        log.info(LogModule.Overlay, 'Switching to next vault: ' + vaultPaths[0]);
-        await this.callbacks.onSwitchVault(vaultPaths[0]);
+      // Switch to next valid vault if available
+      if (nextVault && this.callbacks) {
+        log.info(LogModule.Overlay, 'Switching to next vault: ' + nextVault);
+        await this.callbacks.onSwitchVault(nextVault);
       }
     });
 
