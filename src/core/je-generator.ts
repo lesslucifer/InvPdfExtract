@@ -12,6 +12,7 @@ import { eventBus } from './event-bus';
 import { CashFlowType, DocType, BankStatementData, DbRecord } from '../shared/types';
 import { JE_AI_BATCH_SIZE } from '../shared/constants';
 import { getDefaultAccount } from '../shared/je-utils';
+import { log, LogModule } from './logger';
 
 export class JEGenerator {
   private similarityEngine: JESimilarityEngine;
@@ -104,7 +105,7 @@ export class JEGenerator {
    */
   async generateForFile(fileId: string): Promise<number> {
     const records = getRecordsByFileId(fileId);
-    console.log(`[JEGenerator] generateForFile: fileId=${fileId.slice(0, 8)}, ${records.length} records`);
+    log.info(LogModule.JEGenerator, `generateForFile: fileId=${fileId.slice(0, 8)}, ${records.length} records`);
     if (records.length === 0) return 0;
     return this.generateBatch(records.map(r => r.id));
   }
@@ -119,7 +120,7 @@ export class JEGenerator {
     if (activeIds.length === 0) return 0;
 
     const batchT0 = performance.now();
-    console.log(`[JEGenerator] generateBatch: starting with ${activeIds.length} records`);
+    log.info(LogModule.JEGenerator, `generateBatch: starting with ${activeIds.length} records`);
 
     // Mark all as processing
     updateJeStatus(activeIds, 'processing');
@@ -127,7 +128,7 @@ export class JEGenerator {
 
     const refreshT0 = performance.now();
     this.similarityEngine.refresh();
-    console.log(`[JEGenerator] generateBatch: similarity refresh took ${(performance.now() - refreshT0).toFixed(0)}ms`);
+    log.info(LogModule.JEGenerator, `generateBatch: similarity refresh took ${(performance.now() - refreshT0).toFixed(0)}ms`);
 
     this.similarityEngine.resetPerfCounters();
     const classifyT0 = performance.now();
@@ -142,7 +143,7 @@ export class JEGenerator {
         this.processing.delete(recordId);
       }
     }
-    console.log(`[JEGenerator] generateBatch: classifyRecord loop took ${(performance.now() - classifyT0).toFixed(0)}ms, unmatched=${allUnmatched.length}`);
+    log.info(LogModule.JEGenerator, `generateBatch: classifyRecord loop took ${(performance.now() - classifyT0).toFixed(0)}ms, unmatched=${allUnmatched.length}`);
     this.similarityEngine.logPerfCounters('classifyRecord loop');
 
     // Flush in batches — after each AI batch, refresh similarity and re-scan remaining
@@ -184,7 +185,7 @@ export class JEGenerator {
           }
           const similarityHits = remaining.length - stillUnmatched.length;
           if (similarityHits > 0) {
-            console.log(`[JEGenerator] Inter-batch similarity resolved ${similarityHits}/${remaining.length} items`);
+            log.info(LogModule.JEGenerator, `Inter-batch similarity resolved ${similarityHits}/${remaining.length} items`);
           }
           remaining = stillUnmatched;
         }
@@ -216,8 +217,8 @@ export class JEGenerator {
         this.processing.delete(recordId);
       }
     }
-    console.log(`[JEGenerator] generateBatch: autoEntries loop took ${(performance.now() - autoT0).toFixed(0)}ms`);
-    console.log(`[JEGenerator] generateBatch: TOTAL ${(performance.now() - batchT0).toFixed(0)}ms, ${activeIds.length} records, ${totalCount} entries`);
+    log.info(LogModule.JEGenerator, `generateBatch: autoEntries loop took ${(performance.now() - autoT0).toFixed(0)}ms`);
+    log.info(LogModule.JEGenerator, `generateBatch: TOTAL ${(performance.now() - batchT0).toFixed(0)}ms, ${activeIds.length} records, ${totalCount} entries`);
 
     return totalCount;
   }

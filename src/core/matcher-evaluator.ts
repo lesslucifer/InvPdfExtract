@@ -4,6 +4,7 @@ import * as vm from 'vm';
 import { createRequire } from 'module';
 import { ExtractionScript } from '../shared/types';
 import { findNodeModules } from './app-paths';
+import { log, LogModule } from './logger';
 
 export interface MatcherEvaluatorOptions {
   matcherTimeoutMs?: number;
@@ -35,19 +36,19 @@ export class MatcherEvaluator {
    */
   findMatchingScript(filePath: string, scripts: ExtractionScript[], vaultDotPath: string): ExtractionScript | null {
     const fileName = path.basename(filePath);
-    console.log(`[MatcherEvaluator] Testing ${fileName} against ${scripts.length} cached script(s)`);
+    log.info(LogModule.Script, `Testing ${fileName} against ${scripts.length} cached script(s)`);
     for (const script of scripts) {
       try {
         const absoluteMatcherPath = path.resolve(vaultDotPath, script.matcher_path);
         const t0 = performance.now();
         const matched = this.runMatcher(absoluteMatcherPath, filePath);
-        console.log(`[MatcherEvaluator]   "${script.name}" (${script.doc_type}, used ${script.times_used}x) → ${matched ? 'MATCH' : 'no match'} [${(performance.now() - t0).toFixed(0)}ms]`);
+        log.info(LogModule.Script, `  "${script.name}" (${script.doc_type}, used ${script.times_used}x) → ${matched ? 'MATCH' : 'no match'} [${(performance.now() - t0).toFixed(0)}ms]`);
         if (matched) return script;
       } catch (err) {
-        console.warn(`[MatcherEvaluator]   "${script.name}" → ERROR: ${(err as Error).message}`);
+        log.warn(LogModule.Script, `  "${script.name}" → ERROR: ${(err as Error).message}`);
       }
     }
-    console.log(`[MatcherEvaluator] No matching script found for ${fileName}`);
+    log.info(LogModule.Script, `No matching script found for ${fileName}`);
     return null;
   }
 

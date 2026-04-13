@@ -39,6 +39,7 @@ import { eventBus } from '../core/event-bus';
 import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
 import { exportJEToXlsx } from '../core/export';
+import { log, LogModule } from '../core/logger';
 
 export interface OverlayCallbacks {
   onInitVault: (folderPath: string) => Promise<void>;
@@ -111,7 +112,7 @@ export class OverlayWindow {
       this.toggle();
     });
     if (!registered) {
-      console.warn('[Overlay] Failed to register shortcut — it may be in use by another app');
+      log.warn(LogModule.Overlay, 'Failed to register shortcut — it may be in use by another app');
     }
   }
 
@@ -287,7 +288,7 @@ export class OverlayWindow {
         const [x, y] = this.window.getPosition();
         const [width, height] = this.window.getSize();
         this.overlayGeometry = { x, y, width, height };
-        if (this.currentStatePath) saveWindowState(this.currentStatePath, { overlayGeometry: this.overlayGeometry }).catch(console.error);
+        if (this.currentStatePath) saveWindowState(this.currentStatePath, { overlayGeometry: this.overlayGeometry }).catch(err => log.error(LogModule.Overlay, 'Failed to save overlay geometry', err));
       }, 500);
     };
     this.window.on('move', flushOverlayGeo);
@@ -398,9 +399,9 @@ export class OverlayWindow {
           geometry: { x: gx, y: gy, width, height },
           uiState,
         });
-        this.flushAllSpawnedWindowStates().catch(console.error);
+        this.flushAllSpawnedWindowStates().catch(err => log.error(LogModule.Overlay, 'Failed to flush spawned window states', err));
       } catch (err) {
-        console.error('[WindowState] spawnWindowlized: failed to seed state:', err);
+        log.error(LogModule.Overlay, 'spawnWindowlized: failed to seed state', err);
       }
     }
 
@@ -414,7 +415,7 @@ export class OverlayWindow {
         const existing = this.spawnedWindowStates.get(win.id);
         const uiState = existing?.uiState ?? sanitizeUIState({});
         this.spawnedWindowStates.set(win.id, { geometry: { x: wx, y: wy, width: ww, height: wh }, uiState });
-        this.flushAllSpawnedWindowStates().catch(console.error);
+        this.flushAllSpawnedWindowStates().catch(err => log.error(LogModule.Overlay, 'Failed to flush spawned window states', err));
       }, 500));
     };
     win.on('move', flushSpawnedGeo);
@@ -432,7 +433,7 @@ export class OverlayWindow {
       // don't overwrite it by flushing a partially-closed window list.
       if (!this.isQuitting && !this.isClosingAllWindows) {
         this.spawnedWindowStates.delete(win.id);
-        this.flushAllSpawnedWindowStates().catch(console.error);
+        this.flushAllSpawnedWindowStates().catch(err => log.error(LogModule.Overlay, 'Failed to flush spawned window states', err));
       }
     });
 
@@ -481,7 +482,7 @@ export class OverlayWindow {
       try {
         return searchRecords((query || '').trim(), 50, offset, folder, filePath);
       } catch (err) {
-        console.error('[Search] Query failed:', err);
+        log.error(LogModule.Overlay, 'Query failed', err);
         return [];
       }
     });
@@ -490,7 +491,7 @@ export class OverlayWindow {
       try {
         return getSearchResultById(recordId);
       } catch (err) {
-        console.error('[Search] Get search result failed:', err);
+        log.error(LogModule.Overlay, 'Get search result failed', err);
         return null;
       }
     });
@@ -505,7 +506,7 @@ export class OverlayWindow {
       try {
         return getLineItemsByRecord(recordId);
       } catch (err) {
-        console.error('[Search] Get line items failed:', err);
+        log.error(LogModule.Overlay, 'Get line items failed', err);
         return [];
       }
     });
@@ -542,7 +543,7 @@ export class OverlayWindow {
           }, previousFtsData);
         }
       } catch (err) {
-        console.error('[Override] Save field override failed:', err);
+        log.error(LogModule.Overlay, 'Save field override failed', err);
         throw err;
       }
     });
@@ -558,7 +559,7 @@ export class OverlayWindow {
           ai_value_latest: o.ai_value_latest,
         }));
       } catch (err) {
-        console.error('[Override] Get field overrides failed:', err);
+        log.error(LogModule.Overlay, 'Get field overrides failed', err);
         return [];
       }
     });
@@ -567,7 +568,7 @@ export class OverlayWindow {
       try {
         return getDuplicateSourcesForRecord(recordId);
       } catch (err) {
-        console.error('[Dedup] Get duplicate sources failed:', err);
+        log.error(LogModule.Overlay, 'Get duplicate sources failed', err);
         return [];
       }
     });
@@ -580,7 +581,7 @@ export class OverlayWindow {
           resolveConflictAccept(recordId, fieldName);
         }
       } catch (err) {
-        console.error('[Override] Resolve conflict failed:', err);
+        log.error(LogModule.Overlay, 'Resolve conflict failed', err);
         throw err;
       }
     });
@@ -589,7 +590,7 @@ export class OverlayWindow {
       try {
         resolveAllConflictsForRecord(recordId, action as 'keep' | 'accept');
       } catch (err) {
-        console.error('[Override] Resolve all conflicts failed:', err);
+        log.error(LogModule.Overlay, 'Resolve all conflicts failed', err);
         throw err;
       }
     });
@@ -618,7 +619,7 @@ export class OverlayWindow {
         // Create/update the field override (use the line item's record_id for FK, and lineItemId to identify which line item)
         upsertFieldOverride(row.record_id, 'invoice_line_items', input.fieldName, input.userValue, currentAiValue, input.lineItemId);
       } catch (err) {
-        console.error('[Override] Save line item field failed:', err);
+        log.error(LogModule.Overlay, 'Save line item field failed', err);
         throw err;
       }
     });
@@ -640,7 +641,7 @@ export class OverlayWindow {
         }
         return result;
       } catch (err) {
-        console.error('[Override] Get line item overrides failed:', err);
+        log.error(LogModule.Overlay, 'Get line item overrides failed', err);
         return {};
       }
     });
@@ -674,7 +675,7 @@ export class OverlayWindow {
         await this.callbacks.onInitVault(folderPath);
         return { success: true };
       } catch (err) {
-        console.error('[Overlay] init-vault failed:', err);
+        log.error(LogModule.Overlay, 'init-vault failed', err);
         return { success: false, error: (err as Error).message };
       }
     });
@@ -686,7 +687,7 @@ export class OverlayWindow {
         await this.callbacks.onSwitchVault(vaultPath);
         return { success: true };
       } catch (err) {
-        console.error('[Overlay] switch-vault failed:', err);
+        log.error(LogModule.Overlay, 'switch-vault failed', err);
         return { success: false };
       }
     });
@@ -724,7 +725,7 @@ export class OverlayWindow {
         await backupVault(vaultPath, destPath);
         return { success: true, filePath: destPath };
       } catch (err) {
-        console.error('[Vault] backup-vault failed:', err);
+        log.error(LogModule.Overlay, 'backup-vault failed', err);
         return { success: false, error: (err as Error).message };
       } finally {
         this.suppressBlur = false;
@@ -732,10 +733,10 @@ export class OverlayWindow {
     });
 
     ipcMain.handle('clear-vault-data', async (_event, vaultPath: string) => {
-      console.log('[Vault] clear-vault-data IPC received for:', vaultPath);
+      log.info(LogModule.Overlay, 'clear-vault-data IPC received for: ' + vaultPath);
       const config = await loadAppConfig();
       const isActive = config.lastVaultPath === vaultPath;
-      console.log('[Vault] isActive:', isActive, '| lastVaultPath:', config.lastVaultPath);
+      log.info(LogModule.Overlay, `isActive: ${isActive} | lastVaultPath: ${config.lastVaultPath}`);
 
       // Stop the vault if it's active
       if (isActive) {
@@ -749,17 +750,17 @@ export class OverlayWindow {
         const pad = (n: number) => String(n).padStart(2, '0');
         const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
         const backupPath = path.join(vaultPath, `invoicevault.backup.${stamp}.zip`);
-        console.log('[Vault] Starting auto-backup to:', backupPath);
+        log.info(LogModule.Overlay, 'Starting auto-backup to: ' + backupPath);
         await backupVault(vaultPath, backupPath);
-        console.log('[Vault] Auto-backup saved to', backupPath);
+        log.info(LogModule.Overlay, 'Auto-backup saved to ' + backupPath);
       } catch (err) {
-        console.error('[Vault] Auto-backup before clear failed:', err);
+        log.error(LogModule.Overlay, 'Auto-backup before clear failed', err);
       }
 
       // Delete the .invoicevault directory
-      console.log('[Vault] Deleting .invoicevault at:', vaultPath);
+      log.info(LogModule.Overlay, 'Deleting .invoicevault at: ' + vaultPath);
       await clearVaultData(vaultPath);
-      console.log('[Vault] .invoicevault deleted');
+      log.info(LogModule.Overlay, '.invoicevault deleted');
 
       // Remove from config
       const vaultPaths = (config.vaultPaths || []).filter(p => p !== vaultPath);
@@ -767,11 +768,11 @@ export class OverlayWindow {
         vaultPaths,
         lastVaultPath: isActive ? (vaultPaths[0] || null) : config.lastVaultPath,
       });
-      console.log('[Vault] Config updated, remaining vaults:', vaultPaths);
+      log.info(LogModule.Overlay, 'Config updated, remaining vaults:', vaultPaths);
 
       // Switch to next vault if available
       if (isActive && vaultPaths.length > 0 && this.callbacks) {
-        console.log('[Vault] Switching to next vault:', vaultPaths[0]);
+        log.info(LogModule.Overlay, 'Switching to next vault: ' + vaultPaths[0]);
         await this.callbacks.onSwitchVault(vaultPaths[0]);
       }
     });
@@ -856,7 +857,7 @@ export class OverlayWindow {
       try {
         return listRecentFolders(limit);
       } catch (err) {
-        console.error('[Overlay] list-recent-folders failed:', err);
+        log.error(LogModule.Overlay, 'list-recent-folders failed', err);
         return [];
       }
     });
@@ -865,7 +866,7 @@ export class OverlayWindow {
       try {
         return listTopFolders();
       } catch (err) {
-        console.error('[Overlay] list-top-folders failed:', err);
+        log.error(LogModule.Overlay, 'list-top-folders failed', err);
         return [];
       }
     });
@@ -910,7 +911,7 @@ export class OverlayWindow {
       try {
         return getAggregates(filters);
       } catch (err) {
-        console.error('[Overlay] get-aggregates failed:', err);
+        log.error(LogModule.Overlay, 'get-aggregates failed', err);
         return { totalRecords: 0, totalAmount: 0 };
       }
     });
@@ -925,7 +926,7 @@ export class OverlayWindow {
       try {
         return getFilesByStatuses(statuses);
       } catch (err) {
-        console.error('[Overlay] get-files-by-statuses failed:', err);
+        log.error(LogModule.Overlay, 'get-files-by-statuses failed', err);
         return [];
       }
     });
@@ -934,7 +935,7 @@ export class OverlayWindow {
       try {
         return getErrorLogsWithPath();
       } catch (err) {
-        console.error('[Overlay] get-error-logs-with-path failed:', err);
+        log.error(LogModule.Overlay, 'get-error-logs-with-path failed', err);
         return [];
       }
     });
@@ -943,7 +944,7 @@ export class OverlayWindow {
       try {
         return getSessionLogForFile(fileId);
       } catch (err) {
-        console.error('[Overlay] get-session-log-for-file failed:', err);
+        log.error(LogModule.Overlay, 'get-session-log-for-file failed', err);
         return null;
       }
     });
@@ -953,7 +954,7 @@ export class OverlayWindow {
         if (!sessionLogPath.includes('/.claude/projects/')) return null;
         return await fs.promises.readFile(sessionLogPath, 'utf-8').catch(() => null);
       } catch (err) {
-        console.error('[Overlay] read-cli-session-log failed:', err);
+        log.error(LogModule.Overlay, 'read-cli-session-log failed', err);
         return null;
       }
     });
@@ -962,7 +963,7 @@ export class OverlayWindow {
       try {
         return getProcessedFilesWithStats();
       } catch (err) {
-        console.error('[Overlay] get-processed-files-with-stats failed:', err);
+        log.error(LogModule.Overlay, 'get-processed-files-with-stats failed', err);
         return [];
       }
     });
@@ -971,7 +972,7 @@ export class OverlayWindow {
       try {
         return getFileStatusesByPaths(paths);
       } catch (err) {
-        console.error('[Overlay] get-file-statuses-by-paths failed:', err);
+        log.error(LogModule.Overlay, 'get-file-statuses-by-paths failed', err);
         return {};
       }
     });
@@ -980,7 +981,7 @@ export class OverlayWindow {
       try {
         return getFolderStatuses();
       } catch (err) {
-        console.error('[Overlay] get-folder-statuses failed:', err);
+        log.error(LogModule.Overlay, 'get-folder-statuses failed', err);
         return {};
       }
     });
@@ -990,7 +991,7 @@ export class OverlayWindow {
         const rows = listPresets();
         return rows.map(r => ({ id: r.id, name: r.name, filtersJson: r.filters_json, createdAt: r.created_at }));
       } catch (err) {
-        console.error('[Overlay] list-presets failed:', err);
+        log.error(LogModule.Overlay, 'list-presets failed', err);
         return [];
       }
     });
@@ -1000,7 +1001,7 @@ export class OverlayWindow {
         const row = savePreset(name, filtersJson);
         return { id: row.id, name: row.name, filtersJson: row.filters_json, createdAt: row.created_at };
       } catch (err) {
-        console.error('[Overlay] save-preset failed:', err);
+        log.error(LogModule.Overlay, 'save-preset failed', err);
         throw err;
       }
     });
@@ -1009,7 +1010,7 @@ export class OverlayWindow {
       try {
         deletePreset(id);
       } catch (err) {
-        console.error('[Overlay] delete-preset failed:', err);
+        log.error(LogModule.Overlay, 'delete-preset failed', err);
         throw err;
       }
     });
@@ -1029,7 +1030,7 @@ export class OverlayWindow {
         await fs.promises.writeFile(result.filePath, buffer);
         return { filePath: result.filePath };
       } catch (err) {
-        console.error('[Overlay] export-filtered failed:', err);
+        log.error(LogModule.Overlay, 'export-filtered failed', err);
         return { filePath: null };
       } finally {
         this.suppressBlur = false;
@@ -1042,7 +1043,7 @@ export class OverlayWindow {
       try {
         return getJournalEntriesByRecord(recordId);
       } catch (err) {
-        console.error('[JournalEntry] Get entries failed:', err);
+        log.error(LogModule.Overlay, 'Get journal entries failed', err);
         return [];
       }
     });
@@ -1066,7 +1067,7 @@ export class OverlayWindow {
         eventBus.emit('je:updated', { recordId: input.recordId });
         return entry;
       } catch (err) {
-        console.error('[JournalEntry] Save entry failed:', err);
+        log.error(LogModule.Overlay, 'Save journal entry failed', err);
         throw err;
       }
     });
@@ -1075,7 +1076,7 @@ export class OverlayWindow {
       try {
         dbDeleteJE(id);
       } catch (err) {
-        console.error('[JournalEntry] Delete entry failed:', err);
+        log.error(LogModule.Overlay, 'Delete journal entry failed', err);
         throw err;
       }
     });
@@ -1087,10 +1088,10 @@ export class OverlayWindow {
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
         // Fire and forget — status updates come via events
         this.callbacks.onGenerateJE(recordId).catch((err: Error) => {
-          console.error('[JournalEntry] Regenerate JE failed:', err);
+          log.error(LogModule.Overlay, 'Regenerate JE failed', err);
         });
       } catch (err) {
-        console.error('[JournalEntry] Regenerate JE record failed:', err);
+        log.error(LogModule.Overlay, 'Regenerate JE record failed', err);
       }
     });
 
@@ -1101,10 +1102,10 @@ export class OverlayWindow {
         eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'pending' });
         // Fire and forget — status updates come via events
         this.callbacks.onGenerateJEAIOnly(recordId).catch((err: Error) => {
-          console.error('[JournalEntry] Regenerate JE AI-only failed:', err);
+          log.error(LogModule.Overlay, 'Regenerate JE AI-only failed', err);
         });
       } catch (err) {
-        console.error('[JournalEntry] Regenerate JE AI-only record failed:', err);
+        log.error(LogModule.Overlay, 'Regenerate JE AI-only record failed', err);
       }
     });
 
@@ -1116,11 +1117,11 @@ export class OverlayWindow {
         updateJeStatus(recordIds, 'pending');
         eventBus.emit('je:status-changed', { recordIds, status: 'pending' });
         this.callbacks.onGenerateJEForFilters(filters, aiOnly).catch((err: Error) => {
-          console.error('[JournalEntry] Regenerate JE filtered failed:', err);
+          log.error(LogModule.Overlay, 'Regenerate JE filtered failed', err);
         });
         return { count: recordIds.length };
       } catch (err) {
-        console.error('[JournalEntry] Regenerate JE filtered handler failed:', err);
+        log.error(LogModule.Overlay, 'Regenerate JE filtered handler failed', err);
         return { count: 0 };
       }
     });
@@ -1129,7 +1130,7 @@ export class OverlayWindow {
       try {
         return getJeQueueItems();
       } catch (err) {
-        console.error('[JournalEntry] Get JE queue items failed:', err);
+        log.error(LogModule.Overlay, 'Get JE queue items failed', err);
         return [];
       }
     });
@@ -1138,7 +1139,7 @@ export class OverlayWindow {
       try {
         return getJeErrorItems();
       } catch (err) {
-        console.error('[JournalEntry] Get JE error items failed:', err);
+        log.error(LogModule.Overlay, 'Get JE error items failed', err);
         return [];
       }
     });
@@ -1149,7 +1150,7 @@ export class OverlayWindow {
         if (!root) return '';
         return await readInstructions(root);
       } catch (err) {
-        console.error('[JournalEntry] Get instructions failed:', err);
+        log.error(LogModule.Overlay, 'Get instructions failed', err);
         return '';
       }
     });
@@ -1161,7 +1162,7 @@ export class OverlayWindow {
         await writeInstructions(root, content);
         eventBus.emit('je:instructions-changed', {} as never);
       } catch (err) {
-        console.error('[JournalEntry] Save instructions failed:', err);
+        log.error(LogModule.Overlay, 'Save instructions failed', err);
         throw err;
       }
     });
@@ -1173,7 +1174,7 @@ export class OverlayWindow {
         const p = path.join(root, INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE);
         return await readInstruction(p);
       } catch (err) {
-        console.error('[Instructions] Get extraction prompt failed:', err);
+        log.error(LogModule.Overlay, 'Get extraction prompt failed', err);
         return '';
       }
     });
@@ -1205,7 +1206,7 @@ export class OverlayWindow {
 
         return { success: true };
       } catch (err) {
-        console.error('[Instructions] Export failed:', err);
+        log.error(LogModule.Overlay, 'Export instructions failed', err);
         return { success: false, error: (err as Error).message };
       }
     });
@@ -1224,7 +1225,7 @@ export class OverlayWindow {
         }
         await shell.openPath(filePath);
       } catch (err) {
-        console.error('[Instructions] Open file failed:', err);
+        log.error(LogModule.Overlay, 'Open instruction file failed', err);
       }
     });
 

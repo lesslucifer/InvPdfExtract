@@ -7,6 +7,7 @@ import {
   INSTRUCTIONS_WATCHER_DEBOUNCE_MS,
 } from '../shared/constants';
 import { eventBus } from './event-bus';
+import { log, LogModule } from './logger';
 
 export type WatcherEvent = 'file:added' | 'file:changed' | 'file:deleted';
 export type WatcherCallback = (event: WatcherEvent, relativePath: string, fullPath: string) => void;
@@ -42,7 +43,7 @@ export class FileWatcher {
   async start(): Promise<void> {
     if (this.watcher) return;
 
-    console.log(`[Watcher] Starting watch on ${this.vaultRoot}`);
+    log.info(LogModule.Watcher, `Starting watch on ${this.vaultRoot}`);
 
     const ignorePatterns = await loadIgnorePatterns(this.vaultRoot);
 
@@ -83,7 +84,7 @@ export class FileWatcher {
     this.watcher.on('add', (fullPath) => this.handleEvent('file:added', fullPath));
     this.watcher.on('change', (fullPath) => this.handleEvent('file:changed', fullPath));
     this.watcher.on('unlink', (fullPath) => this.handleEvent('file:deleted', fullPath));
-    this.watcher.on('error', (err) => console.error('[Watcher] Error:', err));
+    this.watcher.on('error', (err) => log.error(LogModule.Watcher, 'Error', err));
 
     this.startInstructionsWatcher();
   }
@@ -104,11 +105,11 @@ export class FileWatcher {
     this.instructionsWatcher.on('change', (fullPath) => {
       const filename = path.basename(fullPath);
       if (!watchedFiles.has(filename)) return;
-      console.log(`[Watcher] Instruction file changed: ${filename}`);
+      log.info(LogModule.Watcher, `Instruction file changed: ${filename}`);
       eventBus.emit('instructions:changed', { file: filename });
     });
 
-    this.instructionsWatcher.on('error', (err) => console.error('[Watcher] Instructions error:', err));
+    this.instructionsWatcher.on('error', (err) => log.error(LogModule.Watcher, 'Instructions error', err));
   }
 
   private handleEvent(event: WatcherEvent, fullPath: string): void {
@@ -124,7 +125,7 @@ export class FileWatcher {
 
     this.debounceTimers.set(key, setTimeout(() => {
       this.debounceTimers.delete(key);
-      console.log(`[Watcher] ${event}: ${relativePath}`);
+      log.info(LogModule.Watcher, `${event}: ${relativePath}`);
       this.callback(event, relativePath, fullPath);
     }, WATCHER_DEBOUNCE_MS));
   }
@@ -146,6 +147,6 @@ export class FileWatcher {
       this.instructionsWatcher = null;
     }
 
-    console.log('[Watcher] Stopped');
+    log.info(LogModule.Watcher, 'Stopped');
   }
 }

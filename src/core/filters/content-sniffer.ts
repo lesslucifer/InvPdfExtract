@@ -4,6 +4,7 @@ import { Worker } from 'worker_threads';
 import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
 import { getMergedKeywords, createKeywordMatcher } from './keyword-bank';
 import { findNodeModules } from '../app-paths';
+import { log, LogModule } from '../logger';
 
 export async function contentSniffer(
   fullPath: string,
@@ -42,7 +43,7 @@ export async function contentSniffer(
         textSample = '';
     }
   } catch (err) {
-    console.warn(`[ContentSniffer] Failed to extract text from ${fullPath}: ${(err as Error).message}`);
+    log.warn(LogModule.Filter, `Failed to extract text from ${fullPath}: ${(err as Error).message}`);
     return {
       score: layer1Score,
       reason: `Content extraction failed: ${(err as Error).message}`,

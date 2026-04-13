@@ -55,6 +55,9 @@ export const JE_SIMILARITY_CACHE_SIZE = 10_000;
 export const JE_AI_BATCH_SIZE = 300;
 export const JE_INTRA_BATCH_SIMILARITY_THRESHOLD = 0.85;
 
+export const MAX_LOG_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_ROTATED_LOG_FILES = 5;
+
 export const FILTER_CONFIG_FILE = 'filter-config.json';
 
 export const DEFAULT_FILTER_CONFIG: RelevanceFilterConfig = {

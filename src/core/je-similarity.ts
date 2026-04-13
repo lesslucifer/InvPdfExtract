@@ -2,6 +2,7 @@ import dice = require('fast-dice-coefficient');
 import { eventBus } from './event-bus';
 import { getRecentClassifiedLineItems, getRecentClassifiedBankItems, CacheEntry } from './db/journal-entries';
 import { JE_SIMILARITY_THRESHOLD, JE_SIMILARITY_CACHE_SIZE } from '../shared/constants';
+import { log, LogModule } from './logger';
 
 interface NormalizedCacheEntry extends CacheEntry {
   normalizedMoTa: string;
@@ -79,9 +80,9 @@ export class JESimilarityEngine {
       this.rebuildBigramIndex();
 
       const t3 = performance.now();
-      console.log(`[JESimilarity] Cache refreshed: ${this.cache.length} unique entries (${rawEntries.length} before dedup, lineItemQuery=${(t1 - t0).toFixed(0)}ms, bankQuery=${(t2 - t1).toFixed(0)}ms, normalize+index=${(t3 - t2).toFixed(0)}ms, total=${(t3 - t0).toFixed(0)}ms)`);
+      log.info(LogModule.Similarity, `Cache refreshed: ${this.cache.length} unique entries (${rawEntries.length} before dedup, lineItemQuery=${(t1 - t0).toFixed(0)}ms, bankQuery=${(t2 - t1).toFixed(0)}ms, normalize+index=${(t3 - t2).toFixed(0)}ms, total=${(t3 - t0).toFixed(0)}ms)`);
     } catch (err) {
-      console.error('[JESimilarity] Cache refresh failed:', err);
+      log.error(LogModule.Similarity, 'Cache refresh failed:', err);
     }
   }
 
@@ -221,7 +222,7 @@ export class JESimilarityEngine {
 
   logPerfCounters(label: string): void {
     if (this._findMatchCallCount > 0) {
-      console.log(`[JESimilarity] ${label}: findMatch called ${this._findMatchCallCount}x, total=${this._findMatchTotalMs.toFixed(0)}ms, avg=${(this._findMatchTotalMs / this._findMatchCallCount).toFixed(2)}ms, cacheSize=${this.cache.length}`);
+      log.info(LogModule.Similarity, `${label}: findMatch called ${this._findMatchCallCount}x, total=${this._findMatchTotalMs.toFixed(0)}ms, avg=${(this._findMatchTotalMs / this._findMatchCallCount).toFixed(2)}ms, cacheSize=${this.cache.length}`);
     }
   }
 

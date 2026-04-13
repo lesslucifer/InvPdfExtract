@@ -19,6 +19,7 @@ import { writeDefaultInstructions } from './core/je-instructions';
 import { TrayManager } from './main/tray-manager';
 import { RelevanceFilter } from './core/filters/relevance-filter';
 import { cleanupUnusedScripts } from './core/script-cleanup';
+import { initLogger, shutdownLogger, log, LogModule } from './core/logger';
 import {
   getFilesByStatus, getFilesByStatuses, updateFileStatus, getFileByPath, getFilesByFolder,
   cancelQueueItem, clearPendingQueue, resetStaleProcessingFiles,
@@ -45,11 +46,11 @@ let jeGenerator: JEGenerator | null = null;
 
 // Graceful shutdown on signals (terminal kill, Ctrl+C)
 process.on('SIGTERM', () => {
-  console.log('[InvoiceVault] Received SIGTERM');
+  log.info(LogModule.Main, 'Received SIGTERM');
   handleQuit();
 });
 process.on('SIGINT', () => {
-  console.log('[InvoiceVault] Received SIGINT');
+  log.info(LogModule.Main, 'Received SIGINT');
   handleQuit();
 });
 
@@ -79,7 +80,10 @@ app.on('before-quit', (event) => {
 });
 
 app.on('ready', async () => {
-  console.log('[InvoiceVault] App ready');
+  await initLogger(path.join(app.getPath('userData'), 'logs'), {
+    console: !app.isPackaged,
+  });
+  log.info(LogModule.Main, 'App ready');
 
   // Set app icon on macOS — keep dock visible so clicking it shows the overlay
   if (process.platform === 'darwin' && app.dock) {
@@ -92,7 +96,7 @@ app.on('ready', async () => {
 
   // Check Claude CLI availability
   if (!await ClaudeCodeRunner.isAvailable()) {
-    console.warn('[InvoiceVault] Claude CLI not found. Extraction will fail until installed.');
+    log.warn(LogModule.Main, 'Claude CLI not found. Extraction will fail until installed.');
   }
 
   // Initialize notifications
@@ -279,13 +283,13 @@ app.on('ready', async () => {
     try {
       await startVault(appConfig.lastVaultPath);
     } catch (err) {
-      console.error('[InvoiceVault] Failed to open last vault:', err);
+      log.error(LogModule.Main, 'Failed to open last vault', err);
       overlayWindow.showOverlay();
       overlayWindow.notifyDbError((err as Error).message);
     }
   } else {
     // No vault configured — show overlay immediately so user can set one up
-    console.log('[InvoiceVault] No vault configured. Showing overlay for first-time setup.');
+    log.info(LogModule.Main, 'No vault configured, showing overlay for first-time setup');
     overlayWindow.showOverlay();
   }
 });
@@ -305,6 +309,7 @@ async function startVault(vaultPath: string): Promise<void> {
   await stopVault();
 
   currentVault = await openVault(vaultPath);
+  await initLogger(path.join(currentVault.dotPath, 'logs'), { console: !app.isPackaged });
 
   // Start sync engine
   syncEngine = new SyncEngine(currentVault.rootPath);
@@ -319,11 +324,11 @@ async function startVault(vaultPath: string): Promise<void> {
   await fileWatcher.start();
 
   // Reconcile DB against disk — soft-delete any tracked files that no longer exist
-  syncEngine.reconcileMissingFiles().catch(err => console.error('[SyncEngine] Reconcile failed:', err));
+  syncEngine.reconcileMissingFiles().catch(err => log.error(LogModule.SyncEngine, 'Reconcile failed', err));
 
   // Build path cache in background — non-blocking
   vaultPathCache = new VaultPathCache(currentVault.rootPath);
-  vaultPathCache.build().catch(err => console.error('[VaultPathCache] Build failed:', err));
+  vaultPathCache.build().catch(err => log.error(LogModule.Main, 'VaultPathCache build failed', err));
   overlayWindow?.setPathCache(vaultPathCache);
 
   // Start relevance filter and extraction queue
@@ -350,7 +355,7 @@ async function startVault(vaultPath: string): Promise<void> {
       }
       await jeGenerator.generateForFile(data.fileId);
     } catch (err) {
-      console.error('[JEGenerator] Auto-generation failed:', err);
+      log.error(LogModule.JEGenerator, 'Auto-generation failed', err);
     }
   });
 
@@ -358,32 +363,32 @@ async function startVault(vaultPath: string): Promise<void> {
   try {
     cleanupUnusedScripts(currentVault.dotPath);
   } catch (err) {
-    console.error('[InvoiceVault] Script cleanup failed:', err);
+    log.error(LogModule.Main, 'Script cleanup failed', err);
   }
 
   // Startup recovery: reset stale processing files and trigger queue
   {
     const recoveredCount = resetStaleProcessingFiles();
     if (recoveredCount > 0) {
-      console.log(`[InvoiceVault] Recovered ${recoveredCount} stale processing file(s) → pending`);
+      log.info(LogModule.Main, `Recovered ${recoveredCount} stale processing file(s) → pending`);
     }
     const recoveredJeCount = resetStaleJeProcessing();
     if (recoveredJeCount > 0) {
-      console.log(`[InvoiceVault] Recovered ${recoveredJeCount} stale JE processing record(s) → pending`);
+      log.info(LogModule.Main, `Recovered ${recoveredJeCount} stale JE processing record(s) → pending`);
       eventBus.emit('je:status-changed', { recordIds: [], status: 'pending' });
     }
     if (jeGenerator) {
       const pendingJeIds = getPendingJeRecordIds();
       if (pendingJeIds.length > 0) {
-        console.log(`[InvoiceVault] ${pendingJeIds.length} pending JE record(s) found on startup, triggering generation`);
+        log.info(LogModule.Main, `${pendingJeIds.length} pending JE record(s) found on startup, triggering generation`);
         jeGenerator.generateBatch(pendingJeIds).catch((err: Error) => {
-          console.error('[InvoiceVault] Startup JE generation failed:', err);
+          log.error(LogModule.Main, 'Startup JE generation failed', err);
         });
       }
     }
     const queuedCount = getFilesByStatuses([FileStatus.Unfiltered, FileStatus.Pending]).length;
     if (queuedCount > 0) {
-      console.log(`[InvoiceVault] ${queuedCount} queued file(s) found on startup, scheduling extraction`);
+      log.info(LogModule.Main, `${queuedCount} queued file(s) found on startup, scheduling extraction`);
       scheduleExtraction();
     }
   }
@@ -412,7 +417,7 @@ async function startVault(vaultPath: string): Promise<void> {
     };
     await scan('');
     if (scanned > 0) {
-      console.log(`[InvoiceVault] Initial scan processed ${scanned} file(s), scheduling extraction`);
+      log.info(LogModule.Main, `Initial scan processed ${scanned} file(s), scheduling extraction`);
       scheduleExtraction();
     }
   }
@@ -426,7 +431,7 @@ async function startVault(vaultPath: string): Promise<void> {
   }
 
   eventBus.emit('vault:opened', { path: vaultPath });
-  console.log(`[InvoiceVault] Vault started: ${vaultPath}`);
+  log.info(LogModule.Main, `Vault started: ${vaultPath}`);
 }
 
 async function stopVault(): Promise<void> {
@@ -452,10 +457,10 @@ async function stopVault(): Promise<void> {
 async function handleQuit(): Promise<void> {
   if (isQuitting) return;
   isQuitting = true;
-  console.log('[InvoiceVault] Shutting down...');
+  log.info(LogModule.Main, 'Shutting down...');
 
   const forceQuit = setTimeout(() => {
-    console.error('[InvoiceVault] Shutdown timed out, forcing quit');
+    log.error(LogModule.Main, 'Shutdown timed out, forcing quit');
     process.exit(1);
   }, 5000);
 
@@ -469,8 +474,9 @@ async function handleQuit(): Promise<void> {
     trayManager?.destroy();
     overlayWindow?.destroy();
   } catch (err) {
-    console.error('[InvoiceVault] Error during shutdown:', err);
+    log.error(LogModule.Main, 'Error during shutdown', err);
   } finally {
+    await shutdownLogger();
     clearTimeout(forceQuit);
     app.quit();
   }

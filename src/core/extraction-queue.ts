@@ -16,6 +16,7 @@ import { extractPdfText } from './filters/content-sniffer';
 import { validateScriptOutput } from './validators/output-validator';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
+import { log, LogModule } from './logger';
 import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
 import {
   DEFAULT_BATCH_SIZE,
@@ -66,7 +67,7 @@ export class ExtractionQueue {
       return;
     }
     this.processQueue().catch(err => {
-      console.error('[ExtractionQueue] Unhandled error:', err);
+      log.error(LogModule.ExtractionQueue, 'Unhandled error:', err);
     });
   }
 
@@ -78,14 +79,14 @@ export class ExtractionQueue {
       throw new Error(`Re-analyze is only supported for spreadsheet files, got ${ext}`);
     }
 
-    console.log(`[ExtractionQueue] Re-analyzing ${file.relative_path} with user hint`);
+    log.info(LogModule.ExtractionQueue, `Re-analyzing ${file.relative_path} with user hint`);
     eventBus.emit('extraction:started', { fileIds: [file.id] });
     updateFileStatus(file.id, FileStatus.Processing);
 
     try {
       await this.processSpreadsheetWithMetadata(file, fullPath, hint);
     } catch (err) {
-      console.error(`[ExtractionQueue] Re-analyze error for ${file.relative_path}:`, err);
+      log.error(LogModule.ExtractionQueue, `Re-analyze error for ${file.relative_path}:`, err);
       this.handleFileError(file, `Re-analyze error: ${file.relative_path}: ${(err as Error).message}`);
     }
   }
@@ -149,7 +150,7 @@ export class ExtractionQueue {
         if (unstructuredBatch.length === 0) break;
 
         const fileIds = unstructuredBatch.map(f => f.id);
-        console.log(`[ExtractionQueue] Processing PDF/image batch of ${unstructuredBatch.length} files`);
+        log.info(LogModule.ExtractionQueue, `Processing PDF/image batch of ${unstructuredBatch.length} files`);
         eventBus.emit('extraction:started', { fileIds });
 
         for (const file of unstructuredBatch) {
@@ -207,7 +208,7 @@ export class ExtractionQueue {
       }
     }
 
-    console.log(`[ExtractionQueue] Context budget: ~${(estimatedBytes / 1024 / 1024).toFixed(1)}MB for ${selected.length}/${files.length} unstructured files`);
+    log.info(LogModule.ExtractionQueue, `Context budget: ~${(estimatedBytes / 1024 / 1024).toFixed(1)}MB for ${selected.length}/${files.length} unstructured files`);
     return selected;
   }
 
@@ -215,7 +216,7 @@ export class ExtractionQueue {
     const structT0 = performance.now();
     const fullPath = path.join(this.vault.rootPath, file.relative_path);
     const ext = path.extname(file.relative_path).toLowerCase();
-    console.log(`[ExtractionQueue] processStructuredFile: starting ${file.relative_path}`);
+    log.info(LogModule.ExtractionQueue, `processStructuredFile: starting ${file.relative_path}`);
 
     try {
       // 1. Try built-in parsers first (XML e-invoices)
@@ -224,27 +225,27 @@ export class ExtractionQueue {
           const fileResult = parseXmlInvoice(fullPath, file.relative_path);
           const extraction: ExtractionResult = { results: [fileResult] };
           this.reconciler.reconcileResults(extraction, 'xml-parser');
-          console.log(`[ExtractionQueue] XML parsed directly: ${file.relative_path}`);
+          log.info(LogModule.ExtractionQueue, `XML parsed directly: ${file.relative_path}`);
           return;
         } catch {
-          console.log(`[ExtractionQueue] Built-in XML parser failed for ${file.relative_path}, trying cached scripts`);
+          log.info(LogModule.ExtractionQueue, `Built-in XML parser failed for ${file.relative_path}, trying cached scripts`);
         }
       }
 
       // 2. Try cached scripts via matcher evaluator
       const allScripts = this.scriptRegistry.getAllScripts();
-      console.log(`[ExtractionQueue] Step 2: checking ${allScripts.length} cached script(s) for ${file.relative_path}`);
+      log.info(LogModule.ExtractionQueue, `Step 2: checking ${allScripts.length} cached script(s) for ${file.relative_path}`);
       if (allScripts.length > 0) {
         const matchedScript = this.matcherEvaluator.findMatchingScript(fullPath, allScripts, this.vault.dotPath);
         if (matchedScript) {
-          console.log(`[ExtractionQueue] Matched script "${matchedScript.name}" (${matchedScript.script_path}) — executing against ${file.relative_path}`);
+          log.info(LogModule.ExtractionQueue, `Matched script "${matchedScript.name}" (${matchedScript.script_path}) — executing against ${file.relative_path}`);
           const scriptFullPath = path.join(this.vault.dotPath, matchedScript.script_path);
           const scriptExecT0 = performance.now();
           let result;
           try {
             result = await executeScript(scriptFullPath, fullPath);
           } catch (execErr) {
-            console.warn(`[ExtractionQueue] Cached script "${matchedScript.name}" CRASHED for ${file.relative_path}: ${(execErr as Error).message}. Falling through to new script generation.`);
+            log.warn(LogModule.ExtractionQueue, `Cached script "${matchedScript.name}" CRASHED for ${file.relative_path}: ${(execErr as Error).message}. Falling through to new script generation.`);
             result = null;
           }
 
@@ -252,56 +253,56 @@ export class ExtractionQueue {
             const execMs = (performance.now() - scriptExecT0).toFixed(0);
             const recordCount = result.records?.length ?? 0;
             const parsingErrorCount = result._parsing_errors?.length ?? 0;
-            console.log(`[ExtractionQueue] executeScript completed in ${execMs}ms — ${recordCount} records, ${parsingErrorCount} parsing errors reported`);
+            log.info(LogModule.ExtractionQueue, `executeScript completed in ${execMs}ms — ${recordCount} records, ${parsingErrorCount} parsing errors reported`);
 
             if (parsingErrorCount > 0) {
               const errorSample = result._parsing_errors!.slice(0, 5).map(
                 e => `  row ${e.row}: ${e.field} = ${JSON.stringify(e.rawValue)} (${e.error})`
               );
-              console.log(`[ExtractionQueue] Parsing errors sample:\n${errorSample.join('\n')}${parsingErrorCount > 5 ? `\n  ... and ${parsingErrorCount - 5} more` : ''}`);
+              log.info(LogModule.ExtractionQueue, `Parsing errors sample:\n${errorSample.join('\n')}${parsingErrorCount > 5 ? `\n  ... and ${parsingErrorCount - 5} more` : ''}`);
             }
 
             result.relative_path = file.relative_path;
 
             const validation = validateScriptOutput(result, { scriptDocType: matchedScript.doc_type });
-            console.log(`[ExtractionQueue] Output validation: valid=${validation.valid}${validation.warnings.length > 0 ? `, warnings: [${validation.warnings.join('; ')}]` : ''}`);
+            log.info(LogModule.ExtractionQueue, `Output validation: valid=${validation.valid}${validation.warnings.length > 0 ? `, warnings: [${validation.warnings.join('; ')}]` : ''}`);
 
             if (validation.valid) {
               this.scriptRegistry.recordUsage(matchedScript.id, file.id);
               const reconcileT0 = performance.now();
               this.reconciler.reconcileResults({ results: [result] }, `script:${matchedScript.name}`);
-              console.log(`[ExtractionQueue] reconcileResults took ${(performance.now() - reconcileT0).toFixed(0)}ms for ${file.relative_path}`);
-              console.log(`[ExtractionQueue] SUCCESS: ${file.relative_path} processed with cached script "${matchedScript.name}"`);
+              log.info(LogModule.ExtractionQueue, `reconcileResults took ${(performance.now() - reconcileT0).toFixed(0)}ms for ${file.relative_path}`);
+              log.info(LogModule.ExtractionQueue, `SUCCESS: ${file.relative_path} processed with cached script "${matchedScript.name}"`);
               return;
             }
 
-            console.warn(`[ExtractionQueue] REJECTED cached script "${matchedScript.name}" for ${file.relative_path} — generating new script`);
+            log.warn(LogModule.ExtractionQueue, `REJECTED cached script "${matchedScript.name}" for ${file.relative_path} — generating new script`);
           }
         } else {
-          console.log(`[ExtractionQueue] No cached script matched ${file.relative_path}`);
+          log.info(LogModule.ExtractionQueue, `No cached script matched ${file.relative_path}`);
         }
       }
 
       // 3. For spreadsheets, use metadata-driven iterative script generation
-      console.log(`[ExtractionQueue] No cached script matched, generating via metadata pipeline: ${file.relative_path}`);
+      log.info(LogModule.ExtractionQueue, `No cached script matched, generating via metadata pipeline: ${file.relative_path}`);
       await this.processSpreadsheetWithMetadata(file, fullPath);
-      console.log(`[ExtractionQueue] processStructuredFile: finished ${file.relative_path} in ${(performance.now() - structT0).toFixed(0)}ms`);
+      log.info(LogModule.ExtractionQueue, `processStructuredFile: finished ${file.relative_path} in ${(performance.now() - structT0).toFixed(0)}ms`);
     } catch (err) {
-      console.error(`[ExtractionQueue] Error processing structured file ${file.relative_path}:`, err);
+      log.error(LogModule.ExtractionQueue, `Error processing structured file ${file.relative_path}:`, err);
       this.handleFileError(file, `Structured file error: ${file.relative_path}: ${(err as Error).message}`);
     }
   }
 
   private async processSpreadsheetWithMetadata(file: VaultFile, fullPath: string, userHint?: string): Promise<void> {
-    console.log(`[ExtractionQueue] ── New script generation pipeline for ${file.relative_path} ──`);
+    log.info(LogModule.ExtractionQueue, `── New script generation pipeline for ${file.relative_path} ──`);
     // 1. Extract metadata (pure local code, no AI)
     const metadata = extractMetadata(fullPath);
     const sheetSummary = metadata.sheets.map(s => `"${s.name}" (${s.rowCount} rows, ${s.colCount} cols, headers: [${s.headers.slice(0, 8).join(', ')}${s.headers.length > 8 ? `, +${s.headers.length - 8} more` : ''}])`).join(', ');
-    console.log(`[ExtractionQueue] Metadata: ${metadata.sheets.length} sheet(s) — ${sheetSummary}`);
+    log.info(LogModule.ExtractionQueue, `Metadata: ${metadata.sheets.length} sheet(s) — ${sheetSummary}`);
 
     // 2. Generate initial parser script via AI
     const generated = await this.scriptGenerator.generateParser(metadata, this.vault.dotPath, userHint);
-    console.log(`[ExtractionQueue] Generated parser: ${generated.name}`);
+    log.info(LogModule.ExtractionQueue, `Generated parser: ${generated.name}`);
 
     // 3. Iterative verify-and-refine loop — Claude judges each iteration
     const verification = await this.scriptVerifier.verifyAndRefine(
@@ -319,7 +320,7 @@ export class ExtractionQueue {
       matcherPath = matcher.matcherPath;
     } catch (err) {
       // Matcher generation failure is non-critical — parser still works
-      console.warn(`[ExtractionQueue] Matcher generation failed (non-critical): ${(err as Error).message}`);
+      log.warn(LogModule.ExtractionQueue, `Matcher generation failed (non-critical): ${(err as Error).message}`);
       matcherPath = '';
     }
 
@@ -344,7 +345,7 @@ export class ExtractionQueue {
       { results: [verification.output!] },
       `script:${generated.name}`,
     );
-    console.log(`[ExtractionQueue] Spreadsheet processed and reconciled: ${file.relative_path}`);
+    log.info(LogModule.ExtractionQueue, `Spreadsheet processed and reconciled: ${file.relative_path}`);
   }
 
   private async processUnstructuredBatch(files: VaultFile[]): Promise<void> {
@@ -353,7 +354,7 @@ export class ExtractionQueue {
     for (const file of files) {
       const ext = path.extname(file.relative_path).toLowerCase();
       if (SPREADSHEET_EXTENSIONS.has(ext)) {
-        console.error(`[ExtractionQueue] Cannot send ${ext} to Claude CLI: ${file.relative_path}`);
+        log.error(LogModule.ExtractionQueue, `Cannot send ${ext} to Claude CLI: ${file.relative_path}`);
         updateFileStatus(file.id, FileStatus.Error);
         addLog(null, LogLevel.Error, `Spreadsheet files cannot be processed by Claude CLI: ${file.relative_path}`, undefined, file.id);
         eventBus.emit('extraction:error', {
@@ -383,7 +384,7 @@ export class ExtractionQueue {
         }
       }
     } catch (err) {
-      console.error('[ExtractionQueue] Batch processing error:', err);
+      log.error(LogModule.ExtractionQueue, 'Batch processing error:', err);
       const isCliErr = err instanceof CliError;
       const sessionLogPath = (isCliErr && err.sessionId)
         ? getSessionLogPath(this.vault.rootPath, err.sessionId)
@@ -403,7 +404,7 @@ export class ExtractionQueue {
   private handleFileError(file: VaultFile, errorMessage: string, logDetail?: string): void {
     if (file.retry_count < this.maxRetryCount) {
       incrementRetryAndRequeue(file.id);
-      console.log(`[ExtractionQueue] Retrying file (attempt ${file.retry_count + 1}/${this.maxRetryCount}): ${file.relative_path}`);
+      log.info(LogModule.ExtractionQueue, `Retrying file (attempt ${file.retry_count + 1}/${this.maxRetryCount}): ${file.relative_path}`);
       addLog(null, LogLevel.Warn, `Retrying file (attempt ${file.retry_count + 1}/${this.maxRetryCount}): ${file.relative_path}`, logDetail, file.id);
     } else {
       updateFileStatus(file.id, FileStatus.Error);

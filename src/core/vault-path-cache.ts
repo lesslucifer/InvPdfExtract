@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { IGNORED_DIRS } from '../shared/constants';
 import { normalizeQuery } from '../shared/normalize-query';
+import { log, LogModule } from './logger';
 
 const MAX_DEPTH = 10;
 const MAX_RESULTS = 20;
@@ -65,7 +66,7 @@ export class VaultPathCache {
     try {
       await this.walkDir(this.vaultRoot, '', 0, newDirs, newFiles);
     } catch (err) {
-      console.error('[VaultPathCache] Build error:', err);
+      log.error(LogModule.Main, 'VaultPathCache build error', err);
     }
 
     newDirs.sort((a, b) => a.lowerPath.localeCompare(b.lowerPath));
@@ -75,7 +76,7 @@ export class VaultPathCache {
     this.files = newFiles;
     this.built = true;
 
-    console.log(`[VaultPathCache] Built: ${this.dirs.length} dirs, ${this.files.length} files`);
+    log.info(LogModule.Main, `VaultPathCache built: ${this.dirs.length} dirs, ${this.files.length} files`);
   }
 
   private async walkDir(

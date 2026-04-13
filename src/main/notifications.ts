@@ -3,6 +3,7 @@ import { eventBus } from '../core/event-bus';
 import { getFileById } from '../core/db/files';
 import { APP_NAME } from '../shared/constants';
 import { t } from '../lib/i18n';
+import { log, LogModule } from '../core/logger';
 
 export class NotificationManager {
   init(): void {
@@ -64,7 +65,7 @@ export class NotificationManager {
 
   private show(title: string, body: string): void {
     if (!Notification.isSupported()) {
-      console.log(`[Notification] ${title}: ${body}`);
+      log.info(LogModule.Main, `${title}: ${body}`);
       return;
     }
 

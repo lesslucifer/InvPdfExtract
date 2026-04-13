@@ -1,6 +1,7 @@
 import { ClaudeCodeRunner } from '../claude-cli';
 import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
 import { readTriageInstructions } from './ai-triage-instructions';
+import { log, LogModule } from '../logger';
 
 interface TriageInput {
   relativePath: string;
@@ -64,7 +65,7 @@ export async function aiTriageBatch(
       };
     });
   } catch (err) {
-    console.error('[AITriage] Batch triage failed:', (err as Error).message);
+    log.error(LogModule.Filter, `Batch triage failed: ${(err as Error).message}`);
     return inputs.map(input => ({
       score: input.layer2Score,
       reason: `AI triage failed: ${(err as Error).message}. Defaulting to process.`,

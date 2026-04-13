@@ -4,6 +4,7 @@ import { ClaudeCodeRunner } from './claude-cli';
 import { readInstructions } from './je-instructions';
 import { JE_INTRA_BATCH_SIMILARITY_THRESHOLD } from '../shared/constants';
 import { CashFlowType, JEClassificationResult } from '../shared/types';
+import { log, LogModule } from './logger';
 
 export interface UnclassifiedItem {
   id: string; // line_item_id or record_id
@@ -96,7 +97,7 @@ export async function classifyWithAI(
 
   const uniqueCount = representatives.length;
   const reduction = items.length > 0 ? Math.round((1 - uniqueCount / items.length) * 100) : 0;
-  console.log(`[JEAIClassifier] Dedup: ${items.length} items → ${uniqueCount} unique (${reduction}% reduction)`);
+  log.info(LogModule.JEGenerator, `Dedup: ${items.length} items → ${uniqueCount} unique (${reduction}% reduction)`);
 
   const systemPrompt = await readInstructions(vaultRoot);
 
@@ -151,7 +152,7 @@ Return a JSON array where each entry has: id (1-based line number), account, con
       }
     }
   } catch (err) {
-    console.error('[JEAIClassifier] Classification failed:', err);
+    log.error(LogModule.JEGenerator, 'Classification failed:', err);
     throw err;
   }
 

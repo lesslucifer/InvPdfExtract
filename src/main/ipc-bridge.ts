@@ -12,6 +12,7 @@
 
 import * as http from 'http';
 import { app, ipcMain } from 'electron';
+import { log, LogModule } from '../core/logger';
 
 const PORT = 19847;
 const HOST = '127.0.0.1';
@@ -63,7 +64,7 @@ export function startIpcBridge(): void {
 
   // Only enable in dev mode — never expose IPC handlers in production builds
   if (app.isPackaged) {
-    console.log('[IPC Bridge] Skipped — disabled in production builds');
+    log.info(LogModule.IpcBridge, 'Skipped — disabled in production builds');
     return;
   }
 
@@ -124,7 +125,7 @@ export function startIpcBridge(): void {
         res.writeHead(200);
         res.end(JSON.stringify({ result: result ?? null }));
       } catch (err) {
-        console.error(`[IPC Bridge] Handler error for '${channel}':`, err);
+        log.error(LogModule.IpcBridge, `Handler error for '${channel}'`, err);
         res.writeHead(500);
         res.end(JSON.stringify({ error: (err as Error).message }));
       }
@@ -137,14 +138,14 @@ export function startIpcBridge(): void {
   });
 
   server.listen(PORT, HOST, () => {
-    console.log(`[IPC Bridge] HTTP bridge listening on http://${HOST}:${PORT}`);
+    log.info(LogModule.IpcBridge, `HTTP bridge listening on http://${HOST}:${PORT}`);
   });
 
   server.on('error', (err: ErrorWithCode) => {
     if (err.code === 'EADDRINUSE') {
-      console.warn(`[IPC Bridge] Port ${PORT} already in use — bridge may already be running`);
+      log.warn(LogModule.IpcBridge, `Port ${PORT} already in use — bridge may already be running`);
     } else {
-      console.error('[IPC Bridge] Server error:', err);
+      log.error(LogModule.IpcBridge, 'Server error', err);
     }
   });
 }
@@ -153,6 +154,6 @@ export function stopIpcBridge(): void {
   if (server) {
     server.close();
     server = null;
-    console.log('[IPC Bridge] HTTP bridge stopped');
+    log.info(LogModule.IpcBridge, 'HTTP bridge stopped');
   }
 }

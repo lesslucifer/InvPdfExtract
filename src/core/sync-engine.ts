@@ -6,6 +6,7 @@ import { insertFile, getFileByPath, updateFileHash, softDeleteFile, getAllActive
 import { eventBus } from './event-bus';
 import { FILE_TYPE_MAP } from '../shared/constants';
 import { WatcherEvent } from './watcher';
+import { log, LogModule } from './logger';
 
 export class SyncEngine {
   private vaultRoot: string;
@@ -28,7 +29,7 @@ export class SyncEngine {
           break;
       }
     } catch (err) {
-      console.error(`[SyncEngine] Error handling ${event} for ${relativePath}:`, err);
+      log.error(LogModule.SyncEngine, `Error handling ${event} for ${relativePath}:`, err);
     }
   }
 
@@ -49,7 +50,7 @@ export class SyncEngine {
     insertFile(relativePath, hash, fileType, stats.size);
 
     eventBus.emit('file:added', { relativePath, fullPath });
-    console.log(`[SyncEngine] Added: ${relativePath} (hash: ${hash.slice(0, 8)}...)`);
+    log.info(LogModule.SyncEngine, `Added: ${relativePath} (hash: ${hash.slice(0, 8)}...)`);
   }
 
   private async handleFileChanged(relativePath: string, fullPath: string): Promise<void> {
@@ -69,7 +70,7 @@ export class SyncEngine {
     updateFileHash(existing.id, newHash, stats.size);
 
     eventBus.emit('file:changed', { relativePath, fullPath });
-    console.log(`[SyncEngine] Changed: ${relativePath} (hash: ${newHash.slice(0, 8)}...)`);
+    log.info(LogModule.SyncEngine, `Changed: ${relativePath} (hash: ${newHash.slice(0, 8)}...)`);
   }
 
   private handleFileDeleted(relativePath: string): void {
@@ -79,7 +80,7 @@ export class SyncEngine {
     softDeleteFile(existing.id);
 
     eventBus.emit('file:deleted', { relativePath });
-    console.log(`[SyncEngine] Deleted: ${relativePath}`);
+    log.info(LogModule.SyncEngine, `Deleted: ${relativePath}`);
   }
 
   async reconcileMissingFiles(): Promise<void> {
@@ -90,7 +91,7 @@ export class SyncEngine {
       if (!exists) {
         softDeleteFile(file.id);
         eventBus.emit('file:deleted', { relativePath: file.relative_path });
-        console.log(`[SyncEngine] Reconciled missing file: ${file.relative_path}`);
+        log.info(LogModule.SyncEngine, `Reconciled missing file: ${file.relative_path}`);
       }
     }
   }

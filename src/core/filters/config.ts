@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { RelevanceFilterConfig } from '../../shared/types';
 import { DEFAULT_FILTER_CONFIG, FILTER_CONFIG_FILE } from '../../shared/constants';
+import { log, LogModule } from '../logger';
 
 export async function loadFilterConfig(dotPath: string): Promise<RelevanceFilterConfig> {
   const configPath = path.join(dotPath, FILTER_CONFIG_FILE);
@@ -9,7 +10,7 @@ export async function loadFilterConfig(dotPath: string): Promise<RelevanceFilter
     const raw = await fs.promises.readFile(configPath, 'utf-8');
     return { ...DEFAULT_FILTER_CONFIG, ...JSON.parse(raw) };
   } catch {
-    console.warn('[FilterConfig] Failed to load filter config, using defaults');
+    log.warn(LogModule.Filter, 'Failed to load filter config, using defaults');
     return { ...DEFAULT_FILTER_CONFIG };
   }
 }
