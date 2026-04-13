@@ -4,6 +4,7 @@ import { DocType, JEEntryType } from '../shared/types';
 import { getJeSide } from '../shared/je-utils';
 import * as XLSX from 'xlsx-js-style';
 import { t } from '../lib/i18n';
+import { log, LogModule } from './logger';
 
 export interface ExportOptions {
   filter?: string;
@@ -24,6 +25,7 @@ function formatInvoiceReference(invoiceCode: string | null | undefined, invoiceN
  * Returns structured data grouped by doc_type for Excel/CSV export.
  */
 export function gatherExportData(options: ExportOptions = {}): ExportData {
+  log.info(LogModule.Export, 'Gathering export data');
   const db = getDatabase();
   const deletedClause = options.includeDeleted ? '' : 'AND r.deleted_at IS NULL';
 
@@ -62,6 +64,7 @@ export function gatherExportData(options: ExportOptions = {}): ExportData {
     ORDER BY r.doc_type, id2.invoice_code, id2.invoice_number, li.line_number
   `).all(DocType.InvoiceIn, DocType.InvoiceOut);
 
+  log.info(LogModule.Export, `Export data gathered`, { bankStatements: bankStatements.length, invoiceHeaders: (invoiceHeaders as unknown[]).length, lineItems: (invoiceLineItems as unknown[]).length });
   return { bankStatements: bankStatements, invoiceHeaders: invoiceHeaders as ExportData['invoiceHeaders'], invoiceLineItems: invoiceLineItems as ExportData['invoiceLineItems'] };
 }
 
@@ -124,6 +127,7 @@ function toCsv(headers: string[], rows: unknown[][]): string {
  * Returns the XLSX buffer ready to write to disk.
  */
 export function exportToXlsx(data: ExportData): Buffer {
+  log.info(LogModule.Export, 'Exporting to XLSX');
   const wb = XLSX.utils.book_new();
 
   if (data.bankStatements.length > 0) {
@@ -199,6 +203,7 @@ function applyRowStyle(ws: XLSX.WorkSheet, rowIdx: number, style: XLSX.CellStyle
  * One row per journal entry. Imbalanced invoices are highlighted in red; a sum row is appended.
  */
 export function exportJEToXlsx(rows: JEExportRow[]): Buffer {
+  log.info(LogModule.Export, `Exporting JE to XLSX: ${rows.length} entries`);
   const wb = XLSX.utils.book_new();
 
   const headers = [

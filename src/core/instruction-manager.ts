@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
+import { log, LogModule } from './logger';
 
 export const INSTRUCTION_MARKER =
   '# ── USER CUSTOMIZATIONS ──────────────────────────────────────────────────────\n# Everything below this line is yours. The app will never overwrite it.\n# Add your custom rules, account mappings, or extra instructions here.\n';
@@ -34,6 +35,7 @@ export async function writeInstruction(filePath: string, bundledSystemZone: stri
     const existing = await fs.promises.readFile(filePath, 'utf-8');
     const zones = splitZones(existing);
     if (systemZoneHash(zones.systemZone) === bundledHash) {
+      log.debug(LogModule.Config, 'Instruction file unchanged, skipping write');
       return;
     }
     userZone = zones.userZone;
@@ -44,6 +46,7 @@ export async function writeInstruction(filePath: string, bundledSystemZone: stri
   const dir = path.dirname(filePath);
   await fs.promises.mkdir(dir, { recursive: true });
   await fs.promises.writeFile(filePath, joinZones(bundledSystemZone, userZone), 'utf-8');
+  log.info(LogModule.Config, `Instruction file updated: ${path.basename(filePath)}`);
 }
 
 export async function readInstruction(filePath: string): Promise<string> {

@@ -1,4 +1,5 @@
 import { DocType, ExtractionFileResult, ExtractionInvoiceData, ExtractionLineItem, ParsingError } from '../../shared/types';
+import { log, LogModule } from '../logger';
 
 export interface OutputValidationResult {
   valid: boolean;
@@ -70,10 +71,12 @@ export function validateScriptOutput(result: ExtractionFileResult, options: Outp
   const warnings: string[] = [];
 
   if (!VALID_DOC_TYPES.has(result.doc_type)) {
+    log.warn(LogModule.Validator, `Invalid doc_type: ${result.doc_type}`);
     return { valid: false, warnings: [`Invalid doc_type: ${result.doc_type}`] };
   }
 
   if (!result.records || result.records.length === 0) {
+    log.warn(LogModule.Validator, 'No records extracted');
     return { valid: false, warnings: ['No records extracted'] };
   }
 
@@ -81,7 +84,10 @@ export function validateScriptOutput(result: ExtractionFileResult, options: Outp
   if (result._parsing_errors && result._parsing_errors.length > 0) {
     const parsingResult = evaluateParsingErrors(result._parsing_errors, result.records.length);
     warnings.push(...parsingResult.warnings);
-    if (!parsingResult.valid) return { valid: false, warnings };
+    if (!parsingResult.valid) {
+      log.warn(LogModule.Validator, `Parsing error rate too high`, { warnings });
+      return { valid: false, warnings };
+    }
   }
 
   // Check for NaN in numeric fields
@@ -99,6 +105,7 @@ export function validateScriptOutput(result: ExtractionFileResult, options: Outp
   }
 
   if (allNanFields.length > 0) {
+    log.warn(LogModule.Validator, `NaN values in numeric fields`, { count: allNanFields.length });
     return {
       valid: false,
       warnings: [`NaN values in numeric fields: ${allNanFields.slice(0, 10).join(', ')}${allNanFields.length > 10 ? ` (+${allNanFields.length - 10} more)` : ''}`],
@@ -123,6 +130,7 @@ export function validateScriptOutput(result: ExtractionFileResult, options: Outp
     return data.total_amount != null || data.total_before_tax != null || data.amount != null;
   });
   if (!hasAnyAmount) {
+    log.warn(LogModule.Validator, 'All records have null amount fields');
     return { valid: false, warnings: ['All records have null/undefined amount fields'] };
   }
 
@@ -137,6 +145,7 @@ export function validateScriptOutput(result: ExtractionFileResult, options: Outp
     }
     if (taxIds.size === 1) {
       const singleTaxId = [...taxIds][0];
+      log.warn(LogModule.Validator, `Uniform tax_id across ${result.records.length} records: "${singleTaxId}"`);
       return {
         valid: false,
         warnings: [`All ${result.records.length} records have the same tax_id "${singleTaxId}" — parser likely reads own company MST instead of counterparty`],
@@ -151,6 +160,7 @@ export function validateScriptOutput(result: ExtractionFileResult, options: Outp
     const scriptIsIn = options.scriptDocType === DocType.InvoiceIn;
     const resultIsOut = result.doc_type === DocType.InvoiceOut;
     if ((scriptIsOut && resultIsIn) || (scriptIsIn && resultIsOut)) {
+      log.warn(LogModule.Validator, `Doc type mismatch: script=${options.scriptDocType}, result=${result.doc_type}`);
       return {
         valid: false,
         warnings: [`Script doc_type "${options.scriptDocType}" contradicts result doc_type "${result.doc_type}" — input/output invoice mismatch`],
@@ -158,5 +168,8 @@ export function validateScriptOutput(result: ExtractionFileResult, options: Outp
     }
   }
 
+  if (warnings.length > 0) {
+    log.debug(LogModule.Validator, `Validation passed with ${warnings.length} warnings`, { warnings });
+  }
   return { valid: true, warnings };
 }

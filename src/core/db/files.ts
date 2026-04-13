@@ -1,10 +1,12 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
 import { VaultFile, FileStatus } from '../../shared/types';
+import { log, LogModule } from '../logger';
 
 export function insertFile(relativePath: string, fileHash: string, fileType: string, fileSize: number): VaultFile {
   const db = getDatabase();
   const now = new Date().toISOString();
+  log.debug(LogModule.DB, `Insert file: ${relativePath} (${fileType}, ${fileSize} bytes)`);
 
   // Check for soft-deleted file with same path — resurrect instead of re-insert
   const deleted = db.prepare(
@@ -16,6 +18,7 @@ export function insertFile(relativePath: string, fileHash: string, fileType: str
       UPDATE files SET file_hash = ?, file_type = ?, file_size = ?, status = ?, retry_count = 0, deleted_at = NULL, updated_at = ?
       WHERE id = ?
     `).run(fileHash, fileType, fileSize, FileStatus.Unfiltered, now, deleted.id);
+    log.info(LogModule.DB, `Resurrected soft-deleted file: ${relativePath}`, { id: deleted.id });
     return getFileById(deleted.id)!;
   }
 
@@ -54,10 +57,12 @@ export function updateFileHash(id: string, newHash: string, fileSize: number): v
     UPDATE files SET file_hash = ?, file_size = ?, status = ?, retry_count = 0, updated_at = datetime('now')
     WHERE id = ?
   `).run(newHash, fileSize, FileStatus.Unfiltered, id);
+  log.debug(LogModule.DB, `File hash updated, re-queued as Unfiltered`, { fileId: id });
 }
 
 export function updateFileStatus(id: string, status: FileStatus): void {
   const db = getDatabase();
+  log.debug(LogModule.DB, `File status → ${status}`, { fileId: id });
   if (status === FileStatus.Pending || status === FileStatus.Unfiltered) {
     db.prepare("UPDATE files SET status = ?, retry_count = 0, updated_at = datetime('now') WHERE id = ?").run(status, id);
   } else if (status === FileStatus.Processing) {
@@ -72,6 +77,7 @@ export function incrementRetryAndRequeue(id: string): void {
   db.prepare(
     "UPDATE files SET retry_count = retry_count + 1, status = ?, updated_at = datetime('now') WHERE id = ?"
   ).run(FileStatus.Pending, id);
+  log.debug(LogModule.DB, `Retry incremented, re-queued`, { fileId: id });
 }
 
 export function updateFileDocType(id: string, docType: string): void {
@@ -87,11 +93,13 @@ export function updateFilePath(id: string, newPath: string): void {
 export function softDeleteFile(id: string): void {
   const db = getDatabase();
   const now = new Date().toISOString();
+  let recordCount = 0;
 
   const txn = db.transaction(() => {
     db.prepare('UPDATE files SET deleted_at = ? WHERE id = ?').run(now, id);
     // Cascade soft-delete to records and line items
     const records = db.prepare('SELECT id FROM records WHERE file_id = ? AND deleted_at IS NULL').all(id) as { id: string }[];
+    recordCount = records.length;
     for (const record of records) {
       db.prepare('UPDATE records SET deleted_at = ? WHERE id = ?').run(now, record.id);
       db.prepare('UPDATE invoice_line_items SET deleted_at = ? WHERE record_id = ?').run(now, record.id);
@@ -100,6 +108,7 @@ export function softDeleteFile(id: string): void {
   });
 
   txn();
+  log.info(LogModule.DB, `Soft-deleted file and ${recordCount} records`, { fileId: id });
 }
 
 export function getFilesByFolder(folderPrefix: string): VaultFile[] {
@@ -132,6 +141,7 @@ export function cancelQueueItem(fileId: string): boolean {
     db.prepare("UPDATE files SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
       .run(fileId);
   }
+  log.info(LogModule.DB, `Cancelled queue item`, { fileId, hadRecords: cnt > 0 });
   return true;
 }
 
@@ -143,6 +153,7 @@ export function clearPendingQueue(): number {
   for (const row of queued) {
     cancelQueueItem(row.id);
   }
+  log.info(LogModule.DB, `Cleared pending queue: ${queued.length} files`);
   return queued.length;
 }
 
@@ -151,6 +162,7 @@ export function resetStaleProcessingFiles(): number {
   const result = db.prepare(
     "UPDATE files SET status = ?, retry_count = 0, updated_at = datetime('now') WHERE status = ? AND deleted_at IS NULL"
   ).run(FileStatus.Pending, FileStatus.Processing);
+  log.info(LogModule.DB, `Reset ${result.changes} stale processing files to Pending`);
   return result.changes;
 }
 
@@ -187,6 +199,7 @@ export function updateFileFilterResult(
     SET status = ?, filter_score = ?, filter_reason = ?, filter_layer = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(status, filterScore, filterReason, filterLayer, id);
+  log.debug(LogModule.DB, `Filter result: ${status} (score=${filterScore.toFixed(2)}, layer=${filterLayer})`, { fileId: id });
 }
 
 export function getSkippedFiles(): VaultFile[] {

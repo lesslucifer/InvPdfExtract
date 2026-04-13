@@ -33,6 +33,7 @@ export class JEGenerator {
   async generateForRecord(recordId: string): Promise<number> {
     if (this.processing.has(recordId)) return 0;
     this.processing.add(recordId);
+    log.info(LogModule.JEGenerator, `generateForRecord: ${recordId.slice(0, 8)}`);
 
     updateJeStatus([recordId], 'processing');
     eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'processing' });
@@ -67,6 +68,7 @@ export class JEGenerator {
   async generateForRecordAIOnly(recordId: string): Promise<number> {
     if (this.processing.has(recordId)) return 0;
     this.processing.add(recordId);
+    log.info(LogModule.JEGenerator, `generateForRecordAIOnly: ${recordId.slice(0, 8)}`);
 
     updateJeStatus([recordId], 'processing');
     eventBus.emit('je:status-changed', { recordIds: [recordId], status: 'processing' });
@@ -227,6 +229,7 @@ export class JEGenerator {
    * Regenerate all JEs. Used when instruction document changes.
    */
   async regenerateAll(): Promise<number> {
+    log.info(LogModule.JEGenerator, 'Regenerating all JEs');
     const db = getDatabase();
     const recordIds = db.prepare(`
       SELECT DISTINCT r.id FROM records r
@@ -237,6 +240,7 @@ export class JEGenerator {
         AND (ili.id IS NOT NULL OR bsd.record_id IS NOT NULL OR id2.record_id IS NOT NULL)
     `).all() as Array<{ id: string }>;
 
+    log.info(LogModule.JEGenerator, `Regenerating JEs for ${recordIds.length} records`);
     return this.generateBatch(recordIds.map(r => r.id));
   }
 
@@ -265,7 +269,6 @@ export class JEGenerator {
   }
 
   private async classifyInvoiceRecord(record: DbRecord): Promise<UnclassifiedItem[]> {
-    // const t0 = performance.now();
     const db = getDatabase();
     const lineItems = getLineItemsByRecord(record.id);
     const invoiceData = db.prepare('SELECT * FROM invoice_data WHERE record_id = ?').get(record.id) as {
@@ -281,7 +284,6 @@ export class JEGenerator {
       effectiveDescription: string;
     }
     const pending: PendingItem[] = [];
-    // let dbCheckMs = 0;
 
     for (const item of lineItems) {
       const rawDescription = item.description?.trim() ?? '';
@@ -298,11 +300,9 @@ export class JEGenerator {
         effectiveDescription = rawDescription;
       }
 
-      // const dbT0 = performance.now();
       const existingUserEdited = db.prepare(
         "SELECT id FROM journal_entries WHERE line_item_id = ? AND user_edited = 1"
       ).get(item.id);
-      // dbCheckMs += performance.now() - dbT0;
       if (existingUserEdited) continue;
 
       pending.push({ lineItem: item, effectiveDescription });
@@ -328,19 +328,15 @@ export class JEGenerator {
     const allDescriptions = pending.map(p => p.effectiveDescription);
     if (syntheticDescription) allDescriptions.push(syntheticDescription);
 
-    // const simT0 = performance.now();
     const matchResults = await this.similarityEngine.findMatchBatch(allDescriptions);
-    // const similarityMs = performance.now() - simT0;
 
     // Phase 3: Process results (fast, main thread)
     const unmatched: UnclassifiedItem[] = [];
-    // let insertMs = 0;
 
     for (let i = 0; i < pending.length; i++) {
       const { lineItem: item, effectiveDescription } = pending[i];
       const match = matchResults.get(i);
       if (match) {
-        // const insT0 = performance.now();
         insertJournalEntry(
           record.id, item.id, 'line',
           match.account,
@@ -348,7 +344,6 @@ export class JEGenerator {
           'similarity', match.score, match.matchedDescription,
           match.contraAccount ?? null,
         );
-        // insertMs += performance.now() - insT0;
       } else {
         unmatched.push({
           id: item.id,
@@ -389,11 +384,6 @@ export class JEGenerator {
         });
       }
     }
-
-    // if (allDescriptions.length > 0) {
-    //   const totalMs = performance.now() - t0;
-    //   console.log(`[JEGenerator] classifyInvoiceRecord ${record.id.slice(0, 8)}: ${lineItems.length} items, total=${totalMs.toFixed(0)}ms (dbCheck=${dbCheckMs.toFixed(0)}ms, similarity=${similarityMs.toFixed(0)}ms, insert=${insertMs.toFixed(0)}ms), unmatched=${unmatched.length}`);
-    // }
 
     return unmatched;
   }
@@ -498,6 +488,7 @@ export class JEGenerator {
    */
   private async flushUnclassified(items: UnclassifiedItem[]): Promise<void> {
     if (items.length === 0) return;
+    log.info(LogModule.JEGenerator, `Flushing ${items.length} unclassified items to AI`);
 
     const results = await classifyWithAI(items, this.vaultRoot, this.cliPath);
 

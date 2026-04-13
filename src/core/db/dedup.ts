@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
 import { DocType, DuplicateSourceRow } from '../../shared/types';
+import { log, LogModule } from '../logger';
 
 interface FingerprintRecord {
   id: string;
@@ -10,6 +11,7 @@ interface FingerprintRecord {
 
 export function rebuildDuplicatesForFingerprints(fingerprints: string[]): void {
   if (fingerprints.length === 0) return;
+  log.debug(LogModule.Dedup, `Rebuilding duplicates for ${fingerprints.length} fingerprints`);
   const db = getDatabase();
 
   const txn = db.transaction(() => {
@@ -43,6 +45,7 @@ export function rebuildDuplicatesForFingerprints(fingerprints: string[]): void {
           byFile.set(rec.file_id, rec);
         }
       }
+      log.debug(LogModule.Dedup, `Found ${records.length} records for fingerprint, canonical=${canonical.id}, ${byFile.size} duplicate sources`);
 
       // Remove stale entries for this canonical that are no longer in byFile
       db.prepare(
@@ -69,6 +72,7 @@ export function cleanupDuplicatesForRecord(recordId: string): void {
   db.prepare(
     'DELETE FROM record_duplicate_sources WHERE canonical_record_id = ? OR source_record_id = ?'
   ).run(recordId, recordId);
+  log.debug(LogModule.Dedup, `Cleaned up duplicate links`, { recordId });
 }
 
 export function getDuplicateSourcesForRecord(recordId: string): DuplicateSourceRow[] {

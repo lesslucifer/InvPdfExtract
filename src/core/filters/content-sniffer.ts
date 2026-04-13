@@ -11,6 +11,7 @@ export async function contentSniffer(
   layer1Score: number,
   config: RelevanceFilterConfig
 ): Promise<FilterResult> {
+  log.debug(LogModule.Filter, `Content sniffing: ${path.basename(fullPath)}`);
   const ext = path.extname(fullPath).toLowerCase();
   let textSample = '';
 
@@ -29,6 +30,7 @@ export async function contentSniffer(
       case '.jpg':
       case '.jpeg':
       case '.png':
+        log.debug(LogModule.Filter, `Image file, skipping content sniff`, { path: path.basename(fullPath) });
         return {
           score: layer1Score,
           reason: 'Image file - content sniffing not available, relying on filename heuristics',

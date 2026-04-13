@@ -18,6 +18,11 @@ export const LogModule = {
   Filter: 'Filter',
   Script: 'Script',
   Similarity: 'Similarity',
+  Export: 'Export',
+  Config: 'Config',
+  Parser: 'Parser',
+  Validator: 'Validator',
+  Dedup: 'Dedup',
 } as const;
 
 const LEVEL_ORDER: Record<string, number> = {

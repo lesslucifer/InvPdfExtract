@@ -24,6 +24,7 @@ export async function aiTriageBatch(
 ): Promise<FilterResult[]> {
   if (inputs.length === 0) return [];
 
+  log.info(LogModule.Filter, `AI triage batch: ${inputs.length} files`);
   const systemPrompt = await readTriageInstructions(vaultRoot);
   const runner = new ClaudeCodeRunner(cliPath, 30_000, 'fast'); // Haiku, 30s timeout
 
@@ -38,6 +39,7 @@ export async function aiTriageBatch(
     const raw = await runner.invokeRaw(userPrompt, systemPrompt);
     const parsed = parseTriageResponse(raw, inputs.length);
 
+    log.info(LogModule.Filter, `AI triage completed: ${inputs.length} files classified`);
     return inputs.map((input, idx) => {
       const triageResult = parsed[idx];
       if (!triageResult) {

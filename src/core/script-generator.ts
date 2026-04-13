@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ClaudeCodeRunner } from './claude-cli';
 import { SpreadsheetMetadata, DocType } from '../shared/types';
+import { log, LogModule } from './logger';
 
 export interface GeneratedParser {
   parserPath: string;
@@ -154,6 +155,7 @@ export class ScriptGenerator {
    * Matcher is generated separately after the parser is verified.
    */
   async generateParser(metadata: SpreadsheetMetadata, vaultDotPath: string, userHint?: string): Promise<GeneratedParser> {
+    log.info(LogModule.Script, `Generating parser for ${metadata.fileName}`);
     let userPrompt = this.buildParserPrompt(metadata);
     if (userHint) {
       userPrompt += `\n\n## User Feedback on Previous Extraction\n\nThe user reported the following issue with a previous extraction of this file. Use this to guide your parser generation:\n\n${userHint}`;
@@ -162,6 +164,7 @@ export class ScriptGenerator {
 
     const parserCode = this.extractCodeBlock(response, 'parser.js');
     if (!parserCode) {
+      log.error(LogModule.Script, `Parser generation failed: missing code block`, { fileName: metadata.fileName });
       throw new Error('Claude response missing parser.js code block');
     }
 
@@ -176,6 +179,7 @@ export class ScriptGenerator {
 
     fs.writeFileSync(parserPath, parserCode);
 
+    log.info(LogModule.Script, `Parser generated: ${name} (${docType})`, { parserPath });
     return { parserPath, name, docType };
   }
 
@@ -184,11 +188,13 @@ export class ScriptGenerator {
    * The matcher identifies files with the same structure for script reuse.
    */
   async generateMatcher(metadata: SpreadsheetMetadata, vaultDotPath: string, name: string): Promise<GeneratedMatcher> {
+    log.info(LogModule.Script, `Generating matcher for ${name}`);
     const userPrompt = this.buildMatcherPrompt(metadata);
     const response = await this.runner.invokeRaw(userPrompt, MATCHER_SYSTEM_PROMPT, path.dirname(vaultDotPath));
 
     const matcherCode = this.extractCodeBlock(response, 'matcher.js');
     if (!matcherCode) {
+      log.error(LogModule.Script, `Matcher generation failed: missing code block`, { name });
       throw new Error('Claude response missing matcher.js code block');
     }
 
@@ -197,6 +203,7 @@ export class ScriptGenerator {
 
     fs.writeFileSync(matcherPath, matcherCode);
 
+    log.info(LogModule.Script, `Matcher generated`, { matcherPath });
     return { matcherPath };
   }
 

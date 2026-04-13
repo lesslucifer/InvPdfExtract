@@ -36,6 +36,7 @@ export class JESimilarityEngine {
   initialize(): void {
     if (this.initialized) return;
     this.initialized = true;
+    log.info(LogModule.Similarity, `Initializing similarity engine (threshold=${this.threshold})`);
     this.refresh();
 
     const onExtraction = () => this.scheduleRefresh();
@@ -146,7 +147,7 @@ export class JESimilarityEngine {
   async findMatchBatch(descriptions: string[]): Promise<Map<number, SimilarityMatch>> {
     if (descriptions.length === 0) return new Map();
 
-    // const t0 = performance.now();
+    const t0 = performance.now();
     const results = new Map<number, SimilarityMatch>();
 
     for (let i = 0; i < descriptions.length; i++) {
@@ -156,7 +157,7 @@ export class JESimilarityEngine {
       if (match) results.set(i, match);
     }
 
-    // console.log(`[JESimilarity] findMatchBatch: ${descriptions.length} items, ${results.size} matches, ${(performance.now() - t0).toFixed(0)}ms`);
+    log.debug(LogModule.Similarity, `findMatchBatch: ${descriptions.length} items, ${results.size} matches, ${(performance.now() - t0).toFixed(0)}ms`);
     return results;
   }
 
@@ -231,6 +232,7 @@ export class JESimilarityEngine {
   }
 
   destroy(): void {
+    log.info(LogModule.Similarity, `Destroying similarity engine (cacheSize=${this.cache.length})`);
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;

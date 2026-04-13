@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
 import { JournalEntry, JEEntryType, JESource, CashFlowType } from '../../shared/types';
+import { log, LogModule } from '../logger';
 
 // === CRUD ===
 
@@ -22,7 +23,9 @@ export function insertJournalEntry(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(id, recordId, lineItemId, entryType, account, contraAccount, cashFlow, source, similarityScore, matchedDescription);
 
-  return db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(id) as JournalEntry;
+  const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(id) as JournalEntry;
+  log.debug(LogModule.DB, `Inserted JE: ${entryType} (source=${source})`, { recordId, lineItemId, account });
+  return entry;
 }
 
 export function getJournalEntriesByRecord(recordId: string): JournalEntry[] {
@@ -53,11 +56,13 @@ export function updateJournalEntry(
     SET account = ?, cash_flow = ?, contra_account = ?, user_edited = 1, source = 'user', updated_at = datetime('now')
     WHERE id = ?
   `).run(account, cashFlow, contraAccount ?? null, id);
+  log.debug(LogModule.DB, `Updated JE: account=${account}`, { jeId: id });
 }
 
 export function deleteJournalEntry(id: string): void {
   const db = getDatabase();
   db.prepare('DELETE FROM journal_entries WHERE id = ?').run(id);
+  log.debug(LogModule.DB, `Deleted JE`, { jeId: id });
 }
 
 export function deleteJournalEntriesByRecord(recordId: string, preserveUserEdited: boolean): void {
@@ -67,6 +72,7 @@ export function deleteJournalEntriesByRecord(recordId: string, preserveUserEdite
   } else {
     db.prepare('DELETE FROM journal_entries WHERE record_id = ?').run(recordId);
   }
+  log.debug(LogModule.DB, `Deleted JEs for record (preserveUserEdited=${preserveUserEdited})`, { recordId });
 }
 
 // === Similarity Cache Queries ===
