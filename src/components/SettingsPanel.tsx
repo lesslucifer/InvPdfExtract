@@ -1,8 +1,9 @@
 import { t } from '../lib/i18n';
 import React, { useState, useCallback } from 'react';
 import { Icons, ICON_SIZE } from '../shared/icons';
+import { DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { useOverlayStore, useLocaleStore } from '../stores';
-import { useAppConfig, useAppVersion, useCliStatus } from '../lib/queries';
+import { useAppConfig, useAppVersion, useCliStatus, useVaultConfig } from '../lib/queries';
 
 interface Props {
   onVaultChanged?: () => void;
@@ -17,6 +18,7 @@ const localeBtnClass = 'bg-bg-secondary border border-accent/30 rounded-md px-2.
 export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const goBack = useOverlayStore(s => s.goBack);
   const { data: config = null } = useAppConfig();
+  const { data: vaultConfig = null } = useVaultConfig();
   const { data: appVersion = '' } = useAppVersion();
   const { data: cliStatus = null } = useCliStatus();
   const locale = useLocaleStore(s => s.locale);
@@ -26,6 +28,7 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
   const [clearConfirmVault, setClearConfirmVault] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [backupStatus, setBackupStatus] = useState<Record<string, 'idle' | 'busy' | 'success' | 'error'>>({});
+  const [toleranceInput, setToleranceInput] = useState<string | null>(null);
 
   const handleAddVault = useCallback(async () => {
     const folderPath = await window.api.pickFolder();
@@ -98,6 +101,15 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
     setExportStatus(result.success ? 'success' : 'error');
     setTimeout(() => setExportStatus('idle'), 3000);
   }, []);
+
+  const handleToleranceSave = useCallback(async () => {
+    if (toleranceInput == null) return;
+    const val = parseInt(toleranceInput, 10);
+    if (isNaN(val) || val < 0) return;
+    await window.api.updateVaultConfig({ amountTolerance: val });
+    useVaultConfig.invalidate();
+    setToleranceInput(null);
+  }, [toleranceInput]);
 
   if (!config) {
     return (
@@ -236,6 +248,18 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
             className={locale === 'vi' ? localeBtnActiveClass : localeBtnClass}
             onClick={() => changeLocale('vi')}
           >{t('locale_vi', 'VI')}</button>
+        </div>
+        <div className="flex items-center gap-2 mt-2.5">
+          <span className="text-3 text-text-secondary whitespace-nowrap">{t('amount_tolerance_vnd', 'Amount tolerance (VND)')}:</span>
+          <input
+            type="number"
+            min={0}
+            className="w-20 bg-bg-secondary border border-border rounded px-2 py-0.5 text-3 text-text outline-none focus:border-accent"
+            value={toleranceInput ?? String(vaultConfig?.amountTolerance ?? DEFAULT_AMOUNT_TOLERANCE)}
+            onChange={(e) => setToleranceInput(e.target.value)}
+            onBlur={handleToleranceSave}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleToleranceSave(); }}
+          />
         </div>
         {exportStatus === 'success' && (
           <div className="text-3 text-confidence-high mt-1.5">{t('export_instructions_success', 'Instructions exported')}</div>

@@ -26,10 +26,10 @@ import {
 } from '../core/db/journal-entries';
 import { readInstructions, writeInstructions, getInstructionsPath } from '../core/je-instructions';
 import { readInstruction } from '../core/instruction-manager';
-import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, CONFIG_FILE } from '../shared/constants';
+import { INVOICEVAULT_DIR, INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, CONFIG_FILE, DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
-import { clearVaultData, backupVault } from '../core/vault';
+import { clearVaultData, backupVault, getVaultConfig, updateVaultConfig } from '../core/vault';
 import {
   loadWindowState, saveWindowState, saveWindowStateSync, sanitizeUIState,
   getVaultStatePath,
@@ -97,6 +97,16 @@ export class OverlayWindow {
 
   private get currentStatePath(): string | null {
     return this.vaultPath ? getVaultStatePath(this.vaultPath) : null;
+  }
+
+  private async getAmountTolerance(): Promise<number> {
+    if (!this.vaultPath) return DEFAULT_AMOUNT_TOLERANCE;
+    try {
+      const config = await getVaultConfig(path.join(this.vaultPath, INVOICEVAULT_DIR));
+      return config.amountTolerance ?? DEFAULT_AMOUNT_TOLERANCE;
+    } catch {
+      return DEFAULT_AMOUNT_TOLERANCE;
+    }
   }
 
   async loadPersistedState(vaultRoot: string): Promise<void> {
@@ -479,7 +489,8 @@ export class OverlayWindow {
   registerIpcHandlers(): void {
     ipcMain.handle('search', async (_event, query: string, offset: number = 0, folder: string | null = null, filePath: string | null = null) => {
       try {
-        return searchRecords((query || '').trim(), 50, offset, folder, filePath);
+        const tolerance = await this.getAmountTolerance();
+        return searchRecords((query || '').trim(), 50, offset, folder, filePath, tolerance);
       } catch (err) {
         console.error('[Search] Query failed:', err);
         return [];
@@ -655,6 +666,16 @@ export class OverlayWindow {
 
     ipcMain.handle('get-app-config', async () => {
       return await loadAppConfig();
+    });
+
+    ipcMain.handle('get-vault-config', async () => {
+      if (!this.vaultPath) return null;
+      return await getVaultConfig(path.join(this.vaultPath, INVOICEVAULT_DIR));
+    });
+
+    ipcMain.handle('update-vault-config', async (_event, updates: Record<string, unknown>) => {
+      if (!this.vaultPath) return;
+      await updateVaultConfig(path.join(this.vaultPath, INVOICEVAULT_DIR), updates);
     });
 
     ipcMain.handle('get-locale', async () => {

@@ -1,7 +1,5 @@
 import { InvoiceLineItem } from '../shared/types';
-
-const TOLERANCE = 1; // 1 VND rounding tolerance for line item calculations
-export const TOTAL_TOLERANCE = 1000; // 1000 VND tolerance for invoice-level totals
+import { DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 
 /**
  * Check if total_amount (after-tax) matches the sum of line item total_with_tax (after-tax).
@@ -10,13 +8,14 @@ export function computeTotalMismatch(
   totalAmount: number,
   lineItems: { total_with_tax?: number | null }[],
   feeAmount?: number | null,
+  tolerance = DEFAULT_AMOUNT_TOLERANCE,
 ): { hasMismatch: boolean; sum: number } {
   if (lineItems.length === 0 || !totalAmount) {
     return { hasMismatch: false, sum: 0 };
   }
   const sum = lineItems.reduce((acc, item) => acc + (item.total_with_tax ?? 0), 0);
   const adjustedTotal = totalAmount - (feeAmount ?? 0);
-  const hasMismatch = Math.abs(sum - adjustedTotal) > TOTAL_TOLERANCE;
+  const hasMismatch = Math.abs(sum - adjustedTotal) > tolerance;
   return { hasMismatch, sum };
 }
 
@@ -26,12 +25,13 @@ export function computeTotalMismatch(
 export function computeBeforeTaxTotalMismatch(
   totalBeforeTax: number,
   lineItems: { subtotal?: number | null }[],
+  tolerance = DEFAULT_AMOUNT_TOLERANCE,
 ): { hasMismatch: boolean; sum: number } {
   if (lineItems.length === 0 || !totalBeforeTax) {
     return { hasMismatch: false, sum: 0 };
   }
   const sum = lineItems.reduce((acc, item) => acc + (item.subtotal ?? 0), 0);
-  const hasMismatch = Math.abs(sum - totalBeforeTax) > TOTAL_TOLERANCE;
+  const hasMismatch = Math.abs(sum - totalBeforeTax) > tolerance;
   return { hasMismatch, sum };
 }
 
@@ -40,21 +40,23 @@ export function computeBeforeTaxTotalMismatch(
  */
 export function computeLineItemMismatch(
   item: { unit_price?: number | null; quantity?: number | null; subtotal?: number | null },
+  tolerance = DEFAULT_AMOUNT_TOLERANCE,
 ): { hasMismatch: boolean; expected: number | null } {
   if (!item.unit_price || !item.quantity || item.subtotal == null) {
     return { hasMismatch: false, expected: null };
   }
   const expected = Math.round(item.unit_price * item.quantity);
-  const hasMismatch = Math.abs(item.subtotal - expected) > TOLERANCE;
+  const hasMismatch = Math.abs(item.subtotal - expected) > tolerance;
   return { hasMismatch, expected };
 }
 
 export function getMismatchedLineItems(
   items: InvoiceLineItem[],
+  tolerance = DEFAULT_AMOUNT_TOLERANCE,
 ): { item: InvoiceLineItem; expected: number }[] {
   const results: { item: InvoiceLineItem; expected: number }[] = [];
   for (const item of items) {
-    const { hasMismatch, expected } = computeLineItemMismatch(item);
+    const { hasMismatch, expected } = computeLineItemMismatch(item, tolerance);
     if (hasMismatch && expected != null) {
       results.push({ item, expected });
     }
@@ -67,12 +69,13 @@ export function getMismatchedLineItems(
  */
 export function computeAfterTaxMismatch(
   item: { subtotal?: number | null; tax_rate?: number | string | null; total_with_tax?: number | null },
+  tolerance = DEFAULT_AMOUNT_TOLERANCE,
 ): { hasMismatch: boolean; expected: number | null } {
   if (item.subtotal == null || item.tax_rate == null || typeof item.tax_rate === 'string' || item.total_with_tax == null) {
     return { hasMismatch: false, expected: null };
   }
   const expected = Math.round(item.subtotal * (1 + item.tax_rate / 100));
-  const hasMismatch = Math.abs(item.total_with_tax - expected) > TOLERANCE;
+  const hasMismatch = Math.abs(item.total_with_tax - expected) > tolerance;
   return { hasMismatch, expected };
 }
 
@@ -115,6 +118,7 @@ export function getItemsWithBadTaxRate(
 export function deriveFieldValue(
   fieldName: string,
   item: InvoiceLineItem,
+  tolerance = DEFAULT_AMOUNT_TOLERANCE,
 ): number | null {
   const qty = item.quantity;
   const price = item.unit_price;
@@ -177,7 +181,7 @@ export function deriveFieldValue(
   // Only return derived value if it differs from current
   // Use tolerance for VND amount fields only; exact match for qty/price/tax
   const isAmountField = fieldName === 'subtotal' || fieldName === 'total_with_tax';
-  const tol = isAmountField ? TOLERANCE : 0.001;
+  const tol = isAmountField ? tolerance : 0.001;
   if (current != null && Math.abs(current - derived) <= tol) return null;
   return derived;
 }

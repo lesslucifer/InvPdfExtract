@@ -20,6 +20,7 @@ export const IGNORED_DIRS = [
 ];
 
 export const DEFAULT_CONFIDENCE_THRESHOLD = 0.8;
+export const DEFAULT_AMOUNT_TOLERANCE = 100; // 100 VND
 export const DEFAULT_BATCH_SIZE = 10;
 export const DEFAULT_CLI_TIMEOUT = 600_000; // 10 minutes
 export const MAX_BATCH_CONTEXT_BYTES = 5_000_000; // 5MB context budget per batch

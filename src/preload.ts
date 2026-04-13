@@ -19,6 +19,8 @@ const api: InvoiceVaultAPI = {
     ipcRenderer.invoke('get-line-item-overrides', lineItemIds),
   // Spotlight UX additions
   getAppConfig: () => ipcRenderer.invoke('get-app-config'),
+  getVaultConfig: () => ipcRenderer.invoke('get-vault-config'),
+  updateVaultConfig: (updates) => ipcRenderer.invoke('update-vault-config', updates),
   getLocale: () => ipcRenderer.invoke('get-locale'),
   setLocale: (locale: 'en' | 'vi') => ipcRenderer.invoke('set-locale', locale),
   initVault: (folderPath: string) => ipcRenderer.invoke('init-vault', folderPath),

@@ -5,6 +5,7 @@ import { StatusIcon } from './StatusIcon';
 import { DupBadge } from './DupBadge';
 import { formatCurrency } from '../shared/format';
 import { DOC_TYPE_ICONS, ICON_SIZE } from '../shared/icons';
+import { DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { useSearchStore } from '../stores';
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   onOpenFolder?: (folder: string) => void;
   onReprocessFile?: (relativePath: string) => void;
   onReprocessFolder?: (folder: string) => void;
+  amountTolerance?: number;
 }
 
 const CONFIDENCE_CLASSES: Record<'high' | 'medium' | 'low', string> = {
@@ -58,7 +60,7 @@ function formatInvoiceReference(invoiceCode: string, invoiceNumber: string): str
 const FOLDER_MAX_LEN = 30;
 const FILENAME_MAX_LEN = 35;
 
-export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder }) => {
+export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onClick, onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder, amountTolerance = DEFAULT_AMOUNT_TOLERANCE }) => {
   const meta = DOC_TYPE_ICONS[result.doc_type] || DOC_TYPE_ICONS['unknown'];
   const isBank = result.doc_type === DocType.BankStatement;
   const invoiceCode = result.invoice_code?.trim() || '';
@@ -162,7 +164,7 @@ export const ResultRow: React.FC<Props> = ({ result, isSelected, isExpanded, onC
           {amount > 0 && (
             <span className="font-semibold tabular-nums text-3.25">
               {formatCurrency(amount)}
-              {!isBank && result.line_item_sum != null && result.total_amount > 0 && Math.abs(result.line_item_sum - result.total_amount) > 1000 && (
+              {!isBank && result.line_item_sum != null && result.total_amount > 0 && Math.abs(result.line_item_sum - result.total_amount) > amountTolerance && (
                 <span className="text-confidence-low text-2.75 font-bold ml-[3px]" title={`${t('sum_of_items', 'Sum of items')}: ${formatCurrency(result.line_item_sum)}`}>!</span>
               )}
             </span>

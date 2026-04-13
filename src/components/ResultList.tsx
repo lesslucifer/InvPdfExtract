@@ -2,7 +2,9 @@ import { t } from '../lib/i18n';
 import React, { useRef, useEffect } from 'react';
 import { ResultRow } from './ResultRow';
 import { ResultDetail } from './ResultDetail';
+import { DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { useSearchStore } from '../stores';
+import { useVaultConfig } from '../lib/queries';
 
 interface Props {
   onOpenFile: (relativePath: string) => void;
@@ -14,6 +16,8 @@ interface Props {
 export const ResultList: React.FC<Props> = ({
   onOpenFile, onOpenFolder, onReprocessFile, onReprocessFolder,
 }) => {
+  const { data: vaultConfig } = useVaultConfig();
+  const tolerance = vaultConfig?.amountTolerance ?? DEFAULT_AMOUNT_TOLERANCE;
   const results = useSearchStore(s => s.results);
   const selectedIndex = useSearchStore(s => s.selectedIndex);
   const expandedId = useSearchStore(s => s.expandedId);
@@ -65,6 +69,7 @@ export const ResultList: React.FC<Props> = ({
             onOpenFolder={onOpenFolder}
             onReprocessFile={onReprocessFile}
             onReprocessFolder={onReprocessFolder}
+            amountTolerance={tolerance}
           />
           {expandedId === result.id && (
             <ResultDetail result={result} />

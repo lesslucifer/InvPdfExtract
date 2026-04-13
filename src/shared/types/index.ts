@@ -215,6 +215,7 @@ export interface VaultConfig {
   version: number;
   created_at: string;
   confidence_threshold: number;
+  amountTolerance?: number;
   extractionBatchSize?: number;
   maxRetryCount?: number;
 }
@@ -539,6 +540,8 @@ export interface InvoiceVaultAPI {
   getLineItemOverrides: (lineItemIds: string[]) => Promise<{ [lineItemId: string]: FieldOverrideInfo[] }>;
   // Spotlight UX additions
   getAppConfig: () => Promise<AppConfig>;
+  getVaultConfig: () => Promise<VaultConfig>;
+  updateVaultConfig: (updates: Partial<VaultConfig>) => Promise<void>;
   getLocale: () => Promise<'en' | 'vi'>;
   setLocale: (locale: 'en' | 'vi') => Promise<void>;
   initVault: (folderPath: string) => Promise<{ success: boolean; error?: string }>;

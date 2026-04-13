@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { getDatabase } from './database';
 import { normalizeQuery } from '../../shared/normalize-query';
+import { DEFAULT_AMOUNT_TOLERANCE } from '../../shared/constants';
 import {
   ExtractionBatch, DbRecord, BankStatementData, InvoiceData,
   InvoiceLineItem, BatchStatus, DocType, ProcessingLog, LogLevel,
@@ -644,7 +645,7 @@ import { parseSearchQuery, ParsedQuery, SortField, SORT_DEFAULT_DIRECTIONS } fro
 import { buildInvoiceNumberOrderBy } from './search-sort';
 
 /** Shared filter-building logic used by search and aggregation queries. */
-function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params: SqlParam[] } {
+function buildFilterClauses(parsed: ParsedQuery, tolerance: number): { conditions: string[]; params: SqlParam[] } {
   const conditions: string[] = [
     'r.deleted_at IS NULL',
     'NOT EXISTS (SELECT 1 FROM record_duplicate_sources WHERE source_record_id = r.id)',
@@ -684,8 +685,9 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
   if (parsed.status === 'mismatch') {
     conditions.push(`r.doc_type IN ('invoice_in', 'invoice_out')
       AND ABS(COALESCE(id2.total_amount, 0) - COALESCE(id2.fee_amount, 0) - COALESCE(
-        (SELECT SUM(COALESCE(total_with_tax, subtotal)) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > 1000
+        (SELECT SUM(COALESCE(total_with_tax, subtotal)) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL), 0)) > ?
       AND (SELECT COUNT(*) FROM invoice_line_items WHERE record_id = r.id AND deleted_at IS NULL) > 0`);
+    params.push(tolerance);
   } else if (parsed.status === 'uncertain') {
     conditions.push("f.status = 'review'");
   } else if (parsed.status === 'ok') {
@@ -731,10 +733,10 @@ function buildFilterClauses(parsed: ParsedQuery): { conditions: string[]; params
   return { conditions, params };
 }
 
-export function getRecordIdsByFilters(filters: SearchFilters): string[] {
+export function getRecordIdsByFilters(filters: SearchFilters, tolerance = DEFAULT_AMOUNT_TOLERANCE): string[] {
   const db = getDatabase();
   const parsed = filtersToParsed(filters);
-  const { conditions, params } = buildFilterClauses(parsed);
+  const { conditions, params } = buildFilterClauses(parsed, tolerance);
   const rows = db.prepare(`SELECT r.id ${BASE_JOINS} WHERE ${conditions.join(' AND ')}`)
     .all(...params) as { id: string }[];
   return rows.map(r => r.id);
@@ -808,12 +810,12 @@ const SEARCH_RESULT_SELECT = `
       (EXISTS (SELECT 1 FROM record_duplicate_sources WHERE canonical_record_id = r.id)) as has_duplicates
 `;
 
-export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null): SearchResult[] {
+export function searchRecords(query: string, limit: number = 50, offset: number = 0, folder?: string | null, filePath?: string | null, tolerance?: number): SearchResult[] {
   const db = getDatabase();
   const parsed = parseSearchQuery(query);
   if (filePath) parsed.filePath = filePath;
   else if (folder) parsed.folder = folder;
-  const { conditions, params } = buildFilterClauses(parsed);
+  const { conditions, params } = buildFilterClauses(parsed, tolerance ?? DEFAULT_AMOUNT_TOLERANCE);
 
   params.push(limit, offset);
 
@@ -840,10 +842,10 @@ export function getSearchResultById(recordId: string): SearchResult | null {
 }
 
 /** Returns aggregate stats (count + total amount) for the given filters. */
-export function getAggregates(filters: SearchFilters): AggregateStats {
+export function getAggregates(filters: SearchFilters, tolerance = DEFAULT_AMOUNT_TOLERANCE): AggregateStats {
   const db = getDatabase();
   const parsed = filtersToParsed(filters);
-  const { conditions, params } = buildFilterClauses(parsed);
+  const { conditions, params } = buildFilterClauses(parsed, tolerance);
 
   const sql = `
     SELECT
@@ -861,14 +863,14 @@ export function getAggregates(filters: SearchFilters): AggregateStats {
 }
 
 /** Gathers export data filtered by SearchFilters. */
-export function gatherFilteredExportData(filters: SearchFilters): {
+export function gatherFilteredExportData(filters: SearchFilters, tolerance = DEFAULT_AMOUNT_TOLERANCE): {
   bankStatements: ExportBankStatementRow[];
   invoiceHeaders: ExportInvoiceHeaderRow[];
   invoiceLineItems: ExportInvoiceLineItemRow[];
 } {
   const db = getDatabase();
   const parsed = filtersToParsed(filters);
-  const { conditions, params } = buildFilterClauses(parsed);
+  const { conditions, params } = buildFilterClauses(parsed, tolerance);
 
   const whereClause = conditions.join(' AND ');
 
@@ -907,10 +909,10 @@ export function gatherFilteredExportData(filters: SearchFilters): {
 }
 
 /** Gathers JE export data filtered by SearchFilters. One row per journal entry. */
-export function gatherJEExportData(filters: SearchFilters): JEExportRow[] {
+export function gatherJEExportData(filters: SearchFilters, tolerance = DEFAULT_AMOUNT_TOLERANCE): JEExportRow[] {
   const db = getDatabase();
   const parsed = filtersToParsed(filters);
-  const { conditions, params } = buildFilterClauses(parsed);
+  const { conditions, params } = buildFilterClauses(parsed, tolerance);
   const whereClause = conditions.join(' AND ');
 
   return db.prepare(`
