@@ -4,7 +4,7 @@ import { openDatabase, closeDatabase, setActiveDatabase } from './db/database';
 import { VaultConfig, VaultHandle } from '../shared/types';
 import {
   INVOICEVAULT_DIR, CONFIG_FILE, DB_FILE, VAULT_SUBDIRS,
-  DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_FILTER_CONFIG, FILTER_CONFIG_FILE,
+  DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_AMOUNT_TOLERANCE, DEFAULT_FILTER_CONFIG, FILTER_CONFIG_FILE,
   INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE,
 } from '../shared/constants';
 import { writeInstruction } from './instruction-manager';
@@ -37,6 +37,7 @@ export async function initVault(folderPath: string): Promise<VaultHandle> {
     version: 1,
     created_at: new Date().toISOString(),
     confidence_threshold: DEFAULT_CONFIDENCE_THRESHOLD,
+    amountTolerance: DEFAULT_AMOUNT_TOLERANCE,
   };
   await fs.promises.writeFile(path.join(dotPath, CONFIG_FILE), JSON.stringify(config, null, 2));
 

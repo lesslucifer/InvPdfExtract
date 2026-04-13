@@ -1,4 +1,4 @@
-import { AppConfig, FilterPreset, SearchFilters, FileStatus, VaultFile, FieldOverrideInfo, InvoiceLineItem, ProcessedFileInfo, DuplicateSourceRow } from '../shared/types';
+import { AppConfig, VaultConfig, FilterPreset, SearchFilters, FileStatus, VaultFile, FieldOverrideInfo, InvoiceLineItem, ProcessedFileInfo, DuplicateSourceRow } from '../shared/types';
 import { queryHook } from './queryHook';
 
 const ALL_FILTERS: SearchFilters = {};
@@ -6,6 +6,11 @@ const ALL_FILTERS: SearchFilters = {};
 export const useAppConfig = queryHook
   .ofKey<void, ['appConfig']>(() => ['appConfig'] as const)
   .useQuery(() => ({ queryFn: () => window.api.getAppConfig() as Promise<AppConfig> }))
+  .create();
+
+export const useVaultConfig = queryHook
+  .ofKey<void, ['vaultConfig']>(() => ['vaultConfig'] as const)
+  .useQuery(() => ({ queryFn: () => window.api.getVaultConfig() as Promise<VaultConfig> }))
   .create();
 
 export const useAppVersion = queryHook

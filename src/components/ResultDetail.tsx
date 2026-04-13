@@ -6,8 +6,9 @@ import { EditableCell } from './EditableCell';
 import { JeCell } from './JeCell';
 import { formatCurrency } from '../shared/format';
 import { computeTotalMismatch, computeBeforeTaxTotalMismatch, computeLineItemMismatch, computeTaxRateMismatch, computeAfterTaxMismatch, deriveFieldValue } from './quickfix-logic';
+import { DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { useProcessingStore, useSearchStore } from '../stores';
-import { useResultDetail, useLineItems } from '../lib/queries';
+import { useResultDetail, useLineItems, useVaultConfig } from '../lib/queries';
 import { useSaveFieldOverride, useSaveJournalEntry, useSaveLineItemField } from '../lib/mutations';
 import { Icons, ICON_SIZE } from '../shared/icons';
 import type { LucideIcon } from 'lucide-react';
@@ -26,6 +27,8 @@ function getJeStatusIconConfig(): Record<string, { icon: LucideIcon; className: 
 }
 
 export const ResultDetail: React.FC<Props> = ({ result }) => {
+  const { data: vaultConfig } = useVaultConfig();
+  const tolerance = vaultConfig?.amountTolerance ?? DEFAULT_AMOUNT_TOLERANCE;
   const [localTotals, setLocalTotals] = useState<{ total_amount: number; total_before_tax: number }>({
     total_amount: result.total_amount,
     total_before_tax: result.total_before_tax,
@@ -105,24 +108,24 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
   const hasConflicts = overrides.some(o => o.status === 'conflict');
 
   const totalMismatch = useMemo(
-    () => computeTotalMismatch(localTotals.total_amount, lineItems, result.fee_amount),
-    [localTotals.total_amount, lineItems, result.fee_amount],
+    () => computeTotalMismatch(localTotals.total_amount, lineItems, result.fee_amount, tolerance),
+    [localTotals.total_amount, lineItems, result.fee_amount, tolerance],
   );
 
   const beforeTaxTotalMismatch = useMemo(
-    () => computeBeforeTaxTotalMismatch(localTotals.total_before_tax, lineItems),
-    [localTotals.total_before_tax, lineItems],
+    () => computeBeforeTaxTotalMismatch(localTotals.total_before_tax, lineItems, tolerance),
+    [localTotals.total_before_tax, lineItems, tolerance],
   );
 
   const hasColumnIssues = useMemo(() => {
-    const beforeTax = lineItems.some(i => deriveFieldValue('subtotal', i) != null);
-    const afterTax = lineItems.some(i => deriveFieldValue('total_with_tax', i) != null);
+    const beforeTax = lineItems.some(i => deriveFieldValue('subtotal', i, tolerance) != null);
+    const afterTax = lineItems.some(i => deriveFieldValue('total_with_tax', i, tolerance) != null);
     return { beforeTax, afterTax };
-  }, [lineItems]);
+  }, [lineItems, tolerance]);
 
   const handleColumnFix = async (fieldName: 'subtotal' | 'total_with_tax') => {
     for (const item of lineItems) {
-      const derived = deriveFieldValue(fieldName, item);
+      const derived = deriveFieldValue(fieldName, item, tolerance);
       if (derived != null) {
         await handleLineItemSave(item.id, fieldName, String(derived));
       }
@@ -279,20 +282,20 @@ export const ResultDetail: React.FC<Props> = ({ result }) => {
                 </thead>
                 <tbody>
                   {lineItems.map((item) => {
-                    const itemMismatch = computeLineItemMismatch(item);
+                    const itemMismatch = computeLineItemMismatch(item, tolerance);
                     const taxMismatch = computeTaxRateMismatch(item);
-                    const afterTaxMismatch = computeAfterTaxMismatch(item);
+                    const afterTaxMismatch = computeAfterTaxMismatch(item, tolerance);
                     const hasRowIssue = itemMismatch.hasMismatch || taxMismatch.hasMismatch || afterTaxMismatch.hasMismatch;
                     const je = jeByLineItem.get(item.id) ?? null;
                     return (
                       <tr key={item.id} className={hasRowIssue ? 'line-item-mismatch' : ''}>
                         <td className="px-1.5 py-[3px] border-b border-border">{item.line_number}</td>
                         <EditableCell value={item.description || ''} fieldName="description" lineItemId={item.id} override={getLineItemOverride(item.id, 'description')} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.quantity ?? '')} fieldName="quantity" lineItemId={item.id} override={getLineItemOverride(item.id, 'quantity')} inputType="number" derivedValue={deriveFieldValue('quantity', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.unit_price ?? '')} fieldName="unit_price" lineItemId={item.id} override={getLineItemOverride(item.id, 'unit_price')} inputType="number" derivedValue={deriveFieldValue('unit_price', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.subtotal ?? '')} fieldName="subtotal" lineItemId={item.id} override={getLineItemOverride(item.id, 'subtotal')} inputType="number" derivedValue={deriveFieldValue('subtotal', item)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={item.tax_rate != null ? String(item.tax_rate) : ''} fieldName="tax_rate" lineItemId={item.id} override={getLineItemOverride(item.id, 'tax_rate')} derivedValue={deriveFieldValue('tax_rate', item)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
-                        <EditableCell value={String(item.total_with_tax ?? '')} fieldName="total_with_tax" lineItemId={item.id} override={getLineItemOverride(item.id, 'total_with_tax')} inputType="number" derivedValue={deriveFieldValue('total_with_tax', item)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.quantity ?? '')} fieldName="quantity" lineItemId={item.id} override={getLineItemOverride(item.id, 'quantity')} inputType="number" derivedValue={deriveFieldValue('quantity', item, tolerance)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.unit_price ?? '')} fieldName="unit_price" lineItemId={item.id} override={getLineItemOverride(item.id, 'unit_price')} inputType="number" derivedValue={deriveFieldValue('unit_price', item, tolerance)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.subtotal ?? '')} fieldName="subtotal" lineItemId={item.id} override={getLineItemOverride(item.id, 'subtotal')} inputType="number" derivedValue={deriveFieldValue('subtotal', item, tolerance)} showMismatchIcon={itemMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={item.tax_rate != null ? String(item.tax_rate) : ''} fieldName="tax_rate" lineItemId={item.id} override={getLineItemOverride(item.id, 'tax_rate')} derivedValue={deriveFieldValue('tax_rate', item, tolerance)} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
+                        <EditableCell value={String(item.total_with_tax ?? '')} fieldName="total_with_tax" lineItemId={item.id} override={getLineItemOverride(item.id, 'total_with_tax')} inputType="number" derivedValue={deriveFieldValue('total_with_tax', item, tolerance)} showMismatchIcon={afterTaxMismatch.hasMismatch} onSave={handleLineItemSave} onResolve={handleLineItemResolve} />
                         <JeCell account={je?.account ?? null} onSave={(account, contra) => handleSaveJeAccount('line', item.id, account, contra)} />
                         <JeCell account={je?.contra_account ?? null} onSave={(contra) => handleSaveJeAccount('line', item.id, je?.account ?? '', contra)} />
                       </tr>

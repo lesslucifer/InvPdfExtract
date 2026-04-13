@@ -21,16 +21,16 @@ describe('computeTotalMismatch', () => {
     expect(result.sum).toBe(90000);
   });
 
-  it('tolerates up to 1000 VND difference', () => {
-    const result = computeTotalMismatch(1001000, [
+  it('tolerates up to configured tolerance (default 100 VND)', () => {
+    const result = computeTotalMismatch(1000100, [
       { total_with_tax: 500000 },
       { total_with_tax: 500000 },
     ]);
     expect(result.hasMismatch).toBe(false);
   });
 
-  it('flags mismatch when difference exceeds 1000 VND', () => {
-    const result = computeTotalMismatch(1002000, [
+  it('flags mismatch when difference exceeds tolerance', () => {
+    const result = computeTotalMismatch(1000200, [
       { total_with_tax: 500000 },
       { total_with_tax: 500000 },
     ]);
@@ -85,8 +85,8 @@ describe('computeLineItemMismatch', () => {
     expect(result.expected).toBe(500);
   });
 
-  it('returns mismatch when product differs', () => {
-    const result = computeLineItemMismatch({ unit_price: 100, quantity: 5, subtotal: 600 });
+  it('returns mismatch when product differs by more than tolerance', () => {
+    const result = computeLineItemMismatch({ unit_price: 100, quantity: 5, subtotal: 700 });
     expect(result.hasMismatch).toBe(true);
     expect(result.expected).toBe(500);
   });
@@ -133,13 +133,13 @@ describe('computeBeforeTaxTotalMismatch', () => {
     expect(result.hasMismatch).toBe(false);
   });
 
-  it('tolerates up to 1000 VND difference', () => {
-    const result = computeBeforeTaxTotalMismatch(1001000, [{ subtotal: 500000 }, { subtotal: 500000 }]);
+  it('tolerates up to configured tolerance (default 100 VND)', () => {
+    const result = computeBeforeTaxTotalMismatch(1000100, [{ subtotal: 500000 }, { subtotal: 500000 }]);
     expect(result.hasMismatch).toBe(false);
   });
 
-  it('flags mismatch when difference exceeds 1000 VND', () => {
-    const result = computeBeforeTaxTotalMismatch(1002000, [{ subtotal: 500000 }, { subtotal: 500000 }]);
+  it('flags mismatch when difference exceeds tolerance', () => {
+    const result = computeBeforeTaxTotalMismatch(1000200, [{ subtotal: 500000 }, { subtotal: 500000 }]);
     expect(result.hasMismatch).toBe(true);
   });
 
@@ -151,7 +151,7 @@ describe('computeBeforeTaxTotalMismatch', () => {
 
 describe('computeAfterTaxMismatch', () => {
   it('returns mismatch when after_tax != before_tax * (1 + tax/100)', () => {
-    const result = computeAfterTaxMismatch({ subtotal: 1000, tax_rate: 10, total_with_tax: 1200 });
+    const result = computeAfterTaxMismatch({ subtotal: 1000, tax_rate: 10, total_with_tax: 1300 });
     expect(result.hasMismatch).toBe(true);
     expect(result.expected).toBe(1100);
   });
@@ -217,11 +217,11 @@ describe('getMismatchedLineItems', () => {
     deleted_at: null,
   });
 
-  it('returns items where subtotal differs from unit_price * quantity', () => {
+  it('returns items where subtotal differs from unit_price * quantity beyond tolerance', () => {
     const items = [
       makeItem('a', 100, 5, 500),   // match
-      makeItem('b', 100, 5, 600),   // mismatch
-      makeItem('c', 200, 3, 700),   // mismatch (expected 600)
+      makeItem('b', 100, 5, 700),   // mismatch (diff=200 > 100)
+      makeItem('c', 200, 3, 800),   // mismatch (expected 600, diff=200 > 100)
     ];
     const result = getMismatchedLineItems(items);
     expect(result).toHaveLength(2);
@@ -332,14 +332,14 @@ describe('deriveFieldValue', () => {
   });
 
   it('derives subtotal = quantity * unit_price', () => {
-    const item = makeFullItem({ unit_price: 150, quantity: 4, subtotal: 500 });
-    // derived = 150*4 = 600, current = 500 → mismatch
+    const item = makeFullItem({ unit_price: 150, quantity: 4, subtotal: 400 });
+    // derived = 150*4 = 600, current = 400 → diff=200 > tolerance
     expect(deriveFieldValue('subtotal', item)).toBe(600);
   });
 
   it('derives total_with_tax = subtotal * (1 + tax_rate/100)', () => {
-    const item = makeFullItem({ subtotal: 1000, tax_rate: 10, total_with_tax: 1000 });
-    // derived = 1000 * 1.1 = 1100, current = 1000 → mismatch
+    const item = makeFullItem({ subtotal: 1000, tax_rate: 10, total_with_tax: 900 });
+    // derived = 1000 * 1.1 = 1100, current = 900 → diff=200 > tolerance
     expect(deriveFieldValue('total_with_tax', item)).toBe(1100);
   });
 
