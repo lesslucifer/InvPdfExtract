@@ -316,5 +316,13 @@
   "version_prefix": "v",
   "view_session_log": "Xem log phiên làm việc",
   "mst": "Mã số thuế",
-  "yes": "Có"
+  "yes": "Có",
+  "confirm_reinitialize": "Xác nhận khởi tạo lại",
+  "database_error": "Lỗi cơ sở dữ liệu",
+  "invoicevault_failed_to_open_its_database": "InvoiceVault không thể mở cơ sở dữ liệu",
+  "reinitialize": "Khởi tạo lại",
+  "reinitialize_warning": "Thao tác này sẽ xóa toàn bộ dữ liệu trích xuất và bắt đầu lại. Bản sao lưu sẽ được tạo trước.",
+  "reinitializing": "Đang khởi tạo lại...",
+  "retry": "Thử lại",
+  "switch_vault": "Chuyển Vault"
 }

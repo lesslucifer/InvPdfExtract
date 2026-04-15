@@ -290,6 +290,11 @@ app.on('ready', async () => {
       overlayWindow.showOverlay();
       overlayWindow.notifyDbError((err as Error).message);
     }
+  } else if (appConfig.lastVaultPath) {
+    // Vault was configured but data folder is missing or corrupted
+    log.error(LogModule.Main, 'Vault data missing for: ' + appConfig.lastVaultPath);
+    overlayWindow.showOverlay();
+    overlayWindow.notifyDbError('Vault data folder is missing or corrupted. You can reinitialize to start fresh.');
   } else {
     // No vault configured — show overlay immediately so user can set one up
     log.info(LogModule.Main, 'No vault configured, showing overlay for first-time setup');

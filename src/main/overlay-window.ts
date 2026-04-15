@@ -41,6 +41,7 @@ import { VaultPathCache } from '../core/vault-path-cache';
 import { t } from '../lib/i18n';
 import { exportJEToXlsx } from '../core/export';
 import { log, LogModule } from '../core/logger';
+import dayjs from 'dayjs';
 
 async function findFirstValidVault(vaultPaths: string[]): Promise<string | null> {
   for (const vp of vaultPaths) {
@@ -785,10 +786,7 @@ export class OverlayWindow {
 
       // Auto-backup before clearing
       try {
-        const now = new Date();
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
-        const backupPath = path.join(vaultPath, `invoicevault.backup.${stamp}.zip`);
+        const backupPath = path.join(vaultPath, `invoicevault.backup.${dayjs().format('YYMMDDHHmm')}.zip`);
         log.info(LogModule.Overlay, 'Starting auto-backup to: ' + backupPath);
         await backupVault(vaultPath, backupPath);
         log.info(LogModule.Overlay, 'Auto-backup saved to ' + backupPath);
@@ -814,6 +812,39 @@ export class OverlayWindow {
       if (nextVault && this.callbacks) {
         log.info(LogModule.Overlay, 'Switching to next vault: ' + nextVault);
         await this.callbacks.onSwitchVault(nextVault);
+      }
+    });
+
+    ipcMain.handle('reinitialize-vault', async (_event, vaultPath: string) => {
+      try {
+        if (!this.callbacks) throw new Error('Overlay callbacks not set');
+
+        // Stop vault if active
+        const config = await loadAppConfig();
+        if (config.lastVaultPath === vaultPath) {
+          await this.closeAllSpawnedWindows();
+          await this.callbacks.onStopVault();
+        }
+
+        // Best-effort backup (corrupted data may fail to zip)
+        try {
+          const backupPath = path.join(vaultPath, `invoicevault.backup.${dayjs().format('YYMMDDHHmm')}.zip`);
+          await backupVault(vaultPath, backupPath);
+          log.info(LogModule.Overlay, 'Auto-backup before reinit saved to ' + backupPath);
+        } catch (err) {
+          log.error(LogModule.Overlay, 'Auto-backup before reinit failed (continuing)', err);
+        }
+
+        // Clear vault data folder
+        await clearVaultData(vaultPath);
+
+        // Re-init fresh vault and start it
+        await this.callbacks.onInitVault(vaultPath);
+
+        return { success: true };
+      } catch (err) {
+        log.error(LogModule.Overlay, 'reinitialize-vault failed', err);
+        return { success: false, error: (err as Error).message };
       }
     });
 

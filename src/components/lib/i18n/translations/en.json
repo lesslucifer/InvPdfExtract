@@ -315,5 +315,13 @@
   "vault_initialized": "Vault Initialized",
   "version_prefix": "v",
   "view_session_log": "View session log",
-  "yes": "Yes"
+  "yes": "Yes",
+  "confirm_reinitialize": "Confirm Reinitialize",
+  "database_error": "Database Error",
+  "invoicevault_failed_to_open_its_database": "InvoiceVault failed to open its database",
+  "reinitialize": "Reinitialize",
+  "reinitialize_warning": "This will erase all extraction data and start fresh. A backup will be attempted first.",
+  "reinitializing": "Reinitializing...",
+  "retry": "Retry",
+  "switch_vault": "Switch Vault"
 }
