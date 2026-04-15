@@ -2,13 +2,15 @@ import { spawn, exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
-import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ExtractionResult, ModelTier, MODEL_TIER_MAP } from '../shared/types';
+import { ModelTier, MODEL_TIER_MAP, EffortLevel } from '../shared/types';
 import { DEFAULT_CLI_TIMEOUT } from '../shared/constants';
-import { extractPdfWithLiteParse } from './liteparse-extractor';
 import { log, LogModule } from './logger';
+
+const EFFORT_SPEED_HINTS: Partial<Record<EffortLevel, string>> = {
+  low: '\n\nSpeed is important. Do not over-analyze. Output only the requested format immediately — no explanations, reasoning, or commentary.',
+};
 
 export class CliError extends Error {
   constructor(
@@ -198,11 +200,13 @@ export class ClaudeCodeRunner {
   private cliPath: string;
   private timeout: number;
   private model: string | undefined;
+  private effort: EffortLevel | undefined;
 
-  constructor(cliPath?: string, timeout?: number, modelTier?: ModelTier) {
+  constructor(cliPath?: string, timeout?: number, modelTier?: ModelTier, effort?: EffortLevel) {
     this.cliPath = cliPath || 'claude';
     this.timeout = timeout || DEFAULT_CLI_TIMEOUT;
     this.model = modelTier ? MODEL_TIER_MAP[modelTier] : undefined;
+    this.effort = effort;
   }
 
   static async isAvailable(cliPath?: string): Promise<boolean> {
@@ -214,84 +218,22 @@ export class ClaudeCodeRunner {
     }
   }
 
-  async processFiles(filePaths: string[], vaultRoot: string, systemPromptPath: string): Promise<{ result: ExtractionResult; sessionLog: string }> {
-    const systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
-
-    // Extract text from all PDFs via LiteParse (two-pass: fast text → OCR if needed).
-    // All files produce text — no vision/Read tool needed.
-    const textResults = await Promise.all(
-      filePaths.map(async fp => {
-        try {
-          const lpResult = await extractPdfWithLiteParse(fp);
-          return { filePath: fp, text: lpResult.text, ocrUsed: lpResult.ocrUsed };
-        } catch (err) {
-          log.warn(LogModule.ClaudeCLI, `LiteParse failed for ${fp}: ${(err as Error).message}`);
-          return { filePath: fp, text: '', ocrUsed: false };
-        }
-      })
-    );
-
-    const ocrCount = textResults.filter(r => r.ocrUsed).length;
-    log.info(LogModule.ClaudeCLI, `Extracted ${textResults.length} files (${ocrCount} via OCR)`);
-
-    const filesSection = textResults.map(r => {
-      const rel = path.relative(vaultRoot, r.filePath);
-      const ocrTag = r.ocrUsed ? ' [OCR — may contain errors, please correct during extraction]' : '';
-      return `### File: ${rel}${ocrTag}\n${r.text.trim()}`;
-    }).join('\n\n');
-
-    const userPrompt = `Process these accounting files and return structured JSON.
-
-## Files (classify and extract from the text below)
-
-${filesSection}
-
-For each file, return a result with relative_path matching exactly as shown above.`;
-
-    // All files have extracted text — no tool loop needed.
-    const toolArgs = ['--tools', ''];
-
-    const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt, vaultRoot, toolArgs);
-    const allRelative = filePaths.map(fp => path.relative(vaultRoot, fp));
-    let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
-
-    try {
-      const result = this.parseResponse(stdout);
-      return { result, sessionLog };
-    } catch (firstErr) {
-      log.warn(LogModule.ClaudeCLI, `Parse failed, retrying with JSON emphasis: ${(firstErr as Error).message}`);
-
-      const retryPrompt = `Your previous response could not be parsed as valid JSON.
-Please try again for the same files. Return ONLY a valid JSON object matching the ExtractionResult schema.
-Do NOT include any explanation, thinking, commentary, or markdown — output raw JSON only, starting with { and ending with }.
-If your previous output was truncated, produce a shorter response.
-
-Files:
-${allRelative.map(p => `- ${p}`).join('\n')}
-
-Located relative to: ${vaultRoot}`;
-
-      const retryStdout = await this.invokeClaudeCLI(retryPrompt, systemPrompt, vaultRoot, toolArgs);
-      sessionLog += `\n\nRETRY PROMPT:\n${retryPrompt}\n\nRETRY RESPONSE:\n${retryStdout}`;
-
-      const result = this.parseResponse(retryStdout);
-      return { result, sessionLog };
-    }
-  }
-
   async invokeRaw(userPrompt: string, systemPrompt: string, cwd?: string): Promise<string> {
-    const raw = await this.invokeClaudeCLI(userPrompt, systemPrompt, cwd);
+    const raw = await this.invoke(userPrompt, systemPrompt, cwd);
     return unwrapEnvelope(raw) ?? raw;
   }
 
-  private invokeClaudeCLI(prompt: string, systemPrompt: string, cwd?: string, toolArgs?: string[]): Promise<string> {
+  invoke(prompt: string, systemPrompt: string, cwd?: string, toolArgs?: string[]): Promise<string> {
+    const effortHint = this.effort ? (EFFORT_SPEED_HINTS[this.effort] ?? '') : '';
+    const finalSystemPrompt = effortHint ? systemPrompt + effortHint : systemPrompt;
     return new Promise((resolve, reject) => {
       const args = [
         '--print',
         '--output-format', 'json',
         ...(toolArgs ?? []),
         ...(this.model ? ['--model', this.model] : []),
-        '--system-prompt', systemPrompt,
+        ...(this.effort ? ['--effort', this.effort] : []),
+        '--system-prompt', finalSystemPrompt,
         prompt,
       ];
 
@@ -375,57 +317,4 @@ Located relative to: ${vaultRoot}`;
     });
   }
 
-  parseResponse(raw: string): ExtractionResult {
-    // Step 0: Unwrap --output-format json envelope if present
-    const unwrapped = unwrapEnvelope(raw);
-    const text = unwrapped ?? raw;
-
-    // Step 1: Strip markdown code fences if present
-    let cleaned = text.trim();
-    if (cleaned.startsWith('```')) {
-      const firstNewline = cleaned.indexOf('\n');
-      cleaned = cleaned.slice(firstNewline + 1);
-      if (cleaned.endsWith('```')) {
-        cleaned = cleaned.slice(0, cleaned.lastIndexOf('```'));
-      }
-    }
-    cleaned = cleaned.trim();
-
-    // Step 2: Try direct parse
-    const directResult = this.tryParseExtractionResult(cleaned);
-    if (directResult) return directResult;
-
-    // Step 3: Bracket-counting JSON extraction
-    const extracted = extractJSON(text);
-    if (extracted) {
-      const extractedResult = this.tryParseExtractionResult(extracted);
-      if (extractedResult) return extractedResult;
-    }
-
-    // Step 4: Truncated JSON repair
-    const repaired = repairTruncatedJSON(text);
-    if (repaired) {
-      const repairedResult = this.tryParseExtractionResult(repaired);
-      if (repairedResult) {
-        log.warn(LogModule.ClaudeCLI, 'Parsed truncated JSON — extraction data may be incomplete');
-        return repairedResult;
-      }
-    }
-
-    // Step 5: All strategies failed
-    const hasOpenBrace = text.indexOf('{') !== -1;
-    const endsWithBrace = text.trimEnd().endsWith('}');
-    const hint = hasOpenBrace && !endsWithBrace ? ' (output appears truncated)' : '';
-    throw new Error(`Failed to parse Claude CLI response as JSON${hint}\nRaw output:\n${text.slice(0, 500)}`);
-  }
-
-  private tryParseExtractionResult(text: string): ExtractionResult | null {
-    try {
-      const parsed = JSON.parse(text);
-      if (!parsed.results || !Array.isArray(parsed.results)) return null;
-      return parsed as ExtractionResult;
-    } catch {
-      return null;
-    }
-  }
 }

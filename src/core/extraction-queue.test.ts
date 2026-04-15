@@ -42,10 +42,14 @@ vi.mock('./filters/relevance-filter', () => ({
 
 vi.mock('./claude-cli', () => ({
   ClaudeCodeRunner: function ClaudeCodeRunner() {
-    return { processFiles: mocks.processFiles };
+    return {};
   },
   CliError: class CliError extends Error {},
   getSessionLogPath: vi.fn().mockReturnValue('/tmp/session.log'),
+}));
+
+vi.mock('./pdf-extractor', () => ({
+  processFiles: mocks.processFiles,
 }));
 
 vi.mock('./reconciler', () => ({
@@ -209,7 +213,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     await queue['processQueue']();
 
     expect(mocks.processFiles).toHaveBeenCalledTimes(1);
-    const [filePaths] = mocks.processFiles.mock.calls[0] as [string[], ...unknown[]];
+    const [, filePaths] = mocks.processFiles.mock.calls[0] as [unknown, string[], ...unknown[]];
     expect(filePaths).toHaveLength(2);
     expect(filePaths.every((p: string) => p.endsWith('.pdf'))).toBe(true);
   });
@@ -223,7 +227,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     await queue['processQueue']();
 
     for (const call of mocks.processFiles.mock.calls) {
-      const paths = call[0] as string[];
+      const paths = call[1] as string[];
       expect(paths.every((p: string) => !p.endsWith('.xlsx') && !p.endsWith('.csv'))).toBe(true);
     }
   });
@@ -313,7 +317,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
 
     // processFiles must never receive xlsx paths
     for (const call of mocks.processFiles.mock.calls) {
-      const paths = call[0] as string[];
+      const paths = call[1] as string[];
       expect(paths.every((p: string) => !p.endsWith('.xlsx') && !p.endsWith('.csv'))).toBe(true);
     }
   });

@@ -128,7 +128,7 @@ ${itemLines.join('\n')}
 
 Return a JSON array where each entry has: id (1-based line number), account, contra_account, cash_flow.`;
 
-  const runner = new ClaudeCodeRunner(cliPath, undefined, 'medium');
+  const runner = new ClaudeCodeRunner(cliPath, undefined, 'medium', 'low');
 
   try {
     const raw = await runner.invokeRaw(userPrompt, systemPrompt, dotPath);

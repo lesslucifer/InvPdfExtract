@@ -3,6 +3,7 @@ import * as path from 'path';
 import { getFilesByStatuses, updateFileStatus, incrementRetryAndRequeue } from './db/files';
 import { addLog } from './db/records';
 import { ClaudeCodeRunner, CliError, getSessionLogPath } from './claude-cli';
+import { processFiles as processFilesWithCLI } from './pdf-extractor';
 import { Reconciler } from './reconciler';
 import { ScriptRegistry } from './script-registry';
 import { MatcherEvaluator } from './matcher-evaluator';
@@ -17,7 +18,7 @@ import { validateScriptOutput } from './validators/output-validator';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { log, LogModule } from './logger';
-import { FileStatus, LogLevel, VaultHandle, VaultFile, ExtractionResult, ClaudeModelConfig } from '../shared/types';
+import { FileStatus, LogLevel, VaultHandle, VaultFile, ClaudeModelConfig } from '../shared/types';
 import {
   DEFAULT_BATCH_SIZE,
   DEFAULT_CLAUDE_MODELS,
@@ -49,12 +50,13 @@ export class ExtractionQueue {
     this.vault = vault;
     this.relevanceFilter = relevanceFilter;
     const models = modelConfig ?? DEFAULT_CLAUDE_MODELS;
-    this.pdfRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.pdfExtraction);
-    this.scriptRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration);
+    this.pdfRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.pdfExtraction, 'low');
+    this.scriptRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration, 'high');
+    const matcherRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration, 'low');
     this.reconciler = new Reconciler(vault.config.confidence_threshold);
     this.scriptRegistry = new ScriptRegistry(vault.db);
     this.matcherEvaluator = new MatcherEvaluator();
-    this.scriptGenerator = new ScriptGenerator(this.scriptRunner);
+    this.scriptGenerator = new ScriptGenerator(this.scriptRunner, matcherRunner);
     this.scriptVerifier = new ScriptVerifier(this.scriptRunner);
     this.batchSize = vault.config.extractionBatchSize ?? DEFAULT_BATCH_SIZE;
     this.maxRetryCount = vault.config.maxRetryCount ?? DEFAULT_MAX_RETRY_COUNT;
@@ -217,8 +219,8 @@ export class ExtractionQueue {
       if (ext === '.xml') {
         try {
           const fileResult = parseXmlInvoice(fullPath, file.relative_path);
-          const extraction: ExtractionResult = { results: [fileResult] };
-          this.reconciler.reconcileResults(extraction, 'xml-parser');
+          fileResult.file_id = file.id;
+          this.reconciler.reconcileResults({ results: [fileResult] }, 'xml-parser');
           log.info(LogModule.ExtractionQueue, `XML parsed directly: ${file.relative_path}`);
           return;
         } catch {
@@ -264,6 +266,7 @@ export class ExtractionQueue {
             if (validation.valid) {
               this.scriptRegistry.recordUsage(matchedScript.id, file.id);
               const reconcileT0 = performance.now();
+              result.file_id = file.id;
               this.reconciler.reconcileResults({ results: [result] }, `script:${matchedScript.name}`);
               log.info(LogModule.ExtractionQueue, `reconcileResults took ${(performance.now() - reconcileT0).toFixed(0)}ms for ${file.relative_path}`);
               log.info(LogModule.ExtractionQueue, `SUCCESS: ${file.relative_path} processed with cached script "${matchedScript.name}"`);
@@ -335,6 +338,7 @@ export class ExtractionQueue {
     // Fix relative_path — parser scripts receive absolute path via process.argv[2],
     // but reconciler looks up files by relative path in the DB.
     verification.output!.relative_path = file.relative_path;
+    verification.output!.file_id = file.id;
     this.reconciler.reconcileResults(
       { results: [verification.output!] },
       `script:${generated.name}`,
@@ -365,14 +369,20 @@ export class ExtractionQueue {
 
     try {
       const systemPromptPath = path.join(this.vault.dotPath, 'instructions', 'extraction-prompt.md');
-      const { result, sessionLog } = await this.pdfRunner.processFiles(filePaths, this.vault.rootPath, systemPromptPath);
+      const { result, sessionLog } = await processFilesWithCLI(this.pdfRunner, filePaths, this.vault.rootPath, systemPromptPath);
 
-      // Reconcile results
+      // Stamp file_id on each result to avoid Unicode normalization mismatch
+      // (macOS stores NFD paths in DB, but Claude CLI returns NFC paths in JSON)
+      const nfcPathToFile = new Map(processable.map(f => [f.relative_path.normalize('NFC'), f]));
+      for (const fileResult of result.results) {
+        const matched = nfcPathToFile.get(fileResult.relative_path.normalize('NFC'));
+        if (matched) fileResult.file_id = matched.id;
+      }
       this.reconciler.reconcileResults(result, sessionLog);
 
       // Handle files that weren't included in results (CLI may have skipped them)
       for (const file of processable) {
-        const hasResult = result.results.some(r => r.relative_path === file.relative_path);
+        const hasResult = result.results.some(r => r.file_id === file.id);
         if (!hasResult) {
           this.handleFileError(file, `No extraction result returned for ${file.relative_path}`);
         }

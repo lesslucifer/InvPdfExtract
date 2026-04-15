@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ClaudeCodeRunner, unwrapEnvelope, extractJSON, repairTruncatedJSON } from './claude-cli';
-import { ModelTier, MODEL_TIER_MAP } from '../shared/types';
+import { parseExtractionResponse, processFiles } from './pdf-extractor';
+import { ModelTier, MODEL_TIER_MAP, EffortLevel } from '../shared/types';
 
 vi.mock('fs', () => ({
   promises: {
@@ -16,201 +17,185 @@ const VALID_JSON = JSON.stringify({
   }],
 });
 
-describe('ClaudeCodeRunner', () => {
+describe('parseExtractionResponse', () => {
+  it('parses clean JSON', () => {
+    const result = parseExtractionResponse(VALID_JSON);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].relative_path).toBe('test.pdf');
+  });
+
+  it('strips markdown code fences', () => {
+    const raw = '```json\n' + VALID_JSON + '\n```';
+    const result = parseExtractionResponse(raw);
+    expect(result.results).toHaveLength(1);
+  });
+
+  it('strips code fences without language tag', () => {
+    const raw = '```\n' + VALID_JSON + '\n```';
+    const result = parseExtractionResponse(raw);
+    expect(result.results).toHaveLength(1);
+  });
+
+  it('extracts JSON when text appears before it', () => {
+    const raw = 'Now I have all the data. Let me build the JSON. ' + VALID_JSON;
+    const result = parseExtractionResponse(raw);
+    expect(result.results).toHaveLength(1);
+  });
+
+  it('extracts JSON when text appears before and after it', () => {
+    const raw = 'Here is the result:\n' + VALID_JSON + '\nHope this helps!';
+    const result = parseExtractionResponse(raw);
+    expect(result.results).toHaveLength(1);
+  });
+
+  it('extracts JSON from code fences with surrounding text', () => {
+    const raw = 'I analyzed the file.\n```json\n' + VALID_JSON + '\n```\nLet me know if you need changes.';
+    const result = parseExtractionResponse(raw);
+    expect(result.results).toHaveLength(1);
+  });
+
+  it('handles nested braces in valid JSON', () => {
+    const json = JSON.stringify({
+      results: [{
+        relative_path: 'test.pdf',
+        doc_type: 'invoice_out',
+        records: [{
+          confidence: 0.9,
+          field_confidence: { so_hoa_don: 0.95, taxId: 0.88 },
+          ngay: '2026-01-01',
+          data: { so_hoa_don: '001', taxId: '0305008980' },
+        }],
+      }],
+    });
+    const raw = 'Some preamble ' + json;
+    const result = parseExtractionResponse(raw);
+    expect(result.results[0].records[0].data).toEqual({ so_hoa_don: '001', taxId: '0305008980' });
+  });
+
+  it('throws on truncated output with truncation hint', () => {
+    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.88,"field_confiden';
+    expect(() => parseExtractionResponse(truncated)).not.toThrow();
+  });
+
+  it('throws on completely invalid output', () => {
+    expect(() => parseExtractionResponse('No JSON here at all')).toThrow('Failed to parse Claude CLI response');
+  });
+
+  it('rejects JSON without results array', () => {
+    const noResults = '{"data": "something"}';
+    expect(() => parseExtractionResponse(noResults)).toThrow('Failed to parse Claude CLI response');
+  });
+
+  it('rejects JSON where results is not an array', () => {
+    const badResults = '{"results": "not an array"}';
+    expect(() => parseExtractionResponse(badResults)).toThrow('Failed to parse Claude CLI response');
+  });
+
+  it('unwraps --output-format json envelope and parses result', () => {
+    const envelope = JSON.stringify({
+      type: 'result',
+      subtype: 'success',
+      result: VALID_JSON,
+      session_id: 'abc-123',
+      is_error: false,
+    });
+    const result = parseExtractionResponse(envelope);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].relative_path).toBe('test.pdf');
+  });
+
+  it('unwraps envelope with preamble text in result field', () => {
+    const envelope = JSON.stringify({
+      type: 'result',
+      result: 'Here is the analysis:\n' + VALID_JSON,
+    });
+    const result = parseExtractionResponse(envelope);
+    expect(result.results).toHaveLength(1);
+  });
+
+  it('handles real-world case: Vietnamese preamble + truncated JSON', () => {
+    const preamble = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ) — classified as `invoice_out` since it\'s issued by the seller (CÔNG TY TNHH GINKGO, TaxID 0305008980). All amounts are 0, and the buyer field contains an address rather than a company name (indicating internal transfer). The tax rate is "—" (not applicable).\n\n';
+    const truncatedJson = '{"results":[{"relative_path":"xlsx/hoadon_sold_2026-03-22.xlsx","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
+    const raw = preamble + truncatedJson;
+
+    const result = parseExtractionResponse(raw);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].relative_path).toBe('xlsx/hoadon_sold_2026-03-22.xlsx');
+  });
+});
+
+describe('processFiles retry', () => {
   let runner: ClaudeCodeRunner;
 
   beforeEach(() => {
     runner = new ClaudeCodeRunner('/usr/bin/claude');
   });
 
-  describe('parseResponse', () => {
-    it('parses clean JSON', () => {
-      const result = runner.parseResponse(VALID_JSON);
-      expect(result.results).toHaveLength(1);
-      expect(result.results[0].relative_path).toBe('test.pdf');
-    });
+  it('retries when first response is unparseable', async () => {
+    const invokeSpy = vi.spyOn(runner, 'invoke')
+      .mockResolvedValueOnce('Let me think about this... not valid JSON')
+      .mockResolvedValueOnce(VALID_JSON);
 
-    it('strips markdown code fences', () => {
-      const raw = '```json\n' + VALID_JSON + '\n```';
-      const result = runner.parseResponse(raw);
-      expect(result.results).toHaveLength(1);
-    });
+    const { result } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
-    it('strips code fences without language tag', () => {
-      const raw = '```\n' + VALID_JSON + '\n```';
-      const result = runner.parseResponse(raw);
-      expect(result.results).toHaveLength(1);
-    });
-
-    it('extracts JSON when text appears before it', () => {
-      const raw = 'Now I have all the data. Let me build the JSON. ' + VALID_JSON;
-      const result = runner.parseResponse(raw);
-      expect(result.results).toHaveLength(1);
-    });
-
-    it('extracts JSON when text appears before and after it', () => {
-      const raw = 'Here is the result:\n' + VALID_JSON + '\nHope this helps!';
-      const result = runner.parseResponse(raw);
-      expect(result.results).toHaveLength(1);
-    });
-
-    it('extracts JSON from code fences with surrounding text', () => {
-      const raw = 'I analyzed the file.\n```json\n' + VALID_JSON + '\n```\nLet me know if you need changes.';
-      const result = runner.parseResponse(raw);
-      expect(result.results).toHaveLength(1);
-    });
-
-    it('handles nested braces in valid JSON', () => {
-      const json = JSON.stringify({
-        results: [{
-          relative_path: 'test.pdf',
-          doc_type: 'invoice_out',
-          records: [{
-            confidence: 0.9,
-            field_confidence: { so_hoa_don: 0.95, taxId: 0.88 },
-            ngay: '2026-01-01',
-            data: { so_hoa_don: '001', taxId: '0305008980' },
-          }],
-        }],
-      });
-      const raw = 'Some preamble ' + json;
-      const result = runner.parseResponse(raw);
-      expect(result.results[0].records[0].data).toEqual({ so_hoa_don: '001', taxId: '0305008980' });
-    });
-
-    it('throws on truncated output with truncation hint', () => {
-      const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.88,"field_confiden';
-      expect(() => runner.parseResponse(truncated)).not.toThrow();
-      // Truncation repair should handle this — result may be partial
-    });
-
-    it('throws on completely invalid output', () => {
-      expect(() => runner.parseResponse('No JSON here at all')).toThrow('Failed to parse Claude CLI response');
-    });
-
-    it('rejects JSON without results array', () => {
-      const noResults = '{"data": "something"}';
-      expect(() => runner.parseResponse(noResults)).toThrow('Failed to parse Claude CLI response');
-    });
-
-    it('rejects JSON where results is not an array', () => {
-      const badResults = '{"results": "not an array"}';
-      expect(() => runner.parseResponse(badResults)).toThrow('Failed to parse Claude CLI response');
-    });
-
-    it('unwraps --output-format json envelope and parses result', () => {
-      const envelope = JSON.stringify({
-        type: 'result',
-        subtype: 'success',
-        result: VALID_JSON,
-        session_id: 'abc-123',
-        is_error: false,
-      });
-      const result = runner.parseResponse(envelope);
-      expect(result.results).toHaveLength(1);
-      expect(result.results[0].relative_path).toBe('test.pdf');
-    });
-
-    it('unwraps envelope with preamble text in result field', () => {
-      const envelope = JSON.stringify({
-        type: 'result',
-        result: 'Here is the analysis:\n' + VALID_JSON,
-      });
-      const result = runner.parseResponse(envelope);
-      expect(result.results).toHaveLength(1);
-    });
-
-    it('handles real-world case: Vietnamese preamble + truncated JSON', () => {
-      const preamble = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ) — classified as `invoice_out` since it\'s issued by the seller (CÔNG TY TNHH GINKGO, TaxID 0305008980). All amounts are 0, and the buyer field contains an address rather than a company name (indicating internal transfer). The tax rate is "—" (not applicable).\n\n';
-      const truncatedJson = '{"results":[{"relative_path":"xlsx/hoadon_sold_2026-03-22.xlsx","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
-      const raw = preamble + truncatedJson;
-
-      // Should not throw — truncation repair kicks in
-      const result = runner.parseResponse(raw);
-      expect(result.results).toHaveLength(1);
-      expect(result.results[0].relative_path).toBe('xlsx/hoadon_sold_2026-03-22.xlsx');
-    });
+    expect(invokeSpy).toHaveBeenCalledTimes(2);
+    expect(result.results).toHaveLength(1);
+    const retryPrompt = invokeSpy.mock.calls[1][0] as string;
+    expect(retryPrompt).toContain('could not be parsed as valid JSON');
+    expect(retryPrompt).toContain('ONLY a valid JSON object');
   });
 
-  describe('processFiles retry', () => {
-    it('retries when first response is unparseable', async () => {
-      const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')
-        .mockResolvedValueOnce('Let me think about this... not valid JSON')
-        .mockResolvedValueOnce(VALID_JSON);
+  it('does not retry when first response parses successfully', async () => {
+    const invokeSpy = vi.spyOn(runner, 'invoke')
+      .mockResolvedValueOnce(VALID_JSON);
 
+    const { result } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
-      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
+    expect(result.results).toHaveLength(1);
+  });
 
-      expect(invokeSpy).toHaveBeenCalledTimes(2);
-      expect(result.results).toHaveLength(1);
-      // Verify retry prompt emphasizes JSON-only
-      const retryPrompt = invokeSpy.mock.calls[1][0] as string;
-      expect(retryPrompt).toContain('could not be parsed as valid JSON');
-      expect(retryPrompt).toContain('ONLY a valid JSON object');
-    });
+  it('throws when both attempts fail', async () => {
+    vi.spyOn(runner, 'invoke')
+      .mockResolvedValueOnce('Not JSON at all')
+      .mockResolvedValueOnce('Still not JSON');
 
+    await expect(
+      processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md')
+    ).rejects.toThrow('Failed to parse Claude CLI response');
+  });
 
-    it('does not retry when first response parses successfully', async () => {
-      const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')
-        .mockResolvedValueOnce(VALID_JSON);
+  it('succeeds on retry when first response has text around JSON that cannot be extracted', async () => {
+    const garbled = 'thinking { partial json here } and more { broken';
+    vi.spyOn(runner, 'invoke')
+      .mockResolvedValueOnce(garbled)
+      .mockResolvedValueOnce(VALID_JSON);
 
+    const { result, sessionLog } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
-      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    expect(result.results).toHaveLength(1);
+    expect(sessionLog).toContain('RETRY PROMPT:');
+    expect(sessionLog).toContain('RETRY RESPONSE:');
+  });
 
-      expect(invokeSpy).toHaveBeenCalledTimes(1);
-      expect(result.results).toHaveLength(1);
-    });
+  it('skips retry when brace extraction succeeds on first attempt', async () => {
+    const noisy = 'Here is the data: ' + VALID_JSON + ' Let me know!';
+    const invokeSpy = vi.spyOn(runner, 'invoke')
+      .mockResolvedValueOnce(noisy);
 
-    it('throws when both attempts fail', async () => {
-      vi.spyOn(runner as any, 'invokeClaudeCLI')
-        .mockResolvedValueOnce('Not JSON at all')
-        .mockResolvedValueOnce('Still not JSON');
+    const { result } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
+    expect(result.results).toHaveLength(1);
+  });
 
-      await expect(
-        runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md')
-      ).rejects.toThrow('Failed to parse Claude CLI response');
-    });
+  it('includes --output-format json in CLI args', async () => {
+    const invokeSpy = vi.spyOn(runner, 'invoke')
+      .mockResolvedValueOnce(VALID_JSON);
 
-    it('succeeds on retry when first response has text around JSON that cannot be extracted', async () => {
-      // Simulates garbled output where brace extraction still fails
-      const garbled = 'thinking { partial json here } and more { broken';
-      vi.spyOn(runner as any, 'invokeClaudeCLI')
-        .mockResolvedValueOnce(garbled)
-        .mockResolvedValueOnce(VALID_JSON);
+    await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
-
-      const { result, sessionLog } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
-
-      expect(result.results).toHaveLength(1);
-      expect(sessionLog).toContain('RETRY PROMPT:');
-      expect(sessionLog).toContain('RETRY RESPONSE:');
-    });
-
-    it('skips retry when brace extraction succeeds on first attempt', async () => {
-      const noisy = 'Here is the data: ' + VALID_JSON + ' Let me know!';
-      const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')
-        .mockResolvedValueOnce(noisy);
-
-
-      const { result } = await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
-
-      expect(invokeSpy).toHaveBeenCalledTimes(1);
-      expect(result.results).toHaveLength(1);
-    });
-
-    it('includes --output-format json in CLI args', async () => {
-      const invokeSpy = vi.spyOn(runner as any, 'invokeClaudeCLI')
-        .mockResolvedValueOnce(VALID_JSON);
-
-      await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
-
-      // The invokeClaudeCLI is mocked, so we check the args it was called with
-      // by inspecting the spawn call inside it. Since we mock the whole method,
-      // we verify at the integration level that --output-format json is in the code.
-      // This test verifies processFiles still works with the updated method.
-      expect(invokeSpy).toHaveBeenCalledTimes(1);
-    });
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -224,7 +209,7 @@ describe('invokeRaw', () => {
   it('unwraps JSON envelope and returns inner text', async () => {
     const innerText = '```parser.js\nconst x = 1;\n```';
     const envelope = JSON.stringify({ type: 'result', result: innerText });
-    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(envelope);
+    vi.spyOn(runner as any, 'invoke').mockResolvedValueOnce(envelope);
 
     const result = await runner.invokeRaw('prompt', 'system');
     expect(result).toBe(innerText);
@@ -232,7 +217,7 @@ describe('invokeRaw', () => {
 
   it('passes through non-envelope text unchanged', async () => {
     const plainText = '```parser.js\nconst x = 1;\n```';
-    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(plainText);
+    vi.spyOn(runner as any, 'invoke').mockResolvedValueOnce(plainText);
 
     const result = await runner.invokeRaw('prompt', 'system');
     expect(result).toBe(plainText);
@@ -241,7 +226,7 @@ describe('invokeRaw', () => {
   it('unwraps envelope containing code blocks for script extraction', async () => {
     const codeBlockResponse = 'Here is the parser:\n\n```parser.js\nconst XLSX = require("xlsx");\nconsole.log("hello");\n```\n\nThis is a bank_statement file.';
     const envelope = JSON.stringify({ type: 'result', result: codeBlockResponse });
-    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(envelope);
+    vi.spyOn(runner as any, 'invoke').mockResolvedValueOnce(envelope);
 
     const result = await runner.invokeRaw('prompt', 'system');
     expect(result).toContain('```parser.js');
@@ -253,13 +238,10 @@ describe('invokeRaw', () => {
 describe('model tier configuration', () => {
   it('includes --model flag when modelTier is set', async () => {
     const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, 'heavy');
-    vi.spyOn(runner as any, 'invokeClaudeCLI').mockResolvedValueOnce(VALID_JSON);
+    vi.spyOn(runner, 'invoke').mockResolvedValueOnce(VALID_JSON);
 
-    await runner.processFiles(['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
-    // invokeClaudeCLI is called with (prompt, systemPrompt, cwd)
-    // The --model flag is built inside invokeClaudeCLI, so we verify via the spawn args
-    // Since invokeClaudeCLI is mocked, we verify the runner was constructed correctly
     expect((runner as any).model).toBe('opus');
   });
 
@@ -281,6 +263,26 @@ describe('model tier configuration', () => {
     tiers.forEach((tier, i) => {
       const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, tier);
       expect((runner as any).model).toBe(expected[i]);
+    });
+  });
+});
+
+describe('effort configuration', () => {
+  it('stores effort level when provided', () => {
+    const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, undefined, 'low');
+    expect((runner as any).effort).toBe('low');
+  });
+
+  it('does not set effort when not provided', () => {
+    const runner = new ClaudeCodeRunner('/usr/bin/claude');
+    expect((runner as any).effort).toBeUndefined();
+  });
+
+  it('stores each effort level correctly', () => {
+    const levels: EffortLevel[] = ['low', 'medium', 'high'];
+    levels.forEach(level => {
+      const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, undefined, level);
+      expect((runner as any).effort).toBe(level);
     });
   });
 });
@@ -451,7 +453,6 @@ describe('repairTruncatedJSON', () => {
 
   it('repairs the exact real-world truncated output from the bug report', () => {
     const preambleAndJson = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ).\n\n{"results":[{"relative_path":"xlsx/hoadon_sold_2026-03-22.xlsx","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
-    // extractJSON returns null (truncated), so repairTruncatedJSON should handle it
     expect(extractJSON(preambleAndJson)).toBeNull();
 
     const repaired = repairTruncatedJSON(preambleAndJson);

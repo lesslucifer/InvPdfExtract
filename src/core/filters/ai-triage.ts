@@ -26,7 +26,7 @@ export async function aiTriageBatch(
 
   log.info(LogModule.Filter, `AI triage batch: ${inputs.length} files`);
   const systemPrompt = await readTriageInstructions(dotPath);
-  const runner = new ClaudeCodeRunner(cliPath, 30_000, 'fast'); // Haiku, 30s timeout
+  const runner = new ClaudeCodeRunner(cliPath, 30_000, 'fast', 'low');
 
   const fileSections = inputs.map((input, idx) => {
     const truncated = input.textSample.slice(0, 500);

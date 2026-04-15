@@ -232,6 +232,7 @@ export interface VaultHandle {
 // === Model Configuration ===
 
 export type ModelTier = 'fast' | 'medium' | 'heavy';
+export type EffortLevel = 'low' | 'medium' | 'high';
 
 export const MODEL_TIER_MAP: Dict<string> = {
   fast: 'haiku',
@@ -266,6 +267,7 @@ export interface ParsingError {
 
 export interface ExtractionFileResult {
   relative_path: string;
+  file_id?: string;
   doc_type: DocType;
   records: ExtractionRecord[];
   error?: string;

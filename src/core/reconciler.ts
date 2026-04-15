@@ -11,7 +11,7 @@ import {
   getLineItemsByRecord, updateLineItem,
   updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict, getFtsIndexData,
 } from './db/records';
-import { getFileByPath, updateFileStatus, updateFileDocType, updateFileFilterResult } from './db/files';
+import { getFileById, getFileByPath, updateFileStatus, updateFileDocType, updateFileFilterResult } from './db/files';
 import { getDatabase } from './db/database';
 import { rebuildDuplicatesForFingerprints } from './db/dedup';
 import { eventBus } from './event-bus';
@@ -34,7 +34,7 @@ export class Reconciler {
         this.reconcileFileResult(fileResult, sessionLog);
       } catch (err) {
         log.error(LogModule.Reconciler, `Error reconciling ${fileResult.relative_path}:`, err);
-        const file = getFileByPath(fileResult.relative_path);
+        const file = fileResult.file_id ? getFileById(fileResult.file_id) : getFileByPath(fileResult.relative_path);
         if (file) {
           updateFileStatus(file.id, FileStatus.Error);
           eventBus.emit('extraction:error', { fileId: file.id, error: (err as Error).message });
@@ -45,7 +45,7 @@ export class Reconciler {
 
   private reconcileFileResult(fileResult: ExtractionFileResult, sessionLog: string): void {
     const reconcileT0 = performance.now();
-    const file = getFileByPath(fileResult.relative_path);
+    const file = fileResult.file_id ? getFileById(fileResult.file_id) : getFileByPath(fileResult.relative_path);
     if (!file) {
       log.warn(LogModule.Reconciler, `File not found in DB: ${fileResult.relative_path}`);
       return;

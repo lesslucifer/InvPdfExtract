@@ -146,9 +146,11 @@ Respond with ONLY a code block:
 
 export class ScriptGenerator {
   private runner: ClaudeCodeRunner;
+  private matcherRunner: ClaudeCodeRunner;
 
-  constructor(runner: ClaudeCodeRunner) {
+  constructor(runner: ClaudeCodeRunner, matcherRunner?: ClaudeCodeRunner) {
     this.runner = runner;
+    this.matcherRunner = matcherRunner ?? runner;
   }
 
   /**
@@ -191,7 +193,7 @@ export class ScriptGenerator {
   async generateMatcher(metadata: SpreadsheetMetadata, vaultDotPath: string, name: string): Promise<GeneratedMatcher> {
     log.info(LogModule.Script, `Generating matcher for ${name}`);
     const userPrompt = this.buildMatcherPrompt(metadata);
-    const response = await this.runner.invokeRaw(userPrompt, MATCHER_SYSTEM_PROMPT, path.dirname(vaultDotPath));
+    const response = await this.matcherRunner.invokeRaw(userPrompt, MATCHER_SYSTEM_PROMPT, path.dirname(vaultDotPath));
 
     const matcherCode = this.extractCodeBlock(response, 'matcher.js');
     if (!matcherCode) {
