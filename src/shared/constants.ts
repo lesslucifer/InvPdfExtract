@@ -31,7 +31,7 @@ export const WATCHER_DEBOUNCE_MS = 300;
 export const DEFAULT_MAX_RETRY_COUNT = 2;
 
 export const DEFAULT_CLAUDE_MODELS: ClaudeModelConfig = {
-  pdfExtraction: 'medium',
+  pdfExtraction: 'fast',
   scriptGeneration: 'heavy',
 };
 

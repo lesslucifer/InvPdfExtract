@@ -32,11 +32,14 @@
       "electron",
       "electron-winstaller",
       "fs-xattr",
-      "macos-alias"
+      "macos-alias",
+      "sharp",
+      "tesseract.js"
     ]
   },
   "dependencies": {
     "@electron-forge/maker-dmg": "^7.11.1",
+    "@llamaindex/liteparse": "^1.5.0",
     "@tanstack/react-query": "^5.96.2",
     "@timfish/forge-externals-plugin": "^0.2.1",
     "@types/archiver": "^7.0.0",
@@ -50,7 +53,6 @@
     "immer": "^11.1.4",
     "lodash": "^4.18.1",
     "lucide-react": "^1.7.0",
-    "pdf-parse": "^2.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "uuid": "^13.0.0",
@@ -73,7 +75,6 @@
     "@spaced-out/eslint-plugin-i18n": "^3.1.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/lodash": "^4.17.24",
-    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@types/uuid": "^11.0.0",

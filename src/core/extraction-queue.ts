@@ -12,7 +12,7 @@ import { executeScript } from './script-sandbox';
 import { parseXmlInvoice } from './parsers/xml-invoice-parser';
 import { extractMetadata } from './parsers/spreadsheet-metadata';
 import { RelevanceFilter } from './filters/relevance-filter';
-import { extractPdfText } from './filters/content-sniffer';
+import { extractPdfWithLiteParse } from './liteparse-extractor';
 import { validateScriptOutput } from './validators/output-validator';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
@@ -23,7 +23,6 @@ import {
   DEFAULT_CLAUDE_MODELS,
   DEFAULT_MAX_RETRY_COUNT,
   MAX_BATCH_CONTEXT_BYTES,
-  MIN_PDF_TEXT_CHARS,
   TEXT_TO_CONTEXT_RATIO,
   IMAGE_TO_CONTEXT_RATIO,
 } from '../shared/constants';
@@ -181,17 +180,12 @@ export class ExtractionQueue {
       let fileEstimate: number;
       if (ext === '.pdf') {
         try {
-          const text = await extractPdfText(fullPath);
-          if (text.trim().length >= MIN_PDF_TEXT_CHARS) {
-            fileEstimate = text.length * TEXT_TO_CONTEXT_RATIO;
-          } else {
-            // Scanned PDF — estimate from file size (base64 + context overhead)
-            const stat = fs.statSync(fullPath);
-            fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
-          }
+          // LiteParse always produces text (native or OCR) — estimate from text length
+          const lpResult = await extractPdfWithLiteParse(fullPath);
+          fileEstimate = lpResult.text.length * TEXT_TO_CONTEXT_RATIO;
         } catch {
           const stat = fs.statSync(fullPath);
-          fileEstimate = stat.size * IMAGE_TO_CONTEXT_RATIO;
+          fileEstimate = stat.size * TEXT_TO_CONTEXT_RATIO;
         }
       } else {
         // Non-PDF unstructured (images) — estimate from file size

@@ -3,8 +3,8 @@ import * as path from 'path';
 import { Worker } from 'worker_threads';
 import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
 import { getMergedKeywords, createKeywordMatcher } from './keyword-bank';
-import { findNodeModules } from '../app-paths';
 import { log, LogModule } from '../logger';
+import { extractPdfTextLite } from '../liteparse-extractor';
 
 export async function contentSniffer(
   fullPath: string,
@@ -103,62 +103,8 @@ export async function contentSniffer(
   };
 }
 
-const PDF_WORKER_CODE = `
-const { workerData, parentPort } = require('worker_threads');
-const path = require('path');
-const fs = require('fs');
-
-async function run() {
-  try {
-    const pdfjsLib = await import(workerData.pdfjsPath);
-    const workerSrc = workerData.pdfWorkerPath;
-    if (workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = 'file://' + workerSrc;
-
-    const buffer = fs.readFileSync(workerData.filePath);
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(buffer),
-      ...(workerData.standardFontsDir && { standardFontDataUrl: 'file://' + workerData.standardFontsDir + '/' }),
-    });
-    const pdf = await loadingTask.promise;
-    const pageCount = Math.min(2, pdf.numPages);
-    const texts = [];
-    for (let i = 1; i <= pageCount; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      texts.push(content.items.map(item => ('str' in item ? item.str : '')).join(' '));
-    }
-    loadingTask.destroy?.();
-    parentPort.postMessage({ text: texts.join('\\n') });
-  } catch (err) {
-    parentPort.postMessage({ error: err.message });
-  }
-}
-run();
-`;
-
 async function extractPdfText(fullPath: string): Promise<string> {
-  const nodeModulesDirs = findNodeModules();
-  const pdfjsPath = nodeModulesDirs
-    .map(d => path.join(d, 'pdfjs-dist', 'legacy', 'build', 'pdf.mjs'))
-    .find(p => fs.existsSync(p));
-  const pdfWorkerPath = nodeModulesDirs
-    .map(d => path.join(d, 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs'))
-    .find(p => fs.existsSync(p));
-  const standardFontsDir = nodeModulesDirs
-    .map(d => path.join(d, 'pdfjs-dist', 'standard_fonts'))
-    .find(p => fs.existsSync(p));
-
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(PDF_WORKER_CODE, {
-      eval: true,
-      workerData: { filePath: fullPath, pdfjsPath, pdfWorkerPath, standardFontsDir },
-    });
-    worker.on('message', (msg: { text?: string; error?: string }) => {
-      if (msg.error) reject(new Error(msg.error));
-      else resolve(msg.text ?? '');
-    });
-    worker.on('error', reject);
-  });
+  return extractPdfTextLite(fullPath, '1-2');
 }
 
 const XLSX_WORKER_CODE = `

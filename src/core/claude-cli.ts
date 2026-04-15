@@ -6,8 +6,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { ExtractionResult, ModelTier, MODEL_TIER_MAP } from '../shared/types';
-import { DEFAULT_CLI_TIMEOUT, MIN_PDF_TEXT_CHARS } from '../shared/constants';
-import { extractPdfText } from './filters/content-sniffer';
+import { DEFAULT_CLI_TIMEOUT } from '../shared/constants';
+import { extractPdfWithLiteParse } from './liteparse-extractor';
 import { log, LogModule } from './logger';
 
 export class CliError extends Error {
@@ -217,51 +217,39 @@ export class ClaudeCodeRunner {
   async processFiles(filePaths: string[], vaultRoot: string, systemPromptPath: string): Promise<{ result: ExtractionResult; sessionLog: string }> {
     const systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
 
-    // Pre-extract text from PDFs in parallel using worker threads (non-blocking).
-    // PDFs with insufficient text are scanned images — they fall back to Claude's vision via Read tool.
+    // Extract text from all PDFs via LiteParse (two-pass: fast text → OCR if needed).
+    // All files produce text — no vision/Read tool needed.
     const textResults = await Promise.all(
       filePaths.map(async fp => {
         try {
-          const text = await extractPdfText(fp);
-          return { filePath: fp, text, isTextBased: text.trim().length >= MIN_PDF_TEXT_CHARS };
-        } catch {
-          return { filePath: fp, text: '', isTextBased: false };
+          const lpResult = await extractPdfWithLiteParse(fp);
+          return { filePath: fp, text: lpResult.text, ocrUsed: lpResult.ocrUsed };
+        } catch (err) {
+          log.warn(LogModule.ClaudeCLI, `LiteParse failed for ${fp}: ${(err as Error).message}`);
+          return { filePath: fp, text: '', ocrUsed: false };
         }
       })
     );
 
-    const textBased = textResults.filter(r => r.isTextBased);
-    const imageBased = textResults.filter(r => !r.isTextBased);
+    const ocrCount = textResults.filter(r => r.ocrUsed).length;
+    log.info(LogModule.ClaudeCLI, `Extracted ${textResults.length} files (${ocrCount} via OCR)`);
 
-    log.info(LogModule.ClaudeCLI, `Text-based: ${textBased.length}, image-based: ${imageBased.length}`);
-
-    // Build prompt sections
-    const textSection = textBased.length > 0
-      ? `## Text-extractable files (classify and extract from the text below)\n\n${
-          textBased.map(r => {
-            const rel = path.relative(vaultRoot, r.filePath);
-            return `### File: ${rel}\n${r.text.trim()}`;
-          }).join('\n\n')
-        }`
-      : '';
-
-    const imageSection = imageBased.length > 0
-      ? `## Image-only files (use Read tool for vision processing)\n${
-          imageBased.map(r => `- ${path.relative(vaultRoot, r.filePath)}`).join('\n')
-        }`
-      : '';
+    const filesSection = textResults.map(r => {
+      const rel = path.relative(vaultRoot, r.filePath);
+      const ocrTag = r.ocrUsed ? ' [OCR — may contain errors, please correct during extraction]' : '';
+      return `### File: ${rel}${ocrTag}\n${r.text.trim()}`;
+    }).join('\n\n');
 
     const userPrompt = `Process these accounting files and return structured JSON.
 
-${[textSection, imageSection].filter(Boolean).join('\n\n')}
+## Files (classify and extract from the text below)
+
+${filesSection}
 
 For each file, return a result with relative_path matching exactly as shown above.`;
 
-    // Only allow Read tool if there are image-based files that need vision processing.
-    // Disable all tools when all files have extracted text — no tool loop needed.
-    const toolArgs = imageBased.length > 0
-      ? ['--allowedTools', 'Read']
-      : ['--tools', ''];
+    // All files have extracted text — no tool loop needed.
+    const toolArgs = ['--tools', ''];
 
     const stdout = await this.invokeClaudeCLI(userPrompt, systemPrompt, vaultRoot, toolArgs);
     const allRelative = filePaths.map(fp => path.relative(vaultRoot, fp));

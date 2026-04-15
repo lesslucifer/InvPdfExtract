@@ -15,7 +15,7 @@ import { rendererConfig } from './webpack.renderer.config';
 
 // Webpack externals that must be copied into the packaged app's node_modules.
 // Forge's webpack plugin does not do this automatically.
-const EXTERNALS = ['better-sqlite3', 'xlsx'];
+const EXTERNALS = ['better-sqlite3', 'xlsx', '@llamaindex/liteparse', 'sharp', 'tesseract.js', '@hyzyla/pdfium'];
 
 const config: ForgeConfig = {
   hooks: {
