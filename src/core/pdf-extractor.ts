@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import { ExtractionResult } from '../shared/types';
 import { ClaudeCodeRunner, unwrapEnvelope, extractJSON, repairTruncatedJSON } from './claude-cli';
 import { extractPdfWithLiteParse } from './liteparse-extractor';
@@ -15,8 +14,6 @@ export async function processFiles(
   vaultRoot: string,
   systemPromptPath: string,
 ): Promise<{ result: ExtractionResult; sessionLog: string }> {
-  const systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
-
   const textResults = await Promise.all(
     files.map(async ({ fileId, filePath }) => {
       try {
@@ -47,7 +44,7 @@ For each file, return a result with file_id matching exactly as shown above.`;
 
   const toolArgs = ['--tools', ''];
 
-  const stdout = await runner.invoke(userPrompt, systemPrompt, vaultRoot, toolArgs);
+  const stdout = await runner.invoke(userPrompt, { systemPromptFile: systemPromptPath, cwd: vaultRoot, toolArgs });
   const fileIds = files.map(f => f.fileId);
   let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
 
@@ -55,7 +52,14 @@ For each file, return a result with file_id matching exactly as shown above.`;
     const result = parseExtractionResponse(stdout);
     return { result, sessionLog };
   } catch (firstErr) {
-    log.warn(LogModule.ClaudeCLI, `Parse failed, retrying with JSON emphasis: ${(firstErr as Error).message}`);
+    const errMsg = (firstErr as Error).message;
+    const envelopeCheck = unwrapEnvelope(stdout);
+    log.error(LogModule.ClaudeCLI, `Parse failed, retrying with JSON emphasis`, {
+      error: errMsg,
+      envelopeUnwrapped: envelopeCheck !== null,
+      rawLength: stdout.length,
+      rawPreview: stdout.slice(0, 500),
+    });
 
     const retryPrompt = `Your previous response could not be parsed as valid JSON.
 Please try again for the same files. Return ONLY a valid JSON object matching the ExtractionResult schema.
@@ -65,7 +69,7 @@ If your previous output was truncated, produce a shorter response.
 File IDs:
 ${fileIds.map(id => `- ${id}`).join('\n')}`;
 
-    const retryStdout = await runner.invoke(retryPrompt, systemPrompt, vaultRoot, toolArgs);
+    const retryStdout = await runner.invoke(retryPrompt, { systemPromptFile: systemPromptPath, cwd: vaultRoot, toolArgs });
     sessionLog += `\n\nRETRY PROMPT:\n${retryPrompt}\n\nRETRY RESPONSE:\n${retryStdout}`;
 
     const result = parseExtractionResponse(retryStdout);

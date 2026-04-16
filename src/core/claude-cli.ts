@@ -1,4 +1,5 @@
-import { spawn, exec } from 'child_process';
+import { exec } from 'child_process';
+import crossSpawn from 'cross-spawn';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -219,29 +220,50 @@ export class ClaudeCodeRunner {
   }
 
   async invokeRaw(userPrompt: string, systemPrompt: string, cwd?: string): Promise<string> {
-    const raw = await this.invoke(userPrompt, systemPrompt, cwd);
+    const raw = await this.invoke(userPrompt, { systemPrompt, cwd });
     return unwrapEnvelope(raw) ?? raw;
   }
 
-  invoke(prompt: string, systemPrompt: string, cwd?: string, toolArgs?: string[]): Promise<string> {
+  async invoke(prompt: string, opts: {
+    systemPrompt?: string;
+    systemPromptFile?: string;
+    cwd?: string;
+    toolArgs?: string[];
+  }): Promise<string> {
+    const { systemPrompt, systemPromptFile, cwd, toolArgs } = opts;
     const effortHint = this.effort ? (EFFORT_SPEED_HINTS[this.effort] ?? '') : '';
-    const finalSystemPrompt = effortHint ? systemPrompt + effortHint : systemPrompt;
-    return new Promise((resolve, reject) => {
+
+    const systemPromptArgs: string[] = [];
+    if (systemPromptFile) {
+      if (effortHint) {
+        systemPromptArgs.push('--system-prompt-file', systemPromptFile, '--append-system-prompt', effortHint);
+      } else {
+        systemPromptArgs.push('--system-prompt-file', systemPromptFile);
+      }
+    } else if (systemPrompt) {
+      const finalPrompt = effortHint ? systemPrompt + effortHint : systemPrompt;
+      systemPromptArgs.push('--system-prompt', finalPrompt);
+    }
+
+    return new Promise<string>((resolve, reject) => {
       const args = [
         '--print',
         '--output-format', 'json',
+        '--settings', '{"alwaysThinkingEnabled": false}',
         ...(toolArgs ?? []),
         ...(this.model ? ['--model', this.model] : []),
         ...(this.effort ? ['--effort', this.effort] : []),
-        '--system-prompt', finalSystemPrompt,
-        prompt,
+        ...systemPromptArgs,
       ];
 
-      const proc = spawn(this.cliPath, args, {
+      const proc = crossSpawn(this.cliPath, args, {
         cwd: cwd ?? undefined,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env },
       });
+
+      proc.stdin!.write(prompt);
+      proc.stdin!.end();
 
       let stdout = '';
       let stderr = '';
@@ -253,17 +275,23 @@ export class ClaudeCodeRunner {
         }
       }, this.timeout);
 
-      proc.stdout.on('data', (data: Buffer) => {
+      proc.stdout!.on('data', (data: Buffer) => {
         stdout += data.toString();
-        // Cancel the kill timer as soon as we see a completed result envelope —
-        // the process has finished its work; no need to kill it.
-        if (!completed && stdout.includes('"stop_reason":"end_turn"')) {
+        // Replace the long timeout with a short grace period once we see the result —
+        // the CLI has finished its work but may hang during cleanup (especially on Windows).
+        if (!completed && (stdout.includes('"stop_reason":"end_turn"') || stdout.includes('"stop_reason":"max_tokens"'))) {
           completed = true;
           clearTimeout(killTimer);
+          setTimeout(() => {
+            if (!proc.killed) {
+              log.warn(LogModule.ClaudeCLI, 'CLI process did not exit within grace period after completion — force killing');
+              proc.kill('SIGTERM');
+            }
+          }, 5_000);
         }
       });
 
-      proc.stderr.on('data', (data: Buffer) => {
+      proc.stderr!.on('data', (data: Buffer) => {
         stderr += data.toString();
       });
 

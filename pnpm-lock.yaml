@@ -32,6 +32,9 @@ importers:
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0
+      cross-spawn:
+        specifier: ^7.0.6
+        version: 7.0.6
       dayjs:
         specifier: ^1.11.20
         version: 1.11.20
@@ -111,6 +114,9 @@ importers:
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
+      '@types/cross-spawn':
+        specifier: ^6.0.6
+        version: 6.0.6
       '@types/lodash':
         specifier: ^4.17.24
         version: 4.17.24
@@ -909,6 +915,9 @@ packages:
 
   '@types/connect@3.4.38':
     resolution: {integrity: sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==}
+
+  '@types/cross-spawn@6.0.6':
+    resolution: {integrity: sha512-fXRhhUkG4H3TQk5dBhQ7m/JDdSNHKwR2BBia62lhwEIq9xGiQKLxd6LymNhn47SjXhsUEPmxi+PKw2OkW4LLjA==}
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
@@ -6184,6 +6193,10 @@ snapshots:
       '@types/node': 25.5.0
 
   '@types/connect@3.4.38':
+    dependencies:
+      '@types/node': 25.5.0
+
+  '@types/cross-spawn@6.0.6':
     dependencies:
       '@types/node': 25.5.0
 
