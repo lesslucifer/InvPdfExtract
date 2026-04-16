@@ -1,26 +1,30 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { ExtractionResult } from '../shared/types';
 import { ClaudeCodeRunner, unwrapEnvelope, extractJSON, repairTruncatedJSON } from './claude-cli';
 import { extractPdfWithLiteParse } from './liteparse-extractor';
 import { log, LogModule } from './logger';
 
+export interface FileInput {
+  fileId: string;
+  filePath: string;
+}
+
 export async function processFiles(
   runner: ClaudeCodeRunner,
-  filePaths: string[],
+  files: FileInput[],
   vaultRoot: string,
   systemPromptPath: string,
 ): Promise<{ result: ExtractionResult; sessionLog: string }> {
   const systemPrompt = await fs.promises.readFile(systemPromptPath, 'utf-8');
 
   const textResults = await Promise.all(
-    filePaths.map(async fp => {
+    files.map(async ({ fileId, filePath }) => {
       try {
-        const lpResult = await extractPdfWithLiteParse(fp);
-        return { filePath: fp, text: lpResult.text, ocrUsed: lpResult.ocrUsed };
+        const lpResult = await extractPdfWithLiteParse(filePath);
+        return { fileId, text: lpResult.text, ocrUsed: lpResult.ocrUsed };
       } catch (err) {
-        log.warn(LogModule.ClaudeCLI, `LiteParse failed for ${fp}: ${(err as Error).message}`);
-        return { filePath: fp, text: '', ocrUsed: false };
+        log.warn(LogModule.ClaudeCLI, `LiteParse failed for ${fileId}: ${(err as Error).message}`);
+        return { fileId, text: '', ocrUsed: false };
       }
     })
   );
@@ -29,9 +33,8 @@ export async function processFiles(
   log.info(LogModule.ClaudeCLI, `Extracted ${textResults.length} files (${ocrCount} via OCR)`);
 
   const filesSection = textResults.map(r => {
-    const rel = path.relative(vaultRoot, r.filePath);
     const ocrTag = r.ocrUsed ? ' [OCR — may contain errors, please correct during extraction]' : '';
-    return `### File: ${rel}${ocrTag}\n${r.text.trim()}`;
+    return `### File: ${r.fileId}${ocrTag}\n${r.text.trim()}`;
   }).join('\n\n');
 
   const userPrompt = `Process these accounting files and return structured JSON.
@@ -40,12 +43,12 @@ export async function processFiles(
 
 ${filesSection}
 
-For each file, return a result with relative_path matching exactly as shown above.`;
+For each file, return a result with file_id matching exactly as shown above.`;
 
   const toolArgs = ['--tools', ''];
 
   const stdout = await runner.invoke(userPrompt, systemPrompt, vaultRoot, toolArgs);
-  const allRelative = filePaths.map(fp => path.relative(vaultRoot, fp));
+  const fileIds = files.map(f => f.fileId);
   let sessionLog = `PROMPT:\n${userPrompt}\n\nRESPONSE:\n${stdout}`;
 
   try {
@@ -59,10 +62,8 @@ Please try again for the same files. Return ONLY a valid JSON object matching th
 Do NOT include any explanation, thinking, commentary, or markdown — output raw JSON only, starting with { and ending with }.
 If your previous output was truncated, produce a shorter response.
 
-Files:
-${allRelative.map(p => `- ${p}`).join('\n')}
-
-Located relative to: ${vaultRoot}`;
+File IDs:
+${fileIds.map(id => `- ${id}`).join('\n')}`;
 
     const retryStdout = await runner.invoke(retryPrompt, systemPrompt, vaultRoot, toolArgs);
     sessionLog += `\n\nRETRY PROMPT:\n${retryPrompt}\n\nRETRY RESPONSE:\n${retryStdout}`;

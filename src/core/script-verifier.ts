@@ -41,7 +41,7 @@ Your job is to judge whether the parser script correctly extracts the data.
 ## Expected Output Schema
 
 {
-  "relative_path": "...",
+  "file_id": "...",
   "doc_type": "bank_statement | invoice_out | invoice_in",
   "records": [
     {
@@ -190,7 +190,7 @@ Judge whether the parser correctly extracts the data. Respond with APPROVED if c
   private truncateOutput(output: ExtractionFileResult): string {
     // Create a truncated copy with limited records and capped string fields
     const truncated: JsonObject = {
-      relative_path: output.relative_path,
+      file_id: output.file_id,
       doc_type: output.doc_type,
       records: (output.records || []).slice(0, TRUNCATE_MAX_RECORDS).map(record => {
         const truncRecord: JsonObject = {

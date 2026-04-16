@@ -266,8 +266,8 @@ export interface ParsingError {
 }
 
 export interface ExtractionFileResult {
-  relative_path: string;
-  file_id?: string;
+  file_id: string;
+  relative_path?: string;
   doc_type: DocType;
   records: ExtractionRecord[];
   error?: string;

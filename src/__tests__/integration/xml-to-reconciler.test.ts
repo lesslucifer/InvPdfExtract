@@ -27,6 +27,7 @@ describe('Integration: XML to Reconciler', () => {
 
     // Parse the XML
     const fileResult = parseXmlInvoice(XML_FILES.inKyThuatSo911, relativePath);
+    fileResult.file_id = file.id;
     const extraction: ExtractionResult = { results: [fileResult] };
 
     // Reconcile
@@ -71,6 +72,7 @@ describe('Integration: XML to Reconciler', () => {
     const file = insertFile(relativePath, 'def456hash', 'xml', 2048);
 
     const fileResult = parseXmlInvoice(XML_FILES.dauTuDuyPhu, relativePath);
+    fileResult.file_id = file.id;
     const extraction: ExtractionResult = { results: [fileResult] };
 
     const reconciler = new Reconciler(0.8);
@@ -110,6 +112,7 @@ describe('Integration: XML to Reconciler', () => {
     const file = insertFile(relativePath, 'ghi789hash', 'xml', 512);
 
     const fileResult = parseXmlInvoice(XML_FILES.vanThinhPhuc, relativePath);
+    fileResult.file_id = file.id;
     const reconciler = new Reconciler(0.8);
 
     // First extraction
@@ -146,6 +149,7 @@ describe('Integration: XML to Reconciler', () => {
     const file = insertFile(relativePath, 'jkl012hash', 'xml', 768);
 
     const fileResult = parseXmlInvoice(XML_FILES.inKyThuatSo933, relativePath);
+    fileResult.file_id = file.id;
     const extraction: ExtractionResult = { results: [fileResult] };
 
     // For this test, we manually set a script_id on the batch after creation

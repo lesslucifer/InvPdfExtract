@@ -21,7 +21,7 @@ const PARSER_SYSTEM_PROMPT = `You are a code generator for an accounting documen
 The parser script MUST output a JSON object to stdout with this exact structure:
 
 {
-  "relative_path": "<the file path passed as process.argv[2]>",
+  "file_id": "<opaque identifier — output empty string>",
   "doc_type": "<one of: bank_statement, invoice_out, invoice_in>",
   "records": [
     {

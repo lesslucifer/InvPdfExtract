@@ -227,12 +227,12 @@ Line item fields (chi tiết):
 ## Irrelevant Documents
 
 If a file is clearly NOT an accounting document (e.g. CV, report, image, code file, bug report), do NOT return an error string. Instead return:
-{"relative_path":"...","doc_type":"unknown","records":[],"skipped":true,"skip_reason":"<one-line reason>"}
+{"file_id":"...","doc_type":"unknown","records":[],"skipped":true,"skip_reason":"<one-line reason>"}
 
 ## Output Format
 
 Return ONLY raw JSON, no markdown fences, no extra text:
-{"results":[{"relative_path":"...","doc_type":"...","records":[{"confidence":0.9,"field_confidence":{},"doc_date":"YYYY-MM-DD","data":{},"line_items":[]}]}]}
+{"results":[{"file_id":"...","doc_type":"...","records":[{"confidence":0.9,"field_confidence":{},"doc_date":"YYYY-MM-DD","data":{},"line_items":[]}]}]}
 
 ## Rules
 

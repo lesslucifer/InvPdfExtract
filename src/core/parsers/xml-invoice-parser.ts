@@ -76,6 +76,7 @@ export function parseXmlInvoice(filePath: string, relativePath: string): Extract
   log.info(LogModule.Parser, `XML invoice parsed: ${data.invoice_code ?? '?'}-${data.invoice_number ?? '?'}`, { relativePath, lineItems: lineItems.length });
 
   return {
+    file_id: '',
     relative_path: relativePath,
     doc_type: DocType.InvoiceIn,
     records: [{

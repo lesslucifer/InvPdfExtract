@@ -11,7 +11,7 @@ vi.mock('fs', () => ({
 
 const VALID_JSON = JSON.stringify({
   results: [{
-    relative_path: 'test.pdf',
+    file_id: 'test-file-id-001',
     doc_type: 'invoice_out',
     records: [{ confidence: 0.95, field_confidence: {}, ngay: '2026-01-01', data: { so_hoa_don: '001' } }],
   }],
@@ -21,7 +21,7 @@ describe('parseExtractionResponse', () => {
   it('parses clean JSON', () => {
     const result = parseExtractionResponse(VALID_JSON);
     expect(result.results).toHaveLength(1);
-    expect(result.results[0].relative_path).toBe('test.pdf');
+    expect(result.results[0].file_id).toBe('test-file-id-001');
   });
 
   it('strips markdown code fences', () => {
@@ -57,7 +57,7 @@ describe('parseExtractionResponse', () => {
   it('handles nested braces in valid JSON', () => {
     const json = JSON.stringify({
       results: [{
-        relative_path: 'test.pdf',
+        file_id: 'test-file-id-001',
         doc_type: 'invoice_out',
         records: [{
           confidence: 0.9,
@@ -73,7 +73,7 @@ describe('parseExtractionResponse', () => {
   });
 
   it('throws on truncated output with truncation hint', () => {
-    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.88,"field_confiden';
+    const truncated = '{"results":[{"file_id":"test-id","doc_type":"invoice_out","records":[{"confidence":0.88,"field_confiden';
     expect(() => parseExtractionResponse(truncated)).not.toThrow();
   });
 
@@ -101,7 +101,7 @@ describe('parseExtractionResponse', () => {
     });
     const result = parseExtractionResponse(envelope);
     expect(result.results).toHaveLength(1);
-    expect(result.results[0].relative_path).toBe('test.pdf');
+    expect(result.results[0].file_id).toBe('test-file-id-001');
   });
 
   it('unwraps envelope with preamble text in result field', () => {
@@ -115,12 +115,12 @@ describe('parseExtractionResponse', () => {
 
   it('handles real-world case: Vietnamese preamble + truncated JSON', () => {
     const preamble = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ) — classified as `invoice_out` since it\'s issued by the seller (CÔNG TY TNHH GINKGO, TaxID 0305008980). All amounts are 0, and the buyer field contains an address rather than a company name (indicating internal transfer). The tax rate is "—" (not applicable).\n\n';
-    const truncatedJson = '{"results":[{"relative_path":"xlsx/hoadon_sold_2026-03-22.xlsx","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
+    const truncatedJson = '{"results":[{"file_id":"file-uuid-123","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
     const raw = preamble + truncatedJson;
 
     const result = parseExtractionResponse(raw);
     expect(result.results).toHaveLength(1);
-    expect(result.results[0].relative_path).toBe('xlsx/hoadon_sold_2026-03-22.xlsx');
+    expect(result.results[0].file_id).toBe('file-uuid-123');
   });
 });
 
@@ -136,7 +136,7 @@ describe('processFiles retry', () => {
       .mockResolvedValueOnce('Let me think about this... not valid JSON')
       .mockResolvedValueOnce(VALID_JSON);
 
-    const { result } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    const { result } = await processFiles(runner, [{ fileId: 'test-file-id-001', filePath: '/vault/test.pdf' }], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
     expect(invokeSpy).toHaveBeenCalledTimes(2);
     expect(result.results).toHaveLength(1);
@@ -149,7 +149,7 @@ describe('processFiles retry', () => {
     const invokeSpy = vi.spyOn(runner, 'invoke')
       .mockResolvedValueOnce(VALID_JSON);
 
-    const { result } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    const { result } = await processFiles(runner, [{ fileId: 'test-file-id-001', filePath: '/vault/test.pdf' }], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
     expect(invokeSpy).toHaveBeenCalledTimes(1);
     expect(result.results).toHaveLength(1);
@@ -161,7 +161,7 @@ describe('processFiles retry', () => {
       .mockResolvedValueOnce('Still not JSON');
 
     await expect(
-      processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md')
+      processFiles(runner, [{ fileId: 'test-file-id-001', filePath: '/vault/test.pdf' }], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md')
     ).rejects.toThrow('Failed to parse Claude CLI response');
   });
 
@@ -171,7 +171,7 @@ describe('processFiles retry', () => {
       .mockResolvedValueOnce(garbled)
       .mockResolvedValueOnce(VALID_JSON);
 
-    const { result, sessionLog } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    const { result, sessionLog } = await processFiles(runner, [{ fileId: 'test-file-id-001', filePath: '/vault/test.pdf' }], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
     expect(result.results).toHaveLength(1);
     expect(sessionLog).toContain('RETRY PROMPT:');
@@ -183,7 +183,7 @@ describe('processFiles retry', () => {
     const invokeSpy = vi.spyOn(runner, 'invoke')
       .mockResolvedValueOnce(noisy);
 
-    const { result } = await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    const { result } = await processFiles(runner, [{ fileId: 'test-file-id-001', filePath: '/vault/test.pdf' }], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
     expect(invokeSpy).toHaveBeenCalledTimes(1);
     expect(result.results).toHaveLength(1);
@@ -193,7 +193,7 @@ describe('processFiles retry', () => {
     const invokeSpy = vi.spyOn(runner, 'invoke')
       .mockResolvedValueOnce(VALID_JSON);
 
-    await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    await processFiles(runner, [{ fileId: 'test-file-id-001', filePath: '/vault/test.pdf' }], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
     expect(invokeSpy).toHaveBeenCalledTimes(1);
   });
@@ -240,7 +240,7 @@ describe('model tier configuration', () => {
     const runner = new ClaudeCodeRunner('/usr/bin/claude', undefined, 'heavy');
     vi.spyOn(runner, 'invoke').mockResolvedValueOnce(VALID_JSON);
 
-    await processFiles(runner, ['/vault/test.pdf'], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
+    await processFiles(runner, [{ fileId: 'test-file-id-001', filePath: '/vault/test.pdf' }], '/vault', '/vault/.invoicevault/instructions/extraction-prompt.md');
 
     expect((runner as any).model).toBe('opus');
   });
@@ -359,7 +359,7 @@ describe('extractJSON', () => {
   it('handles deeply nested JSON', () => {
     const nested = JSON.stringify({
       results: [{
-        relative_path: 'test.pdf',
+        file_id: 'test-file-id-001',
         doc_type: 'invoice_out',
         records: [{
           confidence: 0.9,
@@ -377,7 +377,7 @@ describe('extractJSON', () => {
   it('handles JSON with escaped quotes in strings', () => {
     const json = JSON.stringify({
       results: [{
-        relative_path: 'file "with" quotes.pdf',
+        file_id: 'file-id-with-quotes',
         doc_type: 'invoice_out',
         records: [{ confidence: 0.9, field_confidence: {}, ngay: '2026-01-01', data: { name: 'value "quoted"' } }],
       }],
@@ -403,16 +403,16 @@ describe('extractJSON', () => {
 
 describe('repairTruncatedJSON', () => {
   it('repairs truncated string value', () => {
-    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
+    const truncated = '{"results":[{"file_id":"test-id","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
     const repaired = repairTruncatedJSON(truncated);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);
     expect(parsed.results).toHaveLength(1);
-    expect(parsed.results[0].relative_path).toBe('test.pdf');
+    expect(parsed.results[0].file_id).toBe('test-id');
   });
 
   it('repairs truncated after colon', () => {
-    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":';
+    const truncated = '{"results":[{"file_id":"test-id","doc_type":';
     const repaired = repairTruncatedJSON(truncated);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);
@@ -420,7 +420,7 @@ describe('repairTruncatedJSON', () => {
   });
 
   it('repairs truncated after comma', () => {
-    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out",';
+    const truncated = '{"results":[{"file_id":"test-id","doc_type":"invoice_out",';
     const repaired = repairTruncatedJSON(truncated);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);
@@ -428,7 +428,7 @@ describe('repairTruncatedJSON', () => {
   });
 
   it('repairs missing closing brackets', () => {
-    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.9}';
+    const truncated = '{"results":[{"file_id":"test-id","doc_type":"invoice_out","records":[{"confidence":0.9}';
     const repaired = repairTruncatedJSON(truncated);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);
@@ -436,7 +436,7 @@ describe('repairTruncatedJSON', () => {
   });
 
   it('repairs deeply nested truncation', () => {
-    const truncated = '{"results":[{"relative_path":"test.pdf","doc_type":"invoice_out","records":[{"confidence":0.9,"field_confidence":{"so_hoa_don":0.95,"taxId":0.88},"ngay":"2026-01-01","data":{"so_hoa_don":"001","taxId":"030500';
+    const truncated = '{"results":[{"file_id":"test-id","doc_type":"invoice_out","records":[{"confidence":0.9,"field_confidence":{"so_hoa_don":0.95,"taxId":0.88},"ngay":"2026-01-01","data":{"so_hoa_don":"001","taxId":"030500';
     const repaired = repairTruncatedJSON(truncated);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);
@@ -452,23 +452,23 @@ describe('repairTruncatedJSON', () => {
   });
 
   it('repairs the exact real-world truncated output from the bug report', () => {
-    const preambleAndJson = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ).\n\n{"results":[{"relative_path":"xlsx/hoadon_sold_2026-03-22.xlsx","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
+    const preambleAndJson = 'Now I have all the data. This is an internal transfer invoice (Phiếu xuất kho kiêm vận chuyển hàng hóa nội bộ).\n\n{"results":[{"file_id":"file-uuid-456","doc_type":"invoice_out","records":[{"confidence":0.82,"field_confi';
     expect(extractJSON(preambleAndJson)).toBeNull();
 
     const repaired = repairTruncatedJSON(preambleAndJson);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);
-    expect(parsed.results[0].relative_path).toBe('xlsx/hoadon_sold_2026-03-22.xlsx');
+    expect(parsed.results[0].file_id).toBe('file-uuid-456');
     expect(parsed.results[0].doc_type).toBe('invoice_out');
   });
 
   it('handles truncation mid-array with complete elements', () => {
-    const truncated = '{"results":[{"relative_path":"a.pdf","doc_type":"invoice_out","records":[]},{"relative_path":"b.pdf","doc_type":"invoice_in","reco';
+    const truncated = '{"results":[{"file_id":"id-a","doc_type":"invoice_out","records":[]},{"file_id":"id-b","doc_type":"invoice_in","reco';
     const repaired = repairTruncatedJSON(truncated);
     expect(repaired).not.toBeNull();
     const parsed = JSON.parse(repaired!);
     expect(parsed.results).toHaveLength(2);
-    expect(parsed.results[0].relative_path).toBe('a.pdf');
+    expect(parsed.results[0].file_id).toBe('id-a');
   });
 
   it('handles truncation after opening bracket', () => {

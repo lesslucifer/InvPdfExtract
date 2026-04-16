@@ -184,6 +184,7 @@ describe('Integration: Cross-file deduplication', () => {
     const fileB = insertFile(relativePathB, 'hash-b', 'xml', 1024);
 
     const fileResult = parseXmlInvoice(XML_FILES.inKyThuatSo911, relativePath);
+    fileResult.file_id = fileA.id;
     const reconciler = new Reconciler(0.8);
 
     // Process file A
@@ -196,7 +197,7 @@ describe('Integration: Cross-file deduplication', () => {
     expect(getDupSources(recA.id)).toHaveLength(0);
 
     // Process same invoice from file B
-    const fileResultB = { ...fileResult, relative_path: relativePathB };
+    const fileResultB = { ...fileResult, file_id: fileB.id, relative_path: relativePathB };
     reconciler.reconcileResults({ results: [fileResultB] } as ExtractionResult, 'log-2');
 
     const recB = db.prepare('SELECT id FROM records WHERE file_id = ? AND deleted_at IS NULL').get(fileB.id) as any;

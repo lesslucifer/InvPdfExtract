@@ -255,6 +255,12 @@ Chainable transforms: `.params()` (remap params), `.extend()` (add computed fiel
 - When a query has local side effects (debounce, sequential fetch), keep as `useEffect`; use React Query only for cacheable part.
 - Merge React Query data with local state at render time rather than storing merged copies.
 
+## LLM Prompt Isolation
+
+- **Never pass file names or paths to the LLM** (Claude CLI). Use `file_id` (UUID) only.
+- **Never use file names/paths for matching** extraction results back to files. Match by `file_id` only.
+- The `relative_path` field on `ExtractionFileResult` is optional and for internal logging only — never included in LLM prompts or used for result matching.
+
 ## SQLite Schema
 
 The database (`vault.db` in `.invoicevault/`) uses these core tables: `files`, `extraction_batches`, `records`, `bank_statement_data`, `invoice_data`, `invoice_line_items`, `extraction_scripts`, `file_script_assignments`, `field_overrides`, `processing_logs`. Full schema definitions are in PRD Section 9. All deletions are soft deletes (`deleted_at` column). FTS5 is used for search.

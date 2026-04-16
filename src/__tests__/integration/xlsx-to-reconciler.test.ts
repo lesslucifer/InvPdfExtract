@@ -122,7 +122,8 @@ describe('Integration: XLSX to Reconciler', () => {
       timeoutMs: 10000,
       modulePaths: [nodeModules],
     });
-    // Fix relative_path (script receives absolute path)
+    // Stamp file_id and relative_path (script output doesn't know these)
+    fileResult.file_id = file.id;
     fileResult.relative_path = relativePath;
 
     const extraction: ExtractionResult = { results: [fileResult] };

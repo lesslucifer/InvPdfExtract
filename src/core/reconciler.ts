@@ -11,7 +11,7 @@ import {
   getLineItemsByRecord, updateLineItem,
   updateFtsIndex, addLog, getLockedFieldsForRecord, setFieldConflict, getFtsIndexData,
 } from './db/records';
-import { getFileById, getFileByPath, updateFileStatus, updateFileDocType, updateFileFilterResult } from './db/files';
+import { getFileById, updateFileStatus, updateFileDocType, updateFileFilterResult } from './db/files';
 import { getDatabase } from './db/database';
 import { rebuildDuplicatesForFingerprints } from './db/dedup';
 import { eventBus } from './event-bus';
@@ -33,8 +33,8 @@ export class Reconciler {
       try {
         this.reconcileFileResult(fileResult, sessionLog);
       } catch (err) {
-        log.error(LogModule.Reconciler, `Error reconciling ${fileResult.relative_path}:`, err);
-        const file = fileResult.file_id ? getFileById(fileResult.file_id) : getFileByPath(fileResult.relative_path);
+        log.error(LogModule.Reconciler, `Error reconciling ${fileResult.relative_path ?? fileResult.file_id}:`, err);
+        const file = getFileById(fileResult.file_id);
         if (file) {
           updateFileStatus(file.id, FileStatus.Error);
           eventBus.emit('extraction:error', { fileId: file.id, error: (err as Error).message });
@@ -45,23 +45,23 @@ export class Reconciler {
 
   private reconcileFileResult(fileResult: ExtractionFileResult, sessionLog: string): void {
     const reconcileT0 = performance.now();
-    const file = fileResult.file_id ? getFileById(fileResult.file_id) : getFileByPath(fileResult.relative_path);
+    const file = getFileById(fileResult.file_id);
     if (!file) {
-      log.warn(LogModule.Reconciler, `File not found in DB: ${fileResult.relative_path}`);
+      log.warn(LogModule.Reconciler, `File not found in DB: ${fileResult.file_id}`);
       return;
     }
 
     if (fileResult.skipped) {
       const reason = fileResult.skip_reason ?? 'Irrelevant: not an accounting document';
       updateFileFilterResult(file.id, FileStatus.Skipped, 0.1, reason, 4);
-      addLog(null, LogLevel.Info, `Skipped (irrelevant) at extraction stage: ${fileResult.relative_path} — ${reason}`);
-      eventBus.emit('file:filtered', { fileId: file.id, relativePath: fileResult.relative_path, score: 0.1, reason });
+      addLog(null, LogLevel.Info, `Skipped (irrelevant) at extraction stage: ${file.relative_path} — ${reason}`);
+      eventBus.emit('file:filtered', { fileId: file.id, relativePath: file.relative_path, score: 0.1, reason });
       return;
     }
 
     if (fileResult.error) {
       updateFileStatus(file.id, FileStatus.Error);
-      addLog(null, LogLevel.Error, `Extraction error for ${fileResult.relative_path}: ${fileResult.error}`);
+      addLog(null, LogLevel.Error, `Extraction error for ${file.relative_path}: ${fileResult.error}`);
       eventBus.emit('extraction:error', { fileId: file.id, error: fileResult.error });
       return;
     }
@@ -84,7 +84,7 @@ export class Reconciler {
       null
     );
 
-    addLog(batch.id, LogLevel.Info, `Extracted ${records.length} records from ${fileResult.relative_path}`);
+    addLog(batch.id, LogLevel.Info, `Extracted ${records.length} records from ${file.relative_path}`);
 
     // Get existing records for this file
     const existingRecords = getRecordsByFileId(file.id);
@@ -144,7 +144,7 @@ export class Reconciler {
     updateFileStatus(file.id, needsReview ? FileStatus.Review : FileStatus.Done);
 
     const totalLineItems = records.reduce((sum, r) => sum + (r.line_items?.length ?? 0), 0);
-    log.info(LogModule.Reconciler, `reconcileFileResult: ${fileResult.relative_path} — ${records.length} records, ${totalLineItems} lineItems, txn=${txnMs.toFixed(0)}ms, dedup=${dedupMs.toFixed(0)}ms, total=${(performance.now() - reconcileT0).toFixed(0)}ms`);
+    log.info(LogModule.Reconciler, `reconcileFileResult: ${file.relative_path} — ${records.length} records, ${totalLineItems} lineItems, txn=${txnMs.toFixed(0)}ms, dedup=${dedupMs.toFixed(0)}ms, total=${(performance.now() - reconcileT0).toFixed(0)}ms`);
 
     eventBus.emit('extraction:completed', {
       batchId: batch.id,

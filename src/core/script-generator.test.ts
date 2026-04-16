@@ -54,7 +54,7 @@ const wb = XLSX.readFile(process.argv[2]);
 const ws = wb.Sheets['Invoices'];
 const rows = XLSX.utils.sheet_to_json(ws);
 const result = {
-  relative_path: process.argv[2],
+  file_id: '',
   doc_type: 'invoice_out',
   records: rows.map(r => ({
     confidence: 1.0,
@@ -127,7 +127,7 @@ describe('ScriptGenerator', () => {
 
       const systemPrompt = spy.mock.calls[0][1];
       expect(systemPrompt).toContain('ExtractionFileResult');
-      expect(systemPrompt).toContain('relative_path');
+      expect(systemPrompt).toContain('file_id');
       expect(systemPrompt).toContain('doc_type');
       expect(systemPrompt).toContain('records');
     });

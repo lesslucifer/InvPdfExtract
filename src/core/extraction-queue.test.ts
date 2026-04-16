@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
   const generateMatcher = vi.fn().mockResolvedValue({ matcherPath: '/tmp/m.js' });
   const verifyAndRefine = vi.fn().mockResolvedValue({
     success: true,
-    output: { relative_path: '', doc_type: 'bank_statement', records: [] },
+    output: { file_id: '', doc_type: 'bank_statement', records: [] },
   });
   const getAllScripts = vi.fn().mockReturnValue([]);
   const registerScript = vi.fn().mockReturnValue({ id: 'script-1' });
@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => {
   const findMatchingScript = vi.fn().mockReturnValue(null);
   const processFiles = vi.fn().mockResolvedValue({ result: { results: [] }, sessionLog: 'log' });
   const reconcileResults = vi.fn();
-  const executeScript = vi.fn().mockResolvedValue({ relative_path: '', doc_type: 'bank_statement', records: [] });
+  const executeScript = vi.fn().mockResolvedValue({ file_id: '', doc_type: 'bank_statement', records: [] });
   const extractMetadata = vi.fn().mockReturnValue({ fileName: 'test.xlsx', fileType: 'xlsx', sheets: [], totalRows: 0 });
   const extractPdfText = vi.fn().mockResolvedValue('some pdf text long enough');
   const parseXmlInvoice = vi.fn().mockImplementation(() => { throw new Error('not xml'); });
@@ -152,12 +152,12 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     mocks.filterFile.mockResolvedValue('accepted');
     mocks.generateParser.mockResolvedValue({ parserPath: '/tmp/p.js', name: 'p', docType: 'bank_statement' });
     mocks.generateMatcher.mockResolvedValue({ matcherPath: '/tmp/m.js' });
-    mocks.verifyAndRefine.mockResolvedValue({ success: true, output: { relative_path: '', doc_type: 'bank_statement', records: [] } });
+    mocks.verifyAndRefine.mockResolvedValue({ success: true, output: { file_id: '', doc_type: 'bank_statement', records: [] } });
     mocks.getAllScripts.mockReturnValue([]);
     mocks.registerScript.mockReturnValue({ id: 'script-1' });
     mocks.findMatchingScript.mockReturnValue(null);
     mocks.processFiles.mockResolvedValue({ result: { results: [] }, sessionLog: 'log' });
-    mocks.executeScript.mockResolvedValue({ relative_path: '', doc_type: 'bank_statement', records: [] });
+    mocks.executeScript.mockResolvedValue({ file_id: '', doc_type: 'bank_statement', records: [] });
     mocks.extractMetadata.mockReturnValue({ fileName: 'test.xlsx', fileType: 'xlsx', sheets: [], totalRows: 0 });
     mocks.extractPdfText.mockResolvedValue('some pdf text long enough');
     mocks.parseXmlInvoice.mockImplementation(() => { throw new Error('not xml'); });
@@ -201,8 +201,8 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     mocks.processFiles.mockResolvedValue({
       result: {
         results: [
-          { relative_path: f1.relative_path, doc_type: 'bank_statement', records: [] },
-          { relative_path: f2.relative_path, doc_type: 'bank_statement', records: [] },
+          { file_id: f1.id, doc_type: 'bank_statement', records: [] },
+          { file_id: f2.id, doc_type: 'bank_statement', records: [] },
         ],
       },
       sessionLog: 'log',
@@ -213,9 +213,9 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     await queue['processQueue']();
 
     expect(mocks.processFiles).toHaveBeenCalledTimes(1);
-    const [, filePaths] = mocks.processFiles.mock.calls[0] as [unknown, string[], ...unknown[]];
-    expect(filePaths).toHaveLength(2);
-    expect(filePaths.every((p: string) => p.endsWith('.pdf'))).toBe(true);
+    const [, fileInputs] = mocks.processFiles.mock.calls[0] as [unknown, Array<{ fileId: string; filePath: string }>, ...unknown[]];
+    expect(fileInputs).toHaveLength(2);
+    expect(fileInputs.every((f: { filePath: string }) => f.filePath.endsWith('.pdf'))).toBe(true);
   });
 
   it('never sends XLSX to the PDF batch processor (processFiles)', async () => {
@@ -227,8 +227,8 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     await queue['processQueue']();
 
     for (const call of mocks.processFiles.mock.calls) {
-      const paths = call[1] as string[];
-      expect(paths.every((p: string) => !p.endsWith('.xlsx') && !p.endsWith('.csv'))).toBe(true);
+      const fileInputs = call[1] as Array<{ fileId: string; filePath: string }>;
+      expect(fileInputs.every((f: { filePath: string }) => !f.filePath.endsWith('.xlsx') && !f.filePath.endsWith('.csv'))).toBe(true);
     }
   });
 
@@ -249,7 +249,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     mocks.findMatchingScript.mockReturnValue(registeredScript);
 
     mocks.executeScript.mockResolvedValue({
-      relative_path: '', doc_type: 'bank_statement',
+      file_id: '', doc_type: 'bank_statement',
       records: [{ confidence: 1.0, field_confidence: {}, doc_date: null, data: { amount: 100000, description: 'Bank wire' }, line_items: [] }],
     });
 
@@ -317,8 +317,8 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
 
     // processFiles must never receive xlsx paths
     for (const call of mocks.processFiles.mock.calls) {
-      const paths = call[1] as string[];
-      expect(paths.every((p: string) => !p.endsWith('.xlsx') && !p.endsWith('.csv'))).toBe(true);
+      const fileInputs = call[1] as Array<{ fileId: string; filePath: string }>;
+      expect(fileInputs.every((f: { filePath: string }) => !f.filePath.endsWith('.xlsx') && !f.filePath.endsWith('.csv'))).toBe(true);
     }
   });
 });

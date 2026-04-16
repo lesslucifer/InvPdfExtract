@@ -30,7 +30,7 @@ export async function aiTriageBatch(
 
   const fileSections = inputs.map((input, idx) => {
     const truncated = input.textSample.slice(0, 500);
-    return `--- File ${idx}: ${input.relativePath} ---\n${truncated}\n`;
+    return `--- File ${idx} ---\n${truncated}\n`;
   }).join('\n');
 
   const userPrompt = `Classify these ${inputs.length} document snippet(s):\n\n${fileSections}\n\nReturn ONLY the JSON array.`;

@@ -35,7 +35,7 @@ function makeSampleMetadata(): SpreadsheetMetadata {
 
 function makeValidResult(): ExtractionFileResult {
   return {
-    relative_path: 'test.xlsx',
+    file_id: 'test-file-id',
     doc_type: DocType.InvoiceOut,
     records: [{
       confidence: 1.0,
@@ -225,7 +225,7 @@ describe('ScriptVerifier', () => {
   describe('Output truncation', () => {
     it('truncates output to max 3 records when sending to Claude', async () => {
       const resultWith5Records: ExtractionFileResult = {
-        relative_path: 'test.xlsx',
+        file_id: 'test-file-id',
         doc_type: DocType.BankStatement,
         records: Array.from({ length: 5 }, (_, i) => ({
           confidence: 1.0,

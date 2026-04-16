@@ -4,7 +4,7 @@ import { DocType, ExtractionFileResult } from '../../shared/types';
 
 function makeValidResult(overrides?: Partial<ExtractionFileResult>): ExtractionFileResult {
   return {
-    relative_path: 'test.xlsx',
+    file_id: 'test-file-id',
     doc_type: DocType.InvoiceIn,
     records: [{
       confidence: 1.0,

@@ -30,7 +30,7 @@ describe('Script Sandbox', () => {
     it('executes a parser script and captures JSON output', async () => {
       const script = createTempScript(`
         const result = {
-          relative_path: 'test.xml',
+          file_id: '',
           doc_type: 'invoice_in',
           records: [{
             confidence: 1.0,
@@ -47,7 +47,7 @@ describe('Script Sandbox', () => {
       const result = await executeScript(script, 'test.xml', { timeoutMs: 5000 });
 
       expect(result).toBeTruthy();
-      expect(result.relative_path).toBe('test.xml');
+      expect(result.file_id).toBe('');
       expect(result.doc_type).toBe('invoice_in');
       expect(result.records).toHaveLength(1);
       expect((result.records[0].data as ExtractionInvoiceData).invoice_number).toBe('123');
@@ -57,6 +57,7 @@ describe('Script Sandbox', () => {
       const script = createTempScript(`
         const filePath = process.argv[2];
         const result = {
+          file_id: '',
           relative_path: filePath,
           doc_type: 'invoice_in',
           records: []
@@ -67,6 +68,7 @@ describe('Script Sandbox', () => {
 
       const result = await executeScript(script, 'my-invoice.xml', { timeoutMs: 5000 });
       expect(result.relative_path).toBe('my-invoice.xml');
+      expect(result.file_id).toBe('');
     });
   });
 

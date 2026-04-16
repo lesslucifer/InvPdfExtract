@@ -3,7 +3,7 @@ import * as path from 'path';
 import { getFilesByStatuses, updateFileStatus, incrementRetryAndRequeue } from './db/files';
 import { addLog } from './db/records';
 import { ClaudeCodeRunner, CliError, getSessionLogPath } from './claude-cli';
-import { processFiles as processFilesWithCLI } from './pdf-extractor';
+import { processFiles as processFilesWithCLI, FileInput } from './pdf-extractor';
 import { Reconciler } from './reconciler';
 import { ScriptRegistry } from './script-registry';
 import { MatcherEvaluator } from './matcher-evaluator';
@@ -365,18 +365,21 @@ export class ExtractionQueue {
     }
     if (processable.length === 0) return;
 
-    const filePaths = processable.map(f => path.join(this.vault.rootPath, f.relative_path));
+    const fileInputs: FileInput[] = processable.map(f => ({
+      fileId: f.id,
+      filePath: path.join(this.vault.rootPath, f.relative_path),
+    }));
 
     try {
       const systemPromptPath = path.join(this.vault.dotPath, 'instructions', 'extraction-prompt.md');
-      const { result, sessionLog } = await processFilesWithCLI(this.pdfRunner, filePaths, this.vault.rootPath, systemPromptPath);
+      const { result, sessionLog } = await processFilesWithCLI(this.pdfRunner, fileInputs, this.vault.rootPath, systemPromptPath);
 
-      // Stamp file_id on each result to avoid Unicode normalization mismatch
-      // (macOS stores NFD paths in DB, but Claude CLI returns NFC paths in JSON)
-      const nfcPathToFile = new Map(processable.map(f => [f.relative_path.normalize('NFC'), f]));
+      // Validate returned file_ids match what we sent
+      const validIds = new Set(processable.map(f => f.id));
       for (const fileResult of result.results) {
-        const matched = nfcPathToFile.get(fileResult.relative_path.normalize('NFC'));
-        if (matched) fileResult.file_id = matched.id;
+        if (!validIds.has(fileResult.file_id)) {
+          log.warn(LogModule.ExtractionQueue, `Unmatched file_id in extraction result: ${fileResult.file_id}`);
+        }
       }
       this.reconciler.reconcileResults(result, sessionLog);
 
