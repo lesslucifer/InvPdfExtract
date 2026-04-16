@@ -33,6 +33,12 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// Enforce single instance — quit if another instance is already running
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 let isQuitting = false;
 let notificationManager: NotificationManager | null = null;
 let overlayWindow: OverlayWindow | null = null;
@@ -53,6 +59,13 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   log.info(LogModule.Main, 'Received SIGINT');
   handleQuit();
+});
+
+// When a second instance is launched, show the existing overlay instead
+app.on('second-instance', () => {
+  if (overlayWindow) {
+    overlayWindow.show();
+  }
 });
 
 // Prevent default window creation — overlay-only app
