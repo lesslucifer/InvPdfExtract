@@ -267,24 +267,42 @@ export class ClaudeCodeRunner {
 
       let stdout = '';
       let stderr = '';
-      let completed = false;
+      let settled = false;
+      let graceTimer: ReturnType<typeof setTimeout> | null = null;
 
-      const killTimer = setTimeout(() => {
-        if (!completed) {
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutTimer);
+        if (graceTimer) clearTimeout(graceTimer);
+        fn();
+      };
+
+      const cleanup = () => {
+        if (!proc.killed) {
           proc.kill('SIGTERM');
         }
+      };
+
+      // Overall timeout — kill the process if it hasn't produced a result
+      const timeoutTimer = setTimeout(() => {
+        settle(() => {
+          cleanup();
+          const sessionId = extractSessionId(stdout.trim());
+          reject(new CliError(null, `CLI timed out after ${this.timeout}ms`, stdout, sessionId));
+        });
       }, this.timeout);
 
       proc.stdout!.on('data', (data: Buffer) => {
         stdout += data.toString();
-        // Replace the long timeout with a short grace period once we see the result —
-        // the CLI has finished its work but may hang during cleanup (especially on Windows).
-        if (!completed && (stdout.includes('"stop_reason":"end_turn"') || stdout.includes('"stop_reason":"max_tokens"'))) {
-          completed = true;
-          clearTimeout(killTimer);
-          setTimeout(() => {
+        // Once stdout contains the completed result envelope, we have everything we need.
+        // Resolve immediately — don't wait for the process to exit.
+        if (!settled && (stdout.includes('"stop_reason":"end_turn"') || stdout.includes('"stop_reason":"max_tokens"'))) {
+          settle(() => resolve(stdout.trim()));
+          // Let the process exit on its own, but force-kill if it hangs (e.g. Windows cleanup)
+          graceTimer = setTimeout(() => {
             if (!proc.killed) {
-              log.warn(LogModule.ClaudeCLI, 'CLI process did not exit within grace period after completion — force killing');
+              log.warn(LogModule.ClaudeCLI, 'CLI process still alive after result — force killing');
               proc.kill('SIGTERM');
             }
           }, 5_000);
@@ -296,51 +314,26 @@ export class ClaudeCodeRunner {
       });
 
       proc.on('close', (code) => {
-        clearTimeout(killTimer);
-        if (code === 0) {
-          resolve(stdout.trim());
-        } else {
-          // CLI may have completed successfully but been killed after writing output
-          // (e.g. timeout SIGTERM arrives just after process finishes). If stdout contains
-          // a completed result envelope (possibly truncated mid-stream), treat it as success.
-          const trimmed = stdout.trim();
-          try {
-            const parsed = JSON.parse(trimmed);
-            if (parsed?.type === 'result' && parsed?.is_error === false && parsed?.stop_reason === 'end_turn') {
-              log.warn(LogModule.ClaudeCLI, `CLI exited ${code} but stdout has completed result — treating as success`);
-              resolve(trimmed);
-              return;
-            }
-          } catch { /* not a complete valid envelope — try repair below */ }
-
-          // If stdout was truncated mid-stream, attempt to salvage using repairTruncatedJSON.
-          // This handles the race where SIGTERM arrives just as stdout is being flushed.
-          if (trimmed.includes('"type":"result"') && trimmed.includes('"stop_reason":"end_turn"')) {
-            const repaired = repairTruncatedJSON(trimmed);
-            if (repaired) {
-              try {
-                const parsed = JSON.parse(repaired);
-                if (parsed?.type === 'result' && parsed?.is_error === false && parsed?.stop_reason === 'end_turn') {
-                  log.warn(LogModule.ClaudeCLI, `CLI exited ${code} but repaired truncated envelope — treating as success`);
-                  resolve(repaired);
-                  return;
-                }
-              } catch { /* repair didn't help */ }
-            }
+        if (graceTimer) clearTimeout(graceTimer);
+        // If we already resolved from stdout, nothing to do
+        settle(() => {
+          if (code === 0) {
+            resolve(stdout.trim());
+          } else {
+            const sessionId = extractSessionId(stdout.trim());
+            reject(new CliError(code, stderr, stdout, sessionId));
           }
-
-          const sessionId = extractSessionId(trimmed);
-          reject(new CliError(code, stderr, stdout, sessionId));
-        }
+        });
       });
 
       proc.on('error', (err) => {
-        clearTimeout(killTimer);
-        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-          reject(new CliError(null, `Claude CLI not found at "${this.cliPath}". Install it from https://claude.ai/code`, '', null));
-        } else {
-          reject(new CliError(null, (err as Error).message, '', null));
-        }
+        settle(() => {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+            reject(new CliError(null, `Claude CLI not found at "${this.cliPath}". Install it from https://claude.ai/code`, '', null));
+          } else {
+            reject(new CliError(null, (err as Error).message, '', null));
+          }
+        });
       });
     });
   }
