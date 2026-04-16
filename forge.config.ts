@@ -20,18 +20,36 @@ const EXTERNALS = ['better-sqlite3', 'xlsx', '@llamaindex/liteparse', 'sharp', '
 const config: ForgeConfig = {
   hooks: {
     packageAfterCopy: async (_config, buildPath) => {
-      for (const pkg of EXTERNALS) {
+      const copied = new Set<string>();
+      const copyPkg = (pkg: string) => {
+        if (copied.has(pkg)) return;
+        copied.add(pkg);
         const src = path.resolve(__dirname, 'node_modules', pkg);
         const dest = path.join(buildPath, 'node_modules', pkg);
-        if (fs.existsSync(src)) {
+        if (!fs.existsSync(src)) return;
+        if (!fs.existsSync(dest)) {
           fs.cpSync(src, dest, { recursive: true });
         }
+        // Recursively copy hoisted transitive dependencies
+        const pkgJsonPath = path.join(src, 'package.json');
+        if (fs.existsSync(pkgJsonPath)) {
+          const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
+          for (const dep of [
+            ...Object.keys(pkgJson.dependencies || {}),
+            ...Object.keys(pkgJson.optionalDependencies || {}),
+          ]) {
+            copyPkg(dep);
+          }
+        }
+      };
+      for (const pkg of EXTERNALS) {
+        copyPkg(pkg);
       }
     },
   },
   packagerConfig: {
     asar: {
-      unpack: '**/*.node',
+      unpack: '**/*.{node,dll}',
     },
     icon: './resources/icon',
     extraResource: ['./resources'],
