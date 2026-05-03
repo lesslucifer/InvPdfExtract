@@ -1,9 +1,9 @@
 import _ from 'lodash';
 import dice = require('fast-dice-coefficient');
-import { ClaudeCodeRunner } from './claude-cli';
+import { createAIRunner } from './ai-runner';
 import { readInstructions } from './je-instructions';
 import { JE_INTRA_BATCH_SIMILARITY_THRESHOLD } from '../shared/constants';
-import { CashFlowType, JEClassificationResult } from '../shared/types';
+import { CashFlowType, JEClassificationResult, AppConfig } from '../shared/types';
 import { log, LogModule } from './logger';
 
 export interface UnclassifiedItem {
@@ -79,7 +79,7 @@ function mergeSimilarGroups(
 export async function classifyWithAI(
   items: UnclassifiedItem[],
   dotPath: string,
-  cliPath?: string,
+  appConfig: AppConfig,
 ): Promise<Map<string, JEClassificationResult>> {
   const results = new Map<string, JEClassificationResult>();
   if (items.length === 0) return results;
@@ -128,7 +128,7 @@ ${itemLines.join('\n')}
 
 Return a JSON array where each entry has: id (1-based line number), account, contra_account, cash_flow.`;
 
-  const runner = new ClaudeCodeRunner(cliPath, undefined, 'medium', 'low');
+  const runner = createAIRunner('je', appConfig);
 
   try {
     const raw = await runner.invokeRaw(userPrompt, systemPrompt, dotPath);

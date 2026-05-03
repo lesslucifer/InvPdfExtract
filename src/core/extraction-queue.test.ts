@@ -48,6 +48,13 @@ vi.mock('./claude-cli', () => ({
   getSessionLogPath: vi.fn().mockReturnValue('/tmp/session.log'),
 }));
 
+vi.mock('./ai-runner', () => ({
+  createAIRunner: () => ({
+    invoke: vi.fn().mockResolvedValue(''),
+    invokeRaw: vi.fn().mockResolvedValue(''),
+  }),
+}));
+
 vi.mock('./pdf-extractor', () => ({
   processFiles: mocks.processFiles,
 }));
@@ -106,6 +113,9 @@ import { openDatabase, closeDatabase, setActiveDatabase, getDatabase } from './d
 import { insertFile } from './db/files';
 import { ExtractionQueue } from './extraction-queue';
 import { FileStatus, VaultHandle, VaultConfig } from '../shared/types';
+import { makeTestAppConfig } from '../test-helpers/app-config';
+
+const TEST_APP_CONFIG = makeTestAppConfig();
 import { eventBus } from './event-bus';
 
 // ---------------------------------------------------------------------------
@@ -173,7 +183,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     insertFile('invoice.xlsx', 'hash-xlsx', 'xlsx', 100);
 
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
     await queue['processQueue']();
 
     expect(mocks.generateParser).toHaveBeenCalledTimes(1);
@@ -186,7 +196,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     insertFile('other.xlsx', 'hash-3', 'xlsx', 100);
 
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
     await queue['processQueue']();
 
     // Each structured file gets its own script generation attempt (matcher always returns null)
@@ -209,7 +219,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     });
 
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
     await queue['processQueue']();
 
     expect(mocks.processFiles).toHaveBeenCalledTimes(1);
@@ -223,7 +233,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     insertFile('report.pdf', 'hash-pdf', 'pdf', 1000);
 
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
     await queue['processQueue']();
 
     for (const call of mocks.processFiles.mock.calls) {
@@ -258,7 +268,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     insertFile('other.xlsx', 'hash-2', 'xlsx', 100);
 
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
     await queue['processQueue']();
 
     // Script generated only once (first file — no scripts in registry yet).
@@ -273,7 +283,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
 
     let statusDuringProcessing = '';
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
 
     // Intercept the private method directly on the instance
     const originalProcess = queue['processStructuredFile'].bind(queue);
@@ -294,7 +304,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     const file = insertFile('invoice.xlsx', 'hash-xlsx', 'xlsx', 100);
 
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
     await queue['processQueue']();
 
     expect(emittedIds).toHaveLength(1);
@@ -309,7 +319,7 @@ describe('ExtractionQueue — structured vs unstructured processing order', () =
     insertFile('b.xlsx', 'hash-b', 'xlsx', 100);
 
     const vault = makeVaultHandle(rootPath, dotPath);
-    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never);
+    const queue = new ExtractionQueue(vault, { filterFile: mocks.filterFile } as never, TEST_APP_CONFIG);
     await queue['processQueue']();
 
     // Both XLSX files generate their own scripts

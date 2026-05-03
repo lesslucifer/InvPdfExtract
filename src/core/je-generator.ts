@@ -9,7 +9,7 @@ import {
 import { JESimilarityEngine } from './je-similarity';
 import { classifyWithAI, UnclassifiedItem } from './je-ai-classifier';
 import { eventBus } from './event-bus';
-import { CashFlowType, DocType, BankStatementData, DbRecord } from '../shared/types';
+import { CashFlowType, DocType, BankStatementData, DbRecord, AppConfig } from '../shared/types';
 import { JE_AI_BATCH_SIZE } from '../shared/constants';
 import { getDefaultAccount } from '../shared/je-utils';
 import { log, LogModule } from './logger';
@@ -17,13 +17,13 @@ import { log, LogModule } from './logger';
 export class JEGenerator {
   private similarityEngine: JESimilarityEngine;
   private dotPath: string;
-  private cliPath?: string;
+  private appConfig: AppConfig;
   private processing = new Set<string>();
 
-  constructor(dotPath: string, similarityEngine: JESimilarityEngine, cliPath?: string) {
+  constructor(dotPath: string, similarityEngine: JESimilarityEngine, appConfig: AppConfig) {
     this.dotPath = dotPath;
     this.similarityEngine = similarityEngine;
-    this.cliPath = cliPath;
+    this.appConfig = appConfig;
   }
 
   /**
@@ -490,7 +490,7 @@ export class JEGenerator {
     if (items.length === 0) return;
     log.info(LogModule.JEGenerator, `Flushing ${items.length} unclassified items to AI`);
 
-    const results = await classifyWithAI(items, this.dotPath, this.cliPath);
+    const results = await classifyWithAI(items, this.dotPath, this.appConfig);
 
     for (const item of items) {
       const classification = results.get(item.id);

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import { AppConfig } from '../shared/types';
-import { DEFAULT_CLAUDE_MODELS } from '../shared/constants';
+import { DEFAULT_CLAUDE_MODELS, DEFAULT_AI_PROVIDER, DEFAULT_DEEPSEEK_MODEL } from '../shared/constants';
 import { log, LogModule } from './logger';
 
 const CONFIG_FILENAME = 'app-config.json';
@@ -20,6 +20,10 @@ export async function loadAppConfig(): Promise<AppConfig> {
     autoStart: false,
     claudeModels: DEFAULT_CLAUDE_MODELS,
     locale: 'en',
+    aiProvider: DEFAULT_AI_PROVIDER,
+    deepseekApiKey: null,
+    deepseekModel: DEFAULT_DEEPSEEK_MODEL,
+    deepseekThinking: false,
   };
 
   try {

@@ -8,7 +8,7 @@ import { loadAppConfig, saveAppConfig } from './core/app-config';
 import { FileWatcher } from './core/watcher';
 import { SyncEngine } from './core/sync-engine';
 import { ExtractionQueue } from './core/extraction-queue';
-import { ClaudeCodeRunner } from './core/claude-cli';
+import { checkAIProviderAvailable } from './core/ai-runner';
 import { VaultPathCache } from './core/vault-path-cache';
 import { eventBus } from './core/event-bus';
 import { VaultFile, VaultHandle, FileStatus, SearchFilters } from './shared/types';
@@ -110,9 +110,13 @@ app.on('ready', async () => {
     }
   }
 
-  // Check Claude CLI availability
-  if (!await ClaudeCodeRunner.isAvailable()) {
-    log.warn(LogModule.Main, 'Claude CLI not found. Extraction will fail until installed.');
+  // Check AI provider availability
+  {
+    const initialConfig = await loadAppConfig();
+    const status = await checkAIProviderAvailable(initialConfig);
+    if (!status.ok) {
+      log.warn(LogModule.Main, `AI provider (${status.provider}) not available: ${status.error ?? 'unknown'}. Extraction will fail until configured.`);
+    }
   }
 
   // Initialize notifications
@@ -354,14 +358,14 @@ async function startVault(vaultPath: string): Promise<void> {
 
   // Start relevance filter and extraction queue
   const appConfig = await loadAppConfig();
-  const relevanceFilter = await RelevanceFilter.create(currentVault, appConfig.claudeCliPath || undefined);
-  extractionQueue = new ExtractionQueue(currentVault, relevanceFilter, appConfig.claudeCliPath || undefined, undefined, appConfig.claudeModels);
+  const relevanceFilter = await RelevanceFilter.create(currentVault, appConfig);
+  extractionQueue = new ExtractionQueue(currentVault, relevanceFilter, appConfig);
 
   // Initialize JE similarity engine & generator
   await writeDefaultInstructions(currentVault.dotPath);
   similarityEngine = new JESimilarityEngine();
   similarityEngine.initialize();
-  jeGenerator = new JEGenerator(currentVault.dotPath, similarityEngine, appConfig.claudeCliPath || undefined);
+  jeGenerator = new JEGenerator(currentVault.dotPath, similarityEngine, appConfig);
 
   // Auto-generate JEs after extraction completes
   eventBus.on('extraction:completed', async (data) => {

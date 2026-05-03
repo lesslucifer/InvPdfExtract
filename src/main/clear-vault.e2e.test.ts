@@ -57,6 +57,10 @@ function makeConfig(overrides?: Partial<AppConfig>): AppConfig {
     autoStart: false,
     claudeModels: DEFAULT_CLAUDE_MODELS,
     locale: 'en',
+    aiProvider: 'claude-cli',
+    deepseekApiKey: null,
+    deepseekModel: 'deepseek-v4-flash',
+    deepseekThinking: false,
     ...overrides,
   };
 }

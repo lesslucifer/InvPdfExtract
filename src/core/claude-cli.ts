@@ -197,7 +197,9 @@ export function repairTruncatedJSON(raw: string): string | null {
   }
 }
 
-export class ClaudeCodeRunner {
+import type { AIRunner, AIRunnerInvokeOpts } from './ai-runner';
+
+export class ClaudeCodeRunner implements AIRunner {
   private cliPath: string;
   private timeout: number;
   private model: string | undefined;
@@ -224,12 +226,7 @@ export class ClaudeCodeRunner {
     return unwrapEnvelope(raw) ?? raw;
   }
 
-  async invoke(prompt: string, opts: {
-    systemPrompt?: string;
-    systemPromptFile?: string;
-    cwd?: string;
-    toolArgs?: string[];
-  }): Promise<string> {
+  async invoke(prompt: string, opts: AIRunnerInvokeOpts): Promise<string> {
     const { systemPrompt, systemPromptFile, cwd, toolArgs } = opts;
     const effortHint = this.effort ? (EFFORT_SPEED_HINTS[this.effort] ?? '') : '';
 

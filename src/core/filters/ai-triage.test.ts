@@ -2,9 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { parseTriageResponse, aiTriageBatch } from './ai-triage';
 import { writeDefaultTriageInstructions } from './ai-triage-instructions';
 import { DEFAULT_FILTER_CONFIG } from '../../shared/constants';
+import { makeTestAppConfig } from '../../test-helpers/app-config';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
+
+const TEST_APP_CONFIG = makeTestAppConfig();
 
 describe('parseTriageResponse', () => {
   it('parses valid JSON array', () => {
@@ -74,7 +77,7 @@ describe('aiTriageBatch — error handling', () => {
   });
 
   it('returns empty array for empty inputs', async () => {
-    const results = await aiTriageBatch([], DEFAULT_FILTER_CONFIG, tmpVault);
+    const results = await aiTriageBatch([], DEFAULT_FILTER_CONFIG, tmpVault, TEST_APP_CONFIG);
     expect(results).toHaveLength(0);
   });
 
@@ -85,7 +88,8 @@ describe('aiTriageBatch — error handling', () => {
     ];
 
     // Use a non-existent CLI path to force failure
-    const results = await aiTriageBatch(inputs, DEFAULT_FILTER_CONFIG, tmpVault, '/nonexistent/claude');
+    const failConfig = makeTestAppConfig({ claudeCliPath: '/nonexistent/claude' });
+    const results = await aiTriageBatch(inputs, DEFAULT_FILTER_CONFIG, tmpVault, failConfig);
     expect(results).toHaveLength(2);
     for (const r of results) {
       expect(r.decision).toBe('process');

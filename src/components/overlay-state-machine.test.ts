@@ -267,6 +267,10 @@ describe('Overlay State Machine', () => {
         autoStart: false,
         claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
         locale: 'en',
+        aiProvider: 'claude-cli',
+        deepseekApiKey: null,
+        deepseekModel: 'deepseek-v4-flash',
+        deepseekThinking: false,
       };
       expect(determineInitialState(config)).toBe(OverlayState.NoVault);
     });
@@ -279,6 +283,10 @@ describe('Overlay State Machine', () => {
         autoStart: false,
         claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
         locale: 'en',
+        aiProvider: 'claude-cli',
+        deepseekApiKey: null,
+        deepseekModel: 'deepseek-v4-flash',
+        deepseekThinking: false,
       };
       expect(determineInitialState(config)).toBe(OverlayState.NoVault);
     });
@@ -291,6 +299,10 @@ describe('Overlay State Machine', () => {
         autoStart: false,
         claudeModels: { pdfExtraction: 'medium', scriptGeneration: 'heavy' },
         locale: 'en',
+        aiProvider: 'claude-cli',
+        deepseekApiKey: null,
+        deepseekModel: 'deepseek-v4-flash',
+        deepseekThinking: false,
       };
       expect(determineInitialState(config)).toBe(OverlayState.Home);
     });

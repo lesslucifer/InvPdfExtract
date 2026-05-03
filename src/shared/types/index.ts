@@ -245,6 +245,12 @@ export interface ClaudeModelConfig {
   scriptGeneration: ModelTier;
 }
 
+// === AI Provider Configuration ===
+
+export type AIProviderType = 'claude-cli' | 'deepseek-api';
+
+export type DeepseekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro';
+
 // === App Config (persisted in userData) ===
 
 export interface AppConfig {
@@ -254,6 +260,10 @@ export interface AppConfig {
   autoStart: boolean;
   claudeModels: ClaudeModelConfig;
   locale: 'en' | 'vi';
+  aiProvider: AIProviderType;
+  deepseekApiKey: string | null;
+  deepseekModel: DeepseekModel;
+  deepseekThinking: boolean;
 }
 
 // === Claude CLI Extraction Types ===
@@ -561,7 +571,14 @@ export interface InvoiceVaultAPI {
   getAggregates: (filters: SearchFilters) => Promise<AggregateStats>;
   exportFiltered: (filters: SearchFilters) => Promise<{ filePath: string | null }>;
   showItemInFolder: (absolutePath: string) => Promise<void>;
-  checkClaudeCli: () => Promise<{ available: boolean; version?: string }>;
+  checkClaudeCli: () => Promise<{ available: boolean; version?: string; provider?: 'claude-cli' | 'deepseek-api'; error?: string }>;
+  testDeepseekKey: (apiKey: string, model: DeepseekModel) => Promise<{ ok: boolean; error?: string }>;
+  updateAiConfig: (patch: {
+    aiProvider?: AIProviderType;
+    deepseekApiKey?: string | null;
+    deepseekModel?: DeepseekModel;
+    deepseekThinking?: boolean;
+  }) => Promise<{ success: boolean }>;
   getAppVersion: () => Promise<string>;
   reprocessAll: () => Promise<{ count: number }>;
   reprocessFile: (relativePath: string) => Promise<{ count: number }>;

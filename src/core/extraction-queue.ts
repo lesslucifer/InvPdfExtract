@@ -2,7 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getFilesByStatuses, updateFileStatus, incrementRetryAndRequeue } from './db/files';
 import { addLog } from './db/records';
-import { ClaudeCodeRunner, CliError, getSessionLogPath } from './claude-cli';
+import { CliError, getSessionLogPath } from './claude-cli';
+import { AIRunner, createAIRunner } from './ai-runner';
 import { processFiles as processFilesWithCLI, FileInput } from './pdf-extractor';
 import { Reconciler } from './reconciler';
 import { ScriptRegistry } from './script-registry';
@@ -18,10 +19,9 @@ import { validateScriptOutput } from './validators/output-validator';
 // Database accessed via vault handle
 import { eventBus } from './event-bus';
 import { log, LogModule } from './logger';
-import { FileStatus, LogLevel, VaultHandle, VaultFile, ClaudeModelConfig } from '../shared/types';
+import { FileStatus, LogLevel, VaultHandle, VaultFile, AppConfig } from '../shared/types';
 import {
   DEFAULT_BATCH_SIZE,
-  DEFAULT_CLAUDE_MODELS,
   DEFAULT_MAX_RETRY_COUNT,
   MAX_BATCH_CONTEXT_BYTES,
   TEXT_TO_CONTEXT_RATIO,
@@ -32,8 +32,8 @@ const STRUCTURED_EXTENSIONS = new Set(['.xml', '.xlsx', '.csv']);
 const SPREADSHEET_EXTENSIONS = new Set(['.xlsx', '.csv']);
 
 export class ExtractionQueue {
-  private pdfRunner: ClaudeCodeRunner;
-  private scriptRunner: ClaudeCodeRunner;
+  private pdfRunner: AIRunner;
+  private scriptRunner: AIRunner;
   private reconciler: Reconciler;
   private scriptRegistry: ScriptRegistry;
   private matcherEvaluator: MatcherEvaluator;
@@ -46,13 +46,12 @@ export class ExtractionQueue {
   private processing = false;
   private pendingTrigger = false;
 
-  constructor(vault: VaultHandle, relevanceFilter: RelevanceFilter, cliPath?: string, cliTimeout?: number, modelConfig?: ClaudeModelConfig) {
+  constructor(vault: VaultHandle, relevanceFilter: RelevanceFilter, appConfig: AppConfig) {
     this.vault = vault;
     this.relevanceFilter = relevanceFilter;
-    const models = modelConfig ?? DEFAULT_CLAUDE_MODELS;
-    this.pdfRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.pdfExtraction, 'low');
-    this.scriptRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration, 'high');
-    const matcherRunner = new ClaudeCodeRunner(cliPath, cliTimeout, models.scriptGeneration, 'low');
+    this.pdfRunner = createAIRunner('pdf', appConfig);
+    this.scriptRunner = createAIRunner('script', appConfig);
+    const matcherRunner = createAIRunner('matcher', appConfig);
     this.reconciler = new Reconciler(vault.config.confidence_threshold);
     this.scriptRegistry = new ScriptRegistry(vault.db);
     this.matcherEvaluator = new MatcherEvaluator();

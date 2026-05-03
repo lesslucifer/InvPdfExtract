@@ -1,5 +1,5 @@
-import { ClaudeCodeRunner } from '../claude-cli';
-import { FilterResult, RelevanceFilterConfig } from '../../shared/types';
+import { createAIRunner } from '../ai-runner';
+import { FilterResult, RelevanceFilterConfig, AppConfig } from '../../shared/types';
 import { readTriageInstructions } from './ai-triage-instructions';
 import { log, LogModule } from '../logger';
 
@@ -20,13 +20,13 @@ export async function aiTriageBatch(
   inputs: TriageInput[],
   config: RelevanceFilterConfig,
   dotPath: string,
-  cliPath?: string,
+  appConfig: AppConfig,
 ): Promise<FilterResult[]> {
   if (inputs.length === 0) return [];
 
   log.info(LogModule.Filter, `AI triage batch: ${inputs.length} files`);
   const systemPrompt = await readTriageInstructions(dotPath);
-  const runner = new ClaudeCodeRunner(cliPath, 30_000, 'fast', 'low');
+  const runner = createAIRunner('triage', appConfig);
 
   const fileSections = inputs.map((input, idx) => {
     const truncated = input.textSample.slice(0, 500);

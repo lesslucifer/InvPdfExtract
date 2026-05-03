@@ -1,15 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
+import { makeTestAppConfig } from '../test-helpers/app-config';
 
 let _mockResponse = '';
 let _capturedPrompt = '';
 
-vi.mock('./claude-cli', () => ({
-  ClaudeCodeRunner: class {
+vi.mock('./ai-runner', () => ({
+  createAIRunner: () => ({
     async invokeRaw(prompt: string) {
       _capturedPrompt = prompt;
       return _mockResponse;
-    }
-  },
+    },
+    async invoke(prompt: string) {
+      _capturedPrompt = prompt;
+      return _mockResponse;
+    },
+  }),
 }));
 
 vi.mock('./je-instructions', () => ({
@@ -17,6 +22,8 @@ vi.mock('./je-instructions', () => ({
 }));
 
 import { classifyWithAI } from './je-ai-classifier';
+
+const TEST_APP_CONFIG = makeTestAppConfig();
 
 const sampleItems = [
   { id: 'li-1', recordId: 'r1', docType: 'invoice_in', description: 'Van phong pham' },
@@ -27,7 +34,7 @@ describe('JE AI Classifier - response parsing', () => {
   it('parses clean JSON array', async () => {
     _mockResponse = '[{"id":1,"account":"6422","cash_flow":"operating"},{"id":2,"account":"642","cash_flow":"operating"}]';
 
-    const results = await classifyWithAI(sampleItems, '/tmp/vault');
+    const results = await classifyWithAI(sampleItems, '/tmp/vault', TEST_APP_CONFIG);
     expect(results.size).toBe(2);
     expect(results.get('li-1')!.account).toBe('6422');
     expect(results.get('li-2')!.account).toBe('642');
@@ -36,7 +43,7 @@ describe('JE AI Classifier - response parsing', () => {
   it('parses JSON wrapped in markdown fences', async () => {
     _mockResponse = '```json\n[{"id":1,"account":"156","cash_flow":"operating"}]\n```';
 
-    const results = await classifyWithAI(sampleItems, '/tmp/vault');
+    const results = await classifyWithAI(sampleItems, '/tmp/vault', TEST_APP_CONFIG);
     expect(results.size).toBe(1);
     expect(results.get('li-1')!.account).toBe('156');
   });
@@ -44,7 +51,7 @@ describe('JE AI Classifier - response parsing', () => {
   it('parses JSON with surrounding prose', async () => {
     _mockResponse = 'Here are the classifications:\n\n[{"id":1,"account":"156","cash_flow":"operating"}]\n\nLet me know if you need changes.';
 
-    const results = await classifyWithAI(sampleItems, '/tmp/vault');
+    const results = await classifyWithAI(sampleItems, '/tmp/vault', TEST_APP_CONFIG);
     expect(results.size).toBe(1);
     expect(results.get('li-1')!.account).toBe('156');
   });
@@ -52,7 +59,7 @@ describe('JE AI Classifier - response parsing', () => {
   it('parses JSON object with results array', async () => {
     _mockResponse = '{"results":[{"id":1,"account":"642","cash_flow":"operating"}]}';
 
-    const results = await classifyWithAI(sampleItems, '/tmp/vault');
+    const results = await classifyWithAI(sampleItems, '/tmp/vault', TEST_APP_CONFIG);
     expect(results.size).toBe(1);
     expect(results.get('li-1')!.account).toBe('642');
   });
@@ -60,25 +67,25 @@ describe('JE AI Classifier - response parsing', () => {
   it('handles markdown fences with no language tag', async () => {
     _mockResponse = '```\n[{"id":1,"account":"156","cash_flow":"operating"}]\n```';
 
-    const results = await classifyWithAI(sampleItems, '/tmp/vault');
+    const results = await classifyWithAI(sampleItems, '/tmp/vault', TEST_APP_CONFIG);
     expect(results.size).toBe(1);
   });
 
   it('skips entries missing required fields', async () => {
     _mockResponse = '[{"id":1,"account":"156","cash_flow":"operating"},{"id":2}]';
 
-    const results = await classifyWithAI(sampleItems, '/tmp/vault');
+    const results = await classifyWithAI(sampleItems, '/tmp/vault', TEST_APP_CONFIG);
     expect(results.size).toBe(1);
   });
 
   it('throws on unparseable response', async () => {
     _mockResponse = 'I cannot classify these items because...';
 
-    await expect(classifyWithAI(sampleItems, '/tmp/vault')).rejects.toThrow(SyntaxError);
+    await expect(classifyWithAI(sampleItems, '/tmp/vault', TEST_APP_CONFIG)).rejects.toThrow(SyntaxError);
   });
 
   it('returns empty map for empty items', async () => {
-    const results = await classifyWithAI([], '/tmp/vault');
+    const results = await classifyWithAI([], '/tmp/vault', TEST_APP_CONFIG);
     expect(results.size).toBe(0);
   });
 });
@@ -99,7 +106,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 3, account: '642', cash_flow: 'operating' },
     ]);
 
-    const results = await classifyWithAI(items, '/tmp/vault');
+    const results = await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(results.size).toBe(5);
     expect(results.get('a1')!.account).toBe('156');
@@ -121,7 +128,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 1, account: '6422', cash_flow: 'operating' },
     ]);
 
-    const results = await classifyWithAI(items, '/tmp/vault');
+    const results = await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(results.size).toBe(2);
     expect(results.get('x1')!.account).toBe('6422');
@@ -139,7 +146,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 2, account: '511', cash_flow: 'operating' },
     ]);
 
-    const results = await classifyWithAI(items, '/tmp/vault');
+    const results = await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(results.size).toBe(2);
     expect(results.get('d1')!.account).toBe('156');
@@ -160,7 +167,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 1, account: '156', cash_flow: 'operating' },
     ]);
 
-    await classifyWithAI(items, '/tmp/vault');
+    await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(_capturedPrompt).not.toContain('VND');
     expect(_capturedPrompt).not.toContain('tax 8%');
@@ -177,7 +184,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 1, account: '511', cash_flow: 'operating' },
     ]);
 
-    const results = await classifyWithAI(items, '/tmp/vault');
+    const results = await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(results.size).toBe(2);
     expect(results.get('v1')!.account).toBe('511');
@@ -195,7 +202,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 1, account: '331', cash_flow: 'operating' },
     ]);
 
-    const results = await classifyWithAI(items, '/tmp/vault');
+    const results = await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(results.size).toBe(1);
     expect(results.get('f1')!.account).toBe('331');
@@ -212,7 +219,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 1, account: '642', contra_account: '111', cash_flow: 'operating' },
     ]);
 
-    const results = await classifyWithAI(items, '/tmp/vault');
+    const results = await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(results.get('g1')!.lineItemId).toBe('g1');
     expect(results.get('g2')!.lineItemId).toBe('g2');
@@ -231,7 +238,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 2, account: '642', cash_flow: 'operating' },
     ]);
 
-    const results = await classifyWithAI(items, '/tmp/vault');
+    const results = await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(_capturedPrompt).not.toContain('abc-def-123-456');
     expect(_capturedPrompt).not.toContain('xyz-789-ghi-012');
@@ -250,7 +257,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 1, account: '156', cash_flow: 'operating' },
     ]);
 
-    await classifyWithAI(items, '/tmp/vault');
+    await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(_capturedPrompt).not.toContain('TaxID');
     expect(_capturedPrompt).not.toContain('0305008980');
@@ -269,7 +276,7 @@ describe('JE AI Classifier - dedup', () => {
       { id: 3, account: '511', cash_flow: 'operating' },
     ]);
 
-    await classifyWithAI(items, '/tmp/vault');
+    await classifyWithAI(items, '/tmp/vault', TEST_APP_CONFIG);
 
     expect(_capturedPrompt).toContain('Counterparty: CONG TY TNHH GINKGO');
     const counterpartyMatches = _capturedPrompt.match(/counterparty:/gi) ?? [];

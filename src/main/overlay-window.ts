@@ -29,6 +29,8 @@ import { readInstruction } from '../core/instruction-manager';
 import { INSTRUCTIONS_SUBDIR, EXTRACTION_PROMPT_FILE, CONFIG_FILE, DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { BankStatementData, FieldOverrideInfo, FieldOverrideInput, InvoiceData, InvoiceLineItem, JournalEntryInput, LineItemFieldInput, SearchFilters, FileStatus } from '../shared/types';
 import { loadAppConfig, saveAppConfig } from '../core/app-config';
+import { checkAIProviderAvailable } from '../core/ai-runner';
+import { testDeepSeekConnection } from '../core/deepseek-api';
 import { clearVaultData, backupVault, getVaultConfig, updateVaultConfig, isVault } from '../core/vault';
 import {
   loadWindowState, saveWindowState, saveWindowStateSync, sanitizeUIState,
@@ -864,12 +866,37 @@ export class OverlayWindow {
     });
 
     ipcMain.handle('check-claude-cli', async () => {
-      try {
-        const { stdout } = await execAsync('claude --version');
-        return { available: true, version: stdout.trim() };
-      } catch {
-        return { available: false };
+      const config = await loadAppConfig();
+      if (config.aiProvider === 'claude-cli') {
+        try {
+          const cli = config.claudeCliPath || 'claude';
+          const { stdout } = await execAsync(`${cli} --version`);
+          return { available: true, version: stdout.trim(), provider: 'claude-cli' };
+        } catch {
+          return { available: false, provider: 'claude-cli' };
+        }
       }
+      const status = await checkAIProviderAvailable(config);
+      return {
+        available: status.ok,
+        version: status.detail,
+        provider: status.provider,
+        error: status.error,
+      };
+    });
+
+    ipcMain.handle('test-deepseek-key', async (_event, payload: { apiKey: string; model: 'deepseek-v4-flash' | 'deepseek-v4-pro' }) => {
+      return testDeepSeekConnection(payload.apiKey, payload.model);
+    });
+
+    ipcMain.handle('update-ai-config', async (_event, patch: {
+      aiProvider?: 'claude-cli' | 'deepseek-api';
+      deepseekApiKey?: string | null;
+      deepseekModel?: 'deepseek-v4-flash' | 'deepseek-v4-pro';
+      deepseekThinking?: boolean;
+    }) => {
+      await saveAppConfig(patch);
+      return { success: true };
     });
 
     ipcMain.handle('get-app-version', () => {

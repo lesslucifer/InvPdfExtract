@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { ClaudeCodeRunner } from './claude-cli';
+import { AIRunner } from './ai-runner';
 import { executeScript } from './script-sandbox';
 import { SpreadsheetMetadata, ExtractionFileResult, VerificationResult } from '../shared/types';
 import { SCRIPT_VERIFY_MAX_RETRIES } from '../shared/constants';
@@ -71,9 +71,9 @@ If the script needs fixing, respond with the fixed script in a code block:
 Do NOT include both. Either APPROVED or a code block, never both.`;
 
 export class ScriptVerifier {
-  private runner: ClaudeCodeRunner;
+  private runner: AIRunner;
 
-  constructor(runner: ClaudeCodeRunner) {
+  constructor(runner: AIRunner) {
     this.runner = runner;
   }
 

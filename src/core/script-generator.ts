@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ClaudeCodeRunner } from './claude-cli';
+import { AIRunner } from './ai-runner';
 import { SpreadsheetMetadata, DocType } from '../shared/types';
 import { log, LogModule } from './logger';
 
@@ -145,10 +145,10 @@ Respond with ONLY a code block:
 \`\`\``;
 
 export class ScriptGenerator {
-  private runner: ClaudeCodeRunner;
-  private matcherRunner: ClaudeCodeRunner;
+  private runner: AIRunner;
+  private matcherRunner: AIRunner;
 
-  constructor(runner: ClaudeCodeRunner, matcherRunner?: ClaudeCodeRunner) {
+  constructor(runner: AIRunner, matcherRunner?: AIRunner) {
     this.runner = runner;
     this.matcherRunner = matcherRunner ?? runner;
   }

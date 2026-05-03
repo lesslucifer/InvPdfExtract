@@ -37,6 +37,10 @@ describe('app-config', () => {
         autoStart: false,
         claudeModels: DEFAULT_CLAUDE_MODELS,
         locale: 'en',
+        aiProvider: 'claude-cli',
+        deepseekApiKey: null,
+        deepseekModel: 'deepseek-v4-flash',
+        deepseekThinking: false,
       });
     });
 

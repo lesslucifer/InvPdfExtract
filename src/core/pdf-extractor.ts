@@ -1,5 +1,6 @@
 import { ExtractionResult } from '../shared/types';
-import { ClaudeCodeRunner, unwrapEnvelope, extractJSON, repairTruncatedJSON } from './claude-cli';
+import { unwrapEnvelope, extractJSON, repairTruncatedJSON } from './claude-cli';
+import { AIRunner } from './ai-runner';
 import { extractPdfWithLiteParse } from './liteparse-extractor';
 import { log, LogModule } from './logger';
 
@@ -9,7 +10,7 @@ export interface FileInput {
 }
 
 export async function processFiles(
-  runner: ClaudeCodeRunner,
+  runner: AIRunner,
   files: FileInput[],
   vaultRoot: string,
   systemPromptPath: string,

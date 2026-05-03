@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { VaultFile, FileStatus, RelevanceFilterConfig, VaultHandle } from '../../shared/types';
+import { VaultFile, FileStatus, RelevanceFilterConfig, VaultHandle, AppConfig } from '../../shared/types';
 import { updateFileFilterResult } from '../db/files';
 import { eventBus } from '../event-bus';
 import { loadFilterConfig } from './config';
@@ -11,19 +11,23 @@ import { log, LogModule } from '../logger';
 export class RelevanceFilter {
   private vault: VaultHandle;
   private config: RelevanceFilterConfig;
-  private cliPath: string | undefined;
+  private appConfig: AppConfig;
 
-  private constructor(vault: VaultHandle, config: RelevanceFilterConfig, cliPath?: string) {
+  private constructor(vault: VaultHandle, config: RelevanceFilterConfig, appConfig: AppConfig) {
     this.vault = vault;
     this.config = config;
-    this.cliPath = cliPath;
+    this.appConfig = appConfig;
   }
 
-  static async create(vault: VaultHandle, cliPath?: string): Promise<RelevanceFilter> {
+  static async create(vault: VaultHandle, appConfig: AppConfig): Promise<RelevanceFilter> {
     const config = await loadFilterConfig(vault.dotPath);
-    const instance = new RelevanceFilter(vault, config, cliPath);
+    const instance = new RelevanceFilter(vault, config, appConfig);
     log.debug(LogModule.Filter, `RelevanceFilter created (aiTriage=${config.aiTriageEnabled})`);
     return instance;
+  }
+
+  updateAppConfig(appConfig: AppConfig): void {
+    this.appConfig = appConfig;
   }
 
   async reloadConfig(): Promise<void> {
@@ -73,7 +77,7 @@ export class RelevanceFilter {
       } catch { /* empty text */ }
 
       const triageInputs: TriageInput[] = [{ relativePath: file.relative_path, textSample, layer2Score: layer2Result.score }];
-      const triageResults = await aiTriageBatch(triageInputs, this.config, this.vault.dotPath, this.cliPath);
+      const triageResults = await aiTriageBatch(triageInputs, this.config, this.vault.dotPath, this.appConfig);
       const result = triageResults[0];
       log.debug(LogModule.Filter, `Layer 3 (AI): score=${result.score.toFixed(2)}, decision=${result.decision}`, { path: file.relative_path });
 

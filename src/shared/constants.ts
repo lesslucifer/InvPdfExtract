@@ -1,4 +1,4 @@
-import { DocType, ClaudeModelConfig, RelevanceFilterConfig } from './types';
+import { DocType, ClaudeModelConfig, RelevanceFilterConfig, AIProviderType, DeepseekModel } from './types';
 import { t } from '../lib/i18n';
 
 export const APP_NAME = 'InvoiceVault';
@@ -34,6 +34,11 @@ export const DEFAULT_CLAUDE_MODELS: ClaudeModelConfig = {
   pdfExtraction: 'fast',
   scriptGeneration: 'heavy',
 };
+
+export const DEFAULT_AI_PROVIDER: AIProviderType = 'claude-cli';
+export const DEFAULT_DEEPSEEK_MODEL: DeepseekModel = 'deepseek-v4-flash';
+export const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
+export const DEEPSEEK_TRIAGE_TIMEOUT = 30_000;
 
 export const METADATA_SAMPLE_ROWS = 5;
 export const METADATA_SAMPLE_VALUES = 5;

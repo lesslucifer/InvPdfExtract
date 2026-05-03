@@ -20,7 +20,7 @@ export const useAppVersion = queryHook
 
 export const useCliStatus = queryHook
   .ofKey<void, ['cliStatus']>(() => ['cliStatus'] as const)
-  .useQuery(() => ({ queryFn: () => window.api.checkClaudeCli() as Promise<{ available: boolean; version?: string }> }))
+  .useQuery(() => ({ queryFn: () => window.api.checkClaudeCli() }))
   .create();
 
 export const usePresets = queryHook

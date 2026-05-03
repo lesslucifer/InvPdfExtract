@@ -38,6 +38,9 @@ const api: InvoiceVaultAPI = {
   exportFiltered: (filters: SearchFilters) => ipcRenderer.invoke('export-filtered', filters),
   showItemInFolder: (absolutePath: string) => ipcRenderer.invoke('show-item-in-folder', absolutePath),
   checkClaudeCli: () => ipcRenderer.invoke('check-claude-cli'),
+  testDeepseekKey: (apiKey: string, model: 'deepseek-v4-flash' | 'deepseek-v4-pro') =>
+    ipcRenderer.invoke('test-deepseek-key', { apiKey, model }),
+  updateAiConfig: (patch: Record<string, unknown>) => ipcRenderer.invoke('update-ai-config', patch),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   reprocessAll: () => ipcRenderer.invoke('reprocess-all'),
   reprocessFile: (relativePath: string) => ipcRenderer.invoke('reprocess-file', relativePath),

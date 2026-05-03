@@ -24,6 +24,7 @@ import { JEGenerator } from './je-generator';
 import { JESimilarityEngine } from './je-similarity';
 import { classifyWithAI } from './je-ai-classifier';
 import { getJournalEntriesByRecord } from './db/journal-entries';
+import { makeTestAppConfig } from '../test-helpers/app-config';
 
 const mockClassifyWithAI = vi.mocked(classifyWithAI);
 
@@ -46,7 +47,7 @@ describe('JEGenerator', () => {
     vi.clearAllMocks();
 
     similarityEngine = new JESimilarityEngine(0.9, 1000);
-    generator = new JEGenerator('/tmp/test-vault', similarityEngine, undefined);
+    generator = new JEGenerator('/tmp/test-vault', similarityEngine, makeTestAppConfig());
   });
 
   afterEach(() => {

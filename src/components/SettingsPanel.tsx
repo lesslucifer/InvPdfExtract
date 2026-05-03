@@ -4,6 +4,7 @@ import { Icons, ICON_SIZE } from '../shared/icons';
 import { DEFAULT_AMOUNT_TOLERANCE } from '../shared/constants';
 import { useOverlayStore, useLocaleStore } from '../stores';
 import { useAppConfig, useAppVersion, useCliStatus, useVaultConfig } from '../lib/queries';
+import { AIProviderSection } from './AIProviderSection';
 
 interface Props {
   onVaultChanged?: () => void;
@@ -279,6 +280,10 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
 
       <div className="h-[1px] bg-border mx-4 my-1" />
 
+      <AIProviderSection config={config} />
+
+      <div className="h-[1px] bg-border mx-4 my-1" />
+
       <div className="px-4 py-2.5">
         <div className="text-2.75 font-semibold text-text-secondary uppercase tracking-[0.5px] mb-1.5">{t('about', 'About')}</div>
         <div className="text-3 text-text-secondary">
@@ -288,11 +293,15 @@ export const SettingsPanel: React.FC<Props> = ({ onVaultChanged }) => {
           {t('about_description', 'Vietnamese VAT invoice management — extract, search, and reconcile')}
         </div>
         <div className="text-2.75 text-text-muted mt-1">
-          {t('claude_cli', 'Claude CLI')}: {cliStatus === null
-            ? `${t('checking', 'Checking')}...`
-            : cliStatus.available
-              ? `${cliStatus.version || t('unknown_version', 'unknown version')}`
-              : t('not_found', 'Not found')}
+          {cliStatus === null
+            ? `${t('ai_provider', 'AI Provider')}: ${t('checking', 'Checking')}...`
+            : cliStatus.provider === 'deepseek-api'
+              ? `${t('provider_deepseek', 'DeepSeek API')}: ${cliStatus.available
+                ? `${t('connection_ok', 'Connected')}${cliStatus.version ? ` · ${cliStatus.version}` : ''}`
+                : (cliStatus.error ?? t('not_configured', 'Not configured'))}`
+              : `${t('claude_cli', 'Claude CLI')}: ${cliStatus.available
+                ? (cliStatus.version || t('unknown_version', 'unknown version'))
+                : t('not_found', 'Not found')}`}
         </div>
       </div>
 
